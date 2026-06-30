@@ -100,7 +100,7 @@ PLANNER_TIMEOUT            = float(os.getenv("PLANNER_TIMEOUT", "60"))
 ENABLE_LLM_SYNTHESE = os.getenv("ENABLE_LLM_SYNTHESE", "true").lower() == "true"
 # FIX 7 : timeout synthèse porté à 120s (était 45s — trop court pour qwen2.5:7b)
 SYNTHESE_TIMEOUT       = max(120.0, float(os.getenv("SYNTHESE_TIMEOUT", "120")))  # PATCH C-1 : plancher 120s
-VANNA_GENERATE_TIMEOUT = float(os.getenv("VANNA_GENERATE_TIMEOUT", "20"))  # réduit : si pas trouvé en 20s → fallback immédiat
+VANNA_GENERATE_TIMEOUT = float(os.getenv("VANNA_GENERATE_TIMEOUT", "300"))  # réduit : si pas trouvé en 20s → fallback immédiat
 
 _LLM_MAX_CONCURRENT = int(os.getenv("LLM_MAX_CONCURRENT", "2"))
 _llm_semaphore: asyncio.Semaphore | None = None
@@ -913,18 +913,22 @@ _EXCL_ARTICLE = {
     "TOUS", "TOUTES", "MONTRE", "CLIENTS", "ARTICLES", "CLIENT",
     "ARTICLE", "ENCOURS", "STATUT", "FICHE", "INFO", "FOURNISSEUR", "FOURNISSEURS", "FOUR", "GROSSISTE", "FOURN",
     "ACHAT", "ACHATS", "COMMANDE", "COMMANDES",
-    # Mots génériques qui ne sont pas des articles
-    "FACTURES", "FACTURE", "LISTE", "DETAIL", "DETAILS", "RAPPORT",
-    # Mots interrogatifs et pronoms (Bug: ces mots étaient capturés comme ref_article)
-    "QUEL", "QUELS", "QUELLE", "QUELLES", "QUI", "QUOI", "COMMENT",
-    "COMBIEN", "POURQUOI", "EST", "SONT", "AVEZ", "AVONS",
-    "DEPUIS", "PLUS", "MOINS", "AVANT", "APRES", "PENDANT",
-    "DANS", "PAR", "SUR", "SOUS", "VERS", "ENTRE",
-    # Verbes courants
-    "TIL", "YIL", "QUELS", "QUELLES", "ANOMALIE", "ANOMALIES",
-    "VENDUS", "RUPTURE", "INACTIFS", "BLOQUES", "BLOQUE",
-    "ACTIFS", "VALIDE", "SUSPECT", "DONNEZ", "MONTREZ",
-    "LISTEZ", "AFFICHEZ", "VOIR", "REGARDER", "CHERCHER",
+    # FIX BUGD : mots génériques qui ne sont pas des articles
+    "FACTURES", "FACTURE", "FOURNISSEUR", "FOURNISSEURS",
+    "LISTE", "DETAIL", "DETAILS", "RAPPORT",
+    # FIX BUG-ARTICLE : mots capturés à tort comme référence article
+    "STOCK", "STOCKS", "DISPONIBLE", "DISPONIBLES", "RESTANT",
+    "RUPTURE", "RUPTURES", "FAIBLE", "FAIBLES",
+    "ONT", "PASSE", "COMMANDE", "DEPUIS", "MOIS",
+    "EST", "SONT", "AVEZ", "AVONS", "AVAIT",
+    "NON", "PAS", "SANS", "AUCUN", "AUCUNE",
+    "FACTURE", "FACTURES", "LISTE", "DONNE", "MONTRE",
+    "QUEL", "QUELS", "QUELLE", "QUELLES", "QUI", "QUOI",
+    "COMMENT", "COMBIEN", "POURQUOI",
+    "INACTIFS", "BLOQUES", "BLOQUE", "ACTIFS", "VALIDE", "SUSPECT",
+    "VENDUS", "ACHETÉS", "COMMANDÉS",
+    "GLOBAL", "TOTAL", "MENSUEL", "ANNUEL",
+    "CLIENTS", "ARTICLES", "FOURNISSEURS",
 }
 
 _MOTS_GENERIQUES_NER = {
@@ -932,6 +936,17 @@ _MOTS_GENERIQUES_NER = {
     "pour", "avec", "article", "produit", "référence", "ref",
     "piece", "pièce", "unité", "unite", "quantite", "quantité",
     "société", "societe", "entreprise",
+}
+_MARQUEURS_NL2SQL_FORCE = {
+    "mois par mois", "par mois", "évolution", "tendance",
+    "uniquement", "seulement", "n'ont pas", "aucune commande",
+    "depuis plus de", "inactifs", "croisement", "en commun",
+    "meilleurs clients", "top.*client.*fourni", "vendus à un seul",
+    "having", "ratio", "panier moyen", "taux de",
+    "par nombre de commandes", "nombre de commandes",
+    "seuil", "commandés ce mois", "commandé ce mois",
+    "inférieur au seuil", "stock insuffisant", "trier par commandes",
+    "classement", "classé", "classe",
 }
 
 CAPACITES_SYSTEME = """Ce que je sais faire sur votre ERP Sage 100 :
@@ -1066,6 +1081,26 @@ _PATTERNS_PRECLASS = [
     (r"clients?\s+(?:qui\s+ont|ayant|avec).{0,30}(?:moins\s+de|moins\s+qu[e'\u2019])\s+\d+\s+(?:commandes?|factures?|achats?)", "NL2SQL_LIBRE"),
     (r"clients?\s+(?:qui\s+n['\u2019]ont\s+pas|sans|aucune?)\s+(?:commandes?|factures?)", "NL2SQL_LIBRE"),
     (r"clients?\s+(?:pass[eé]|effectu[eé]).{0,20}(?:plus\s+de|au\s+moins)\s+\d+\s+(?:commandes?|achats?)", "NL2SQL_LIBRE"),
+    # ── CLASSEMENT PAR NOMBRE DE COMMANDES ───────────────────────
+    (r"clas(?:se|sement|s[eé])\s+.{0,30}clients?.{0,30}(?:nombre|nb)\s+(?:de\s+)?commandes?", "NL2SQL_LIBRE"),
+    (r"clients?.{0,30}(?:tri[eé]s?|class[eé]s?|ordonn[eé]s?|rang[eé]s?).{0,30}(?:nombre|nb).{0,20}commandes?", "NL2SQL_LIBRE"),
+    (r"clients?.{0,30}par\s+(?:nombre|nb)\s+(?:de\s+)?commandes?",    "NL2SQL_LIBRE"),
+    (r"(?:nombre|nb)\s+(?:de\s+)?commandes?\s+(?:par\s+)?client",     "NL2SQL_LIBRE"),
+    (r"qui\s+(?:commande|achète|a\s+achet[eé])\s+le\s+plus",           "NL2SQL_LIBRE"),
+    # ── ARTICLES STOCK SEUIL + COMMANDÉS ─────────────────────────
+    (r"articles?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique).{0,40}command[eé]s?", "NL2SQL_LIBRE"),
+    (r"articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)", "NL2SQL_LIBRE"),
+    (r"articles?.{0,30}(?:stock\s+(?:faible|bas|insuffisant|inf[eé]r|critique)|sous.{0,10}seuil).{0,40}(?:command[eé]|achet[eé])", "NL2SQL_LIBRE"),
+    (r"rupture.{0,20}command[eé]|command[eé].{0,20}rupture",           "NL2SQL_LIBRE"),
+    # ── CLIENTS AVEC FILTRE QUANTITATIF SUR FACTURES + ENCOURS (NL2SQL_LIBRE) ─
+    (
+        r"clients?\s+(?:actifs?|avec|ayant|dont).{0,80}(?:factures?\s+impay[eé]es?|encours|ca\b)",
+        "NL2SQL_LIBRE"
+    ),
+    (
+        r"clients?.{0,50}(?:encours\s+sup[eé]r|encours\s+>\s*\d+|encours\s+plus)",
+        "NL2SQL_LIBRE"
+    ),
     # ── CLIENTS BLOQUÉS / INACTIFS (avant LISTE_CLIENTS) ─────────
     (r"clients?\s+bloqu[eé]s?",                             "NL2SQL_LIBRE"),
     (r"bloqu[eé]s?\s+clients?",                             "NL2SQL_LIBRE"),
@@ -1093,7 +1128,7 @@ _PATTERNS_PRECLASS = [
 (r"commandes?\s+(chez|aupres|auprès)\s+",        "NL2SQL_LIBRE"),
 (r"bons?\s+de\s+commande\s+(du\s+|de\s+)?fournisseur", "NL2SQL_LIBRE"),
     # ── LISTE_CLIENTS (générique) ─────────────────────────────────
-    (r"liste\s+(tous\s+)?(les\s+)?clients?",               "LISTE_CLIENTS"),
+    (r"liste\s+(tous\s+)?(les\s+|des\s+)?clients?",         "LISTE_CLIENTS"),
     (r"(tous|toutes)\s+(les\s+)?clients?",                  "LISTE_CLIENTS"),
     (r"affiche\s+(les\s+)?clients?",                        "LISTE_CLIENTS"),
     (r"montre\s+(moi\s+)?(les\s+)?clients?",                "LISTE_CLIENTS"),
@@ -1120,14 +1155,21 @@ _PATTERNS_PRECLASS = [
     (r"affiche\s+(les\s+)?articles?",                      "LISTE_ARTICLES"),
     (r"liste\s+(les\s+)?produits?",                        "LISTE_ARTICLES"),
     # ── VERIFIER_STOCK ────────────────────────────────────────────
-    (r"articles?\s+en\s+rupture",                          "VERIFIER_STOCK"),
-    (r"rupture\s+de\s+stock",                              "VERIFIER_STOCK"),
-    (r"stock\s+(disponible|actuel|de\s+l.article|de\s+[A-Z])",  "VERIFIER_STOCK"),
-    (r"combien\s+(de\s+)?stock",                           "VERIFIER_STOCK"),
-    (r"stock\s+restant",                                   "VERIFIER_STOCK"),
-    (r"anomalies?\s+.{0,20}stocks?",                         "NL2SQL_LIBRE"),
-    (r"stock\s+n[eé]gatif",                                "NL2SQL_LIBRE"),
-    # ── CA_GLOBAL ─────────────────────────────────────────────────
+    (r"articles?\s+en\s+rupture",                              "VERIFIER_STOCK"),
+    (r"rupture\s+de\s+stock",                                  "VERIFIER_STOCK"),
+    # Stock avec référence article explicite (ne pas capturer "STOCK" comme ref)
+    (r"stock\s+(?:disponible|actuel|restant)\s+de\s+l['\u2019]article", "VERIFIER_STOCK"),
+    (r"stock\s+de\s+l['\u2019]article",                        "VERIFIER_STOCK"),
+    (r"quel\s+est\s+le\s+stock",                               "VERIFIER_STOCK"),
+    (r"stock\s+(?:disponible|actuel|restant)",                  "VERIFIER_STOCK"),
+    (r"combien\s+(?:de\s+)?stock",                             "VERIFIER_STOCK"),
+    (r"anomalies?\s+.{0,20}stocks?",                           "NL2SQL_LIBRE"),
+    (r"stock\s+n[eé]gatif",                                    "NL2SQL_LIBRE"),
+    # ── CLIENTS AVEC FILTRE TEMPOREL (avant LISTE_CLIENTS) ───────
+    (r"clients?.{0,50}n['\u2019]ont\s+pas\s+command[eé]",     "NL2SQL_LIBRE"),
+    (r"clients?.{0,30}(?:pas\s+command[eé]|pas\s+achet[eé]).{0,30}(?:depuis|\d+\s+mois)", "NL2SQL_LIBRE"),
+    (r"quels?\s+clients?.{0,50}(?:depuis\s+\d+|depuis\s+(?:un|une|deux|trois|\d+)\s+mois)", "NL2SQL_LIBRE"),
+    (r"clients?.{0,20}inactifs?.{0,20}(?:depuis|mois|\d+)",   "NL2SQL_LIBRE"),
     (r"ca\s+(global|total)",                               "CA_GLOBAL"),
     (r"chiffre\s+d.affaires?\s+(global|total)",            "CA_GLOBAL"),
     (r"chiffre\s+d.affaires?\s+global",                    "CA_GLOBAL"),
@@ -1166,31 +1208,20 @@ _PATTERNS_PRECLASS = [
     (r"\bdashboard\b",                                     "DASHBOARD_EXCEL"),
     (r"\bkpi\b",                                           "DASHBOARD_EXCEL"),
     (r"r[eé]sum[eé]\s+(g[eé]n[eé]ral|global)?",            "DASHBOARD_EXCEL"),
-    # ── RENTABILITE (AVANT PALMARES pour éviter les conflits) ─────
-    (r"marge\s+(brute\s+)?par\s+article",                  "RENTABILITE"),
-    (r"marge\s+moyenne",                                   "RENTABILITE"),
-    (r"rentabilit[eé]\s+(des?\s+)?articles?",              "RENTABILITE"),
-    (r"taux\s+de\s+marge",                                 "RENTABILITE"),
-    (r"articles?\s+(?:les?\s+)?plus?\s+rentables?",        "RENTABILITE"),
-    (r"meilleurs?\s+articles?\s+(?:par\s+)?(?:marge|rentabilit)", "RENTABILITE"),
     # ── PALMARES_ARTICLES ─────────────────────────────────────────
     (r"palm[aà]r[eè]s",                                    "PALMARES_ARTICLES"),
     (r"articles?\s+les?\s+plus?\s+vendus?",                "PALMARES_ARTICLES"),
-    (r"meilleurs?\s+ventes?",                              "PALMARES_ARTICLES"),
-    (r"meilleurs?\s+articles?\s+(?:par\s+)?(?:ca|vente|chiffre)", "PALMARES_ARTICLES"),
+    (r"meilleurs?\s+articles?",                            "PALMARES_ARTICLES"),
+    # ── RENTABILITE ───────────────────────────────────────────────
+    (r"marge\s+(brute\s+)?par\s+article",                  "RENTABILITE"),
+    (r"rentabilit[eé]\s+(des?\s+)?articles?",              "RENTABILITE"),
+    (r"taux\s+de\s+marge",                                 "RENTABILITE"),
     # ── CLIENTS_BAISSE ────────────────────────────────────────────
     (r"clients?\s+en\s+baisse",                            "CLIENTS_BAISSE"),
     (r"clients?\s+baisse\s+ca",                            "CLIENTS_BAISSE"),
     # ── DOCS_PERIODE ──────────────────────────────────────────────
     (r"documents?\s+entre\s+\d{4}",                       "DOCS_PERIODE"),
     (r"documents?\s+du\s+\d{4}",                          "DOCS_PERIODE"),
-    (r"donn[eé]es?\s+du\s+mois\s+(dernier|pass[eé]|pr[eé]c[eé]dent)", "DOCS_PERIODE"),
-    (r"(?:factures?|bl|ventes?|commandes?)\s+du\s+mois\s+(dernier|pass[eé])", "DOCS_PERIODE"),
-    (r"activit[eé]\s+du\s+mois",                           "DOCS_PERIODE"),
-    # ── BL NON FACTURÉS ───────────────────────────────────────────
-    (r"bl\s+non\s+factur[eé]s?",                           "NL2SQL_LIBRE"),
-    (r"bons?\s+de\s+livraison\s+non\s+factur[eé]s?",     "NL2SQL_LIBRE"),
-    (r"liste\s+(des?\s+)?bl\s+(?:en\s+attente|non)",     "NL2SQL_LIBRE"),
     # ── BON DE LIVRAISON / FABRICATION générique (après NL2SQL) ──
     (r"bon\s+de\s+livraison",                               "GENERER_DOC"),
     (r"bon\s+de\s+fabrication",                             "GENERER_DOC"),
@@ -1204,6 +1235,9 @@ def _pre_classifier(question: str) -> str | None:
     Retourne l'action ou None si aucun pattern ne matche.
     """
     q = question.lower().strip()
+    # Si marqueur NL2SQL détecté → on bypasse les regex simples
+    if any(m in q for m in _MARQUEURS_NL2SQL_FORCE):
+        return "NL2SQL_LIBRE"
     for pattern, action in _PATTERNS_PRECLASS:
         if re.search(pattern, q, re.IGNORECASE):
             print(f"   ⚡ [PreClass] {action} (regex, 0ms)")
@@ -1893,8 +1927,8 @@ _MOTS_PREFIX_CLIENT = (
     r"(?:informations?\s+sur\s+(?:le\s+|la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
     r"|(?:fiche\s+(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
     r"|(?:statut\s+(?:actuel\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:(?:factures?\s+)?(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|tiers\s+))"
-    r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)?(?:client\s+)?)"
+    r"|(?:(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|tiers\s+))"
+    r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)(?:client\s+))"
     r"|(?:pour\s+(?:le\s+|la\s+)?(?:client\s+|tiers\s+)?)"
     r"|(?:client\s+)"
 )
@@ -1905,29 +1939,6 @@ _PATTERN_NOM_CLIENT = re.compile(
     r"(?:\s*[?.,;!]|\s*$)",
     re.IGNORECASE
 )
-
-
-def _date_debut_mois_dernier(texte: str = "") -> str:
-    """Retourne le 1er jour du mois dernier si 'mois dernier' est dans le texte."""
-    from datetime import date, timedelta
-    if not texte or not any(w in texte.lower() for w in ("mois dernier", "mois passé", "mois précédent", "mois pass", "dernier mois")):
-        return ""
-    today = date.today()
-    first_this_month = today.replace(day=1)
-    last_month_end = first_this_month - timedelta(days=1)
-    last_month_start = last_month_end.replace(day=1)
-    return last_month_start.strftime("%Y-%m-%d")
-
-
-def _date_fin_mois_dernier(texte: str = "") -> str:
-    """Retourne le dernier jour du mois dernier si 'mois dernier' est dans le texte."""
-    from datetime import date, timedelta
-    if not texte or not any(w in texte.lower() for w in ("mois dernier", "mois passé", "mois précédent", "mois pass", "dernier mois")):
-        return ""
-    today = date.today()
-    first_this_month = today.replace(day=1)
-    last_month_end = first_this_month - timedelta(days=1)
-    return last_month_end.strftime("%Y-%m-%d")
 
 
 def _nettoyer_nom_client(nom: str) -> str:
@@ -1959,6 +1970,11 @@ def _est_nom_valide(nom: str) -> bool:
         "achat", "achats", "reception", "réception",
         "article", "articles", "catalogue", "produit", "produits",
         "stock", "stocks", "rupture",
+        # mots NL2SQL / filtres quantitatifs → jamais un nom de client
+        "impayées", "impayees", "impayés", "impayés", "impayé",
+        "encours", "supérieur", "superieur", "inférieur", "inferieur",
+        "actifs", "actif", "inactifs", "inactif", "bloqués", "bloques",
+        "reglées", "réglées", "reglés", "réglés",
     }
     return mot_lower not in invalides and len(mots[0]) > 2
 
@@ -2197,11 +2213,30 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                 print(f"   🔧 [CREER_FOURNISSEUR] Nouveau fournisseur → code généré : '{state['code_client']}'")
 
         # FIX 1 : extraction article insensible à la casse
-        for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", question):
-            mot_upper = mot.upper()
-            if mot_upper not in _EXCL_ARTICLE and not mot_upper.startswith("CLI"):
-                state["ref_article"] = mot_upper
-                break
+        # Priorité 1 : mot explicitement après "article", "stock de", "ref", "produit"
+        _ref_article_trouvee = ""
+        m_art_ctx = re.search(
+            r"(?:article|stock\s+de\s+(?:l['\u2019])?(?:article\s+)?|r[eé]f(?:[eé]rence)?\s+|produit)\s+([A-Za-z][A-Za-z0-9\-]{1,})",
+            question, re.IGNORECASE
+        )
+        if m_art_ctx:
+            cand = m_art_ctx.group(1).upper()
+            if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
+                _ref_article_trouvee = cand
+                print(f"   🔎 [PreClass] ref_article (contexte article) : '{cand}'")
+        # Priorité 2 : token ressemblant à une vraie réf ERP (chiffres + lettres)
+        if not _ref_article_trouvee:
+            for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", question):
+                mot_upper = mot.upper()
+                has_digit = bool(re.search(r"\d", mot_upper))
+                has_dash_ref = ("-" in mot_upper and
+                    all(len(p) >= 2 for p in mot_upper.split("-")) and
+                    any(len(p) >= 3 for p in mot_upper.split("-")))
+                if (has_digit or has_dash_ref) and mot_upper not in _EXCL_ARTICLE and not mot_upper.startswith("CLI"):
+                    _ref_article_trouvee = mot_upper
+                    print(f"   🔎 [PreClass] ref_article (ref ERP) : '{mot_upper}'")
+                    break
+        state["ref_article"] = _ref_article_trouvee
 
         # FIX 2 CREER_CLIENT / CREER_FOURNISSEUR : effacer ref_article = nom tiers
         if action_preclass in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
@@ -2537,21 +2572,8 @@ date_fin:VALEUR_OU_INCONNU"""
         state["code_client"]     = ""
         print(f"   ✅ [Client] LLM : '{_llm_client_clean}'")
     else:
-        # N'hériter le client de session QUE pour les actions qui en ont besoin
-        _ACTIONS_SANS_CLIENT = {
-            "LISTE_ARTICLES", "VERIFIER_STOCK", "RENTABILITE", "PALMARES_ARTICLES",
-            "CA_GLOBAL", "DASHBOARD_EXCEL", "LISTE_CLIENTS", "SAISONNALITE",
-            "DSO", "RFM", "CLIENTS_BAISSE", "LISTE_FOURNISSEURS", "NL2SQL_LIBRE",
-            "DOCS_PERIODE",
-        }
-        action_courante = state.get("action", "")
-        if state.get("nom_client_brut") and action_courante not in _ACTIONS_SANS_CLIENT:
+        if state.get("nom_client_brut"):
             print(f"   🔗 [Client] Hérité session : '{state['nom_client_brut']}'")
-        elif state.get("nom_client_brut") and action_courante in _ACTIONS_SANS_CLIENT:
-            # Réinitialiser le client hérité pour ces actions
-            state["nom_client_brut"] = ""
-            state["code_client"] = ""
-            print(f"   🧹 [Client] Session réinitialisée pour action '{action_courante}' (pas de client requis)")
 
     if state.get("nom_client_brut") and not state.get("code_client"):
         code_trouve = await _rechercher_client_par_nom(state["nom_client_brut"])
@@ -2570,55 +2592,16 @@ date_fin:VALEUR_OU_INCONNU"""
     if state.get("code_client", "").lower() in _CODES_IGNORES:
         state["code_client"] = ""
 
-    # FIX 1 : extraction article — uniquement si la chaîne ressemble à une référence ERP
-    # (contient au moins un chiffre OU est en MAJUSCULES-tiret) et n'est pas un mot interrogatif
-    _MOTS_INTERROGATIFS = {
-        "QUEL", "QUELS", "QUELLE", "QUELLES", "QUI", "QUOI", "COMMENT",
-        "COMBIEN", "POURQUOI", "OUE", "EST", "SONT", "LISTE", "DONNE",
-        "MONTRE", "AFFICHE", "VOIR", "AVEZ", "AVONS", "AVAIT", "DEPUIS",
-        "PLUS", "MOINS", "ENTRE", "AVANT", "APRES", "PENDANT", "AVEC",
-        "SANS", "POUR", "DANS", "PAR", "SUR", "SOUS", "VERS", "ENTRE",
-        "TIL", "YIL", "ANOMALIE", "ANOMALIES", "RUPTURE", "VENDUS",
-    }
+    # FIX 1 : extraction article insensible à la casse
     _regex_article = ""
-    # 1. Chercher d'abord un pattern après "article", "stock de", "ref", "référence", "produit"
-    m_art_context = re.search(
-        r"(?:article|stock\s+de|r[eé]f(?:[eé]rence)?|produit)\s+([A-Za-z][A-Za-z0-9\-]{2,})",
-        db, re.IGNORECASE
-    )
-    if m_art_context:
-        candidate = m_art_context.group(1).upper()
-        if candidate not in _EXCL_ARTICLE and candidate not in _MOTS_INTERROGATIFS:
-            _regex_article = candidate
-            print(f"   🔎 [Regex] ref_article (contexte) : {_regex_article}")
-    # 2. Sinon, chercher un token qui ressemble à une vraie référence ERP
-    # (contient chiffres + lettres, ou lettres-tiret-lettres style CABLE-HDMI, CPU-I7)
-    if not _regex_article:
-        for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", db):
-            mot_upper = mot.upper()
-            # Doit ressembler à une vraie référence ERP :
-            # - contient un chiffre (ECRAN4K, SSD-512, CPU-I7, RAM-16GB)
-            # - OU tiret entre segments de ≥2 chars sans particules verbales (CABLE-HDMI, DALLE-LED-4K)
-            has_digit = re.search(r"\d", mot_upper) is not None
-            if not has_digit and "-" in mot_upper:
-                _parts = mot_upper.split("-")
-                _VERBES_TIRET = {"MOI","TOI","SOI","LUI","ILS","ELLE","EUX","TIL","YIL","IL","TU","ON"}
-                has_valid_dash = (
-                    all(len(p) >= 2 for p in _parts)
-                    and any(len(p) >= 3 for p in _parts)
-                    and not any(p in _VERBES_TIRET for p in _parts)
-                )
-            else:
-                has_valid_dash = False
-            ressemble_ref = has_digit or has_valid_dash
-            if (ressemble_ref
-                    and mot_upper not in _EXCL_ARTICLE
-                    and mot_upper not in _MOTS_INTERROGATIFS
-                    and not mot_upper.startswith("CLI")
-                    and mot_upper != state.get("code_client", "").upper()):
-                _regex_article = mot_upper
-                print(f"   🔎 [Regex] ref_article : {_regex_article}")
-                break
+    for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", db):
+        mot_upper = mot.upper()
+        if (mot_upper not in _EXCL_ARTICLE
+                and not mot_upper.startswith("CLI")
+                and mot_upper != state.get("code_client", "").upper()):
+            _regex_article = mot_upper
+            print(f"   🔎 [Regex] ref_article : {_regex_article}")
+            break
 
     state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
     if state["ref_article"].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
@@ -2677,7 +2660,10 @@ date_fin:VALEUR_OU_INCONNU"""
                 break
 
     # ── AIDE ──────────────────────────────────────────────────────
-    if any(w in n for w in ("aide","help","que sais-tu","que peux-tu","capacité","fonctionnalit")):
+    _MOTS_AIDE = {"aide", "help", "que sais-tu", "que peux-tu", "tes capacités", "fonctionnalités"}
+    if any(w in n for w in _MOTS_AIDE) and not any(
+        w in n for w in ("client", "facture", "article", "stock", "liste", "ca ", "fournisseur")
+    ):
         state["intention"] = "AIDE"
         return state
 
@@ -3017,137 +3003,79 @@ async def noeud_confirmation(state: CopilotState) -> CopilotState:
 async def noeud_lecture(state: CopilotState) -> CopilotState:
     print("📊 [Agent Lecture] Interrogation Sage...")
     act = state["action"]
-    db  = state.get("demande_brute", "")
- 
-    # Résolution client si manquant pour les actions qui en ont besoin
-    _actions_client_requis = {
-        "FICHE_CLIENT", "STATUT_CLIENT",
-        "TOUTES_FACTURES_CLIENT",
-        "FACTURES_NON_REGLEES",
-        "FACTURES_NON_REGLEES_FOURN",
-    }
+
+    _actions_client_requis = {"FICHE_CLIENT","STATUT_CLIENT","TOUTES_FACTURES_CLIENT","FACTURES_NON_REGLEES","FACTURES_NON_REGLEES_FOURN"}
     if act in _actions_client_requis and not state.get("code_client"):
-        nom_candidat = (
-            state.get("nom_client_brut")
-            or state.get("dernier_code_client")
-            or ""
-        )
+        nom_candidat = state.get("nom_client_brut") or state.get("dernier_code_client") or ""
         if nom_candidat:
             code = await _rechercher_client_par_nom(nom_candidat)
             if code:
                 state["code_client"] = code
             else:
                 state["code_client"] = nom_candidat
- 
+
     try:
         tool_map = {
-            # ── Clients ──────────────────────────────────────────────
-            "TOP_CLIENTS": (
-                "nl2sql", "analyser_top_clients_ca", {}
-            ),
-            "LISTE_CLIENTS": (
-                "nl2sql", "lister_clients_actifs", {}
-            ),
-            "FICHE_CLIENT": (
-                "nl2sql", "rechercher_fiche_client",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "STATUT_CLIENT": (
-                "nl2sql", "verifier_statut_client",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "TOUTES_FACTURES_CLIENT": (
-                "nl2sql", "lister_toutes_factures_client",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "FACTURES_NON_REGLEES": (
-                "nl2sql", "lister_factures_impayees",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "FACTURES_NON_REGLEES_FOURN": (
-                "nl2sql", "lister_factures_fournisseurs_non_reglees",
-                {"code_fournisseur": state.get("code_client", "")},
-            ),
-            "CLIENTS_BAISSE": (
-                "nl2sql", "detecter_clients_baisse_ca", {}
-            ),
-            "DSO": (
-                "nl2sql", "calculer_dso_clients",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "RFM": (
-                "nl2sql", "analyser_rfm_clients",
-                {"code_client": state.get("code_client", "")},
-            ),
-            # ── Fournisseurs ─────────────────────────────────────────
-            "LISTE_FOURNISSEURS": (
-                "nl2sql", "lister_fournisseurs", {}
-            ),
-            "TOP_FOURNISSEURS": (
-                "nl2sql", "analyser_top_fournisseurs", {"top_n": 10}
-            ),
-            "FICHE_FOURNISSEUR": (
-                "nl2sql", "rechercher_fiche_fournisseur",
-                {"code_fournisseur": state.get("code_client", "")},
-            ),
-            # ── Articles / stock ─────────────────────────────────────
-            "LISTE_ARTICLES": (
-                "nl2sql", "lister_articles_catalogue", {}
-            ),
-            "PALMARES_ARTICLES": (
-                "nl2sql", "analyser_palmares_articles", {}
-            ),
-            "VERIFIER_STOCK": (
-                "nl2sql", "verifier_stock_article",
-                {"ref_article": state.get("ref_article", "")},
-            ),
-            # ── Finances / CA ────────────────────────────────────────
-            "CA_GLOBAL": (
-                "nl2sql", "calculer_ca_global_periode", {}
-            ),
-            "RENTABILITE": (
-                "nl2sql", "analyser_rentabilite_clients", {}
-            ),
-            "SAISONNALITE": (
-                "nl2sql", "analyser_saisonnalite_ventes", {}
-            ),
-            # ── Documents par période ────────────────────────────────
-            "DOCS_PERIODE": (
-                "nl2sql", "lister_documents_par_periode",
-                {
-                    "date_debut": state.get("date_debut", "")
-                                  or _date_debut_mois_dernier(db),
-                    "date_fin":   state.get("date_fin", "")
-                                  or _date_fin_mois_dernier(db),
-                },
-            ),
-            # ── Exports Excel ────────────────────────────────────────
-            "OFFRE_PRIX_EXCEL": (
-                "nl2sql", "exporter_offre_prix_excel",
-                {"code_client": state.get("code_client", "")},
-            ),
-            "DECLARATION_EXCEL": (
-                "nl2sql", "exporter_declaration_fiscale_excel", {}
-            ),
-            "BALANCE_AGEE_EXCEL": (
-                "nl2sql", "exporter_balance_agee_excel", {}
-            ),
-            "DASHBOARD_EXCEL": (
-                "nl2sql", "exporter_dashboard_kpi_excel", {}
-            ),
+            "TOP_CLIENTS":             ("nl2sql", "analyser_top_clients_ca",       {}),
+            "LISTE_CLIENTS":           ("nl2sql", "lister_clients_actifs",          {}),
+            "LISTE_ARTICLES":          ("nl2sql", "lister_articles_catalogue",      {}),
+            "PALMARES_ARTICLES":       ("nl2sql", "analyser_palmares_articles",     {}),
+            "CA_GLOBAL":               ("nl2sql", "calculer_ca_global_periode",     {}),
+            "CLIENTS_BAISSE":          ("nl2sql", "detecter_clients_baisse_ca",     {}),
+            "FACTURES_NON_REGLEES":    ("nl2sql", "lister_factures_impayees",       {"code_client": state.get("code_client", "")}),
+            "TOUTES_FACTURES_CLIENT":  ("nl2sql", "lister_toutes_factures_client",  {"code_client": state.get("code_client", "")}),
+            "VERIFIER_STOCK":          ("nl2sql", "verifier_stock_article",         {"ref_article": state.get("ref_article", "")}),
+            "FICHE_CLIENT":            ("nl2sql", "rechercher_fiche_client",        {"code_client": state.get("code_client", "")}),
+            "STATUT_CLIENT":           ("nl2sql", "verifier_statut_client",         {"code_client": state.get("code_client", "")}),
+            "DOCS_PERIODE":            ("nl2sql", "lister_documents_par_periode",   {"date_debut": state.get("date_debut",""), "date_fin": state.get("date_fin","")}),
+            "RENTABILITE":             ("nl2sql", "analyser_rentabilite_clients",   {}),
+            "SAISONNALITE":            ("nl2sql", "analyser_saisonnalite_ventes",   {}),
+            "DSO":                     ("nl2sql", "calculer_dso_clients",           {"code_client": state.get("code_client","")}),
+            "RFM":                     ("nl2sql", "analyser_rfm_clients",           {"code_client": state.get("code_client","")}),
+            "OFFRE_PRIX_EXCEL":        ("nl2sql", "exporter_offre_prix_excel",      {"code_client": state.get("code_client","")}),
+            "DECLARATION_EXCEL":       ("nl2sql", "exporter_declaration_fiscale_excel", {}),
+            "BALANCE_AGEE_EXCEL":      ("nl2sql", "exporter_balance_agee_excel",    {}),
+            "DASHBOARD_EXCEL":         ("nl2sql", "exporter_dashboard_kpi_excel",   {}),
+            "LISTE_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
+                "sql": "SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite FROM F_COMPTET WHERE CT_Type=1 ORDER BY CT_Intitule",
+                "description": "Liste des fournisseurs",
+            }),
+            "TOP_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
+                "sql": (
+                    "SELECT c.CT_Num, c.CT_Intitule, "
+                    "COUNT(DISTINCT e.DO_Piece) AS nb_commandes, "
+                    "COALESCE(SUM(l.DL_Qte*l.DL_PrixUnitaire),0) AS volume_achat "
+                    "FROM F_COMPTET c "
+                    "LEFT JOIN F_DOCENTETE e ON c.CT_Num=e.CT_Num AND e.DO_Type=6 AND e.DO_Domaine=1 "
+                    "LEFT JOIN F_DOCLIGNE l ON e.DO_Piece=l.DO_Piece "
+                    "WHERE c.CT_Type=1 "
+                    "GROUP BY c.CT_Num ORDER BY volume_achat DESC LIMIT 10"
+                ),
+                "description": "Top fournisseurs par volume d'achat",
+            }),
+            "FICHE_FOURNISSEUR": ("nl2sql", "executer_sql_vanna", {
+                "sql": (
+                    f"SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite "
+                    f"FROM F_COMPTET "
+                    f"WHERE CT_Type=1 AND (CT_Num='{state.get('code_client','')}' "
+                    f"OR UPPER(CT_Intitule) LIKE UPPER('%{state.get('code_client','')}%')) LIMIT 1"
+                ),
+                "description": f"Fiche fournisseur {state.get('code_client','')}",
+            }),
+            "FACTURES_NON_REGLEES_FOURN": ("nl2sql", "lister_factures_fournisseurs_non_reglees", {
+                "code_fournisseur": state.get("code_client", ""),
+            }),
         }
- 
         if act in tool_map:
             server, tool, args = tool_map[act]
             state["reponse_brute"] = await mcp_pool.call(server, tool, args)
         else:
             state["reponse_brute"] = f"__INCONNU__:{act}"
- 
     except Exception as e:
         state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
- 
     return state
- 
+
+
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD NL2SQL
 # ─────────────────────────────────────────────────────────────────────
@@ -3263,13 +3191,12 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
 async def noeud_ecriture(state: CopilotState) -> CopilotState:
     if not state["validation_ok"]:
         return state
- 
+
     print("⚡ [Agent Écriture]...")
     act    = state["action"]
     type_d = (state.get("type_doc") or "").upper()
     state["suggestion_en_attente"] = {}
- 
-    # ── Helper : traduction statut MCP → message utilisateur ─────────
+
     def _traiter_erreur_mcp(data: dict) -> str | None:
         statut = data.get("statut", "")
         if statut not in _STATUTS_ERREUR_MCP:
@@ -3282,10 +3209,7 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                 sugg_txt = "\n💡 Clients similaires : " + ", ".join(
                     f"{s['CT_Num']} ({s['CT_Intitule']})" for s in suggestions
                 )
-            return (
-                f"❌ Client '{state.get('code_client') or state.get('nom_client_brut')}' "
-                f"introuvable.{sugg_txt}"
-            )
+            return f"❌ Client '{state.get('code_client') or state.get('nom_client_brut')}' introuvable.{sugg_txt}"
         if statut == "CLIENT_BLOQUE":
             return message or "🚫 Client bloqué."
         if statut == "ARTICLE_NON_TROUVE":
@@ -3309,29 +3233,23 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
         if statut == "EXISTE_DEJA":
             return message or "⚠️  Élément déjà existant."
         return message or f"❌ Erreur MCP : statut={statut}"
- 
-    # ─────────────────────────────────────────────────────────────────
+
     try:
-        # ════════════════════════════════════════════════════════════
-        # GENERER_DOC
-        # ════════════════════════════════════════════════════════════
         if act == "GENERER_DOC":
             code_client_final = (
-                state.get("code_client")
-                or state.get("nom_client_brut", "")
-                or ""
+                state.get("code_client") or state.get("nom_client_brut", "") or ""
             )
- 
-            # ── BL ACHAT (bon de réception fournisseur) ───────────
+
             if type_d == "BL_ACHAT":
-                doc  = state.get("pending_document", {})
+                doc = state.get("pending_document", {})
+                # FIX BUG2: utiliser _mcp_workflow_bl_achat au lieu de generer_document_sage
                 data = await _mcp_workflow_bl_achat(
-                    code_fournisseur=doc.get("code_fournisseur", code_client_final),
-                    ref_article     =doc.get("ref_article",   state["ref_article"]),
-                    quantite        =doc.get("quantite",      state["quantite"]),
-                    prix_unitaire   =doc.get("prix_unitaire", 0.0),
+                    code_fournisseur = doc.get("code_fournisseur", code_client_final),
+                    ref_article      = doc.get("ref_article",   state["ref_article"]),
+                    quantite         = doc.get("quantite",      state["quantite"]),
+                    prix_unitaire    = doc.get("prix_unitaire", 0.0),
                 )
-                err = _traiter_erreur_mcp(data)
+                err  = _traiter_erreur_mcp(data)
                 if err:
                     state["reponse_brute"]  = err
                     state["reponse_finale"] = err
@@ -3348,23 +3266,16 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                     + "\n\n💡 Tapez **ok** pour créer la facture fournisseur."
                 )
                 return state
- 
-            # ── BL (bon de livraison client) ──────────────────────
+
             elif type_d == "BL":
                 result = await _mcp_workflow_bl(
-                    code_client_final,
-                    state["ref_article"],
-                    state["quantite"],
-                    0.0,
+                    code_client_final, state["ref_article"], state["quantite"], 0.0,
                 )
                 err = _traiter_erreur_mcp(result)
                 if result.get("statut") == "STOCK_INSUFFISANT":
                     state["suggestion_en_attente"] = {
                         "type": "CREER_OF",
-                        "description": (
-                            f"Lancer un OF pour {result.get('manque', 0)} u "
-                            f"de '{state['ref_article']}'"
-                        ),
+                        "description": f"Lancer un OF pour {result.get('manque', 0)} u de '{state['ref_article']}'",
                         "params": {
                             "ref_article":        result.get("ref_article", state["ref_article"]),
                             "quantite":           result.get("manque", state["quantite"]),
@@ -3373,8 +3284,7 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                         },
                     }
                     state["reponse_finale"] = (
-                        result.get("message", "")
-                        + "\n\n💡 Tapez **ok** pour lancer l'OF, ou **non** pour annuler."
+                        result.get("message", "") + "\n\n💡 Tapez **ok** pour lancer l'OF, ou **non** pour annuler."
                     )
                     return state
                 if err:
@@ -3383,24 +3293,21 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                     return state
                 state["num_piece"]     = result.get("DO_Piece", "")
                 state["reponse_brute"] = json.dumps(result, ensure_ascii=False)
-                rapport   = [result.get("message", "")]
-                sugg_fa   = result.get("suggestion_facture", {})
+                rapport = [result.get("message", "")]
+                sugg_fa = result.get("suggestion_facture", {})
                 if sugg_fa:
                     num_bl = sugg_fa.get("num_bl", "")
                     state["suggestion_en_attente"] = {
-                        "type":        "CREER_FACTURE",
+                        "type": "CREER_FACTURE",
                         "description": f"Créer la facture pour BL {num_bl}",
-                        "params":      sugg_fa,
+                        "params": sugg_fa,
                     }
                     rapport.append("💡 Tapez **ok** pour créer la Facture.")
                 state["reponse_finale"] = "\n\n".join(rapport)
                 return state
- 
-            # ── OF (ordre de fabrication) ─────────────────────────
             elif type_d == "OF":
                 result = await _mcp_workflow_of(
-                    state["ref_article"],
-                    state["quantite"],
+                    state["ref_article"], state["quantite"],
                     code_client_final or "PROD-INT",
                 )
                 err = _traiter_erreur_mcp(result)
@@ -3410,19 +3317,18 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                     return state
                 state["num_piece"]     = result.get("DO_Piece", "")
                 state["reponse_brute"] = json.dumps(result, ensure_ascii=False)
-                rapport  = [result.get("message", "")]
-                sugg_bf  = result.get("suggestion_bf", {})
+                rapport = [result.get("message", "")]
+                sugg_bf = result.get("suggestion_bf", {})
                 if sugg_bf:
                     state["suggestion_en_attente"] = {
-                        "type":        "CREER_BF",
+                        "type": "CREER_BF",
                         "description": f"Créer le BF pour OF {sugg_bf.get('num_of', '')}",
-                        "params":      sugg_bf,
+                        "params": sugg_bf,
                     }
                     rapport.append("💡 Tapez **ok** pour créer le BF.")
                 state["reponse_finale"] = "\n\n".join(r for r in rapport if r)
                 return state
- 
-            # ── BF (bon de fabrication) ───────────────────────────
+
             elif type_d == "BF":
                 num_of_lie = state.get("num_piece", "")
                 if not num_of_lie:
@@ -3438,10 +3344,8 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                     state["reponse_finale"] = msg
                     return state
                 result = await _mcp_workflow_bf(
-                    state["ref_article"],
-                    state["quantite"],
-                    num_of_lie,
-                    code_client_final or "PROD-INT",
+                    state["ref_article"], state["quantite"],
+                    num_of_lie, code_client_final or "PROD-INT",
                 )
                 err = _traiter_erreur_mcp(result)
                 if err:
@@ -3451,19 +3355,13 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                 state["reponse_brute"]  = json.dumps(result, ensure_ascii=False)
                 state["reponse_finale"] = result.get("message", "❌ Erreur BF.")
                 return state
- 
-            # ── FACTURE / BC / autres ─────────────────────────────
+
             else:
                 if not type_d:
-                    type_d = (
-                        "FACTURE"
-                        if any(
-                            w in state["demande_brute"].lower()
-                            for w in ("facture", "facturer")
-                        )
-                        else "BL"
-                    )
-                raw  = await mcp_pool.call("actions", "generer_document_sage", {
+                    type_d = "FACTURE" if any(
+                        w in state["demande_brute"].lower() for w in ("facture", "facturer")
+                    ) else "BL"
+                raw = await mcp_pool.call("actions", "generer_document_sage", {
                     "type_doc":      type_d,
                     "code_client":   code_client_final or "PROD-INT",
                     "ref_article":   state["ref_article"],
@@ -3481,48 +3379,28 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                     state["num_piece"] = data["DO_Piece"]
                     state["type_doc"]  = "FACTURE"
                 state["reponse_brute"] = json.dumps(data, ensure_ascii=False)
- 
-        # ════════════════════════════════════════════════════════════
-        # CREER_CLIENT
-        # ════════════════════════════════════════════════════════════
+
         elif act == "CREER_CLIENT":
-            _intitule = (
-                state.get("nom_client_brut")
-                or state.get("code_client")
-                or "Nouveau Client"
-            )
+            # FIX 3 : intitulé = nom_client_brut si disponible
+            _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Client"
             raw  = await mcp_pool.call("actions", "creer_nouveau_client", {
                 "code_client": state["code_client"],
                 "intitule":    _intitule,
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or data.get("message", json.dumps(data, ensure_ascii=False))
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # CREER_FOURNISSEUR
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
+
         elif act == "CREER_FOURNISSEUR":
-            _intitule = (
-                state.get("nom_client_brut")
-                or state.get("code_client")
-                or "Nouveau Fournisseur"
-            )
+            _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Fournisseur"
             raw  = await mcp_pool.call("actions", "creer_nouveau_fournisseur", {
                 "code_fournisseur": state["code_client"],
                 "intitule":         _intitule,
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or data.get("message", json.dumps(data, ensure_ascii=False))
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # MODIFIER_STATUT
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
+
         elif act == "MODIFIER_STATUT":
             _statut_cible = state.get("type_doc", "BLOQUE") or "BLOQUE"
             if _statut_cible not in ("BLOQUE", "VALIDE", "SUSPECT"):
@@ -3533,62 +3411,75 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or data.get("message", json.dumps(data, ensure_ascii=False))
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # TRANSFORMER_DOC
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
+
         elif act == "TRANSFORMER_DOC":
             num_piece_src = state["num_piece"]
             type_dest     = state["type_doc"] or "FACTURE"
- 
-            # ── Vérification doublon via MCP (plus de SQL inline) ──
+
+            # ── Vérification : document source déjà transformé ? ──────────
             try:
-                _verif_raw = await mcp_pool.call(
-                    "nl2sql", "verifier_document_deja_transforme",
-                    {
-                        "num_piece_source": num_piece_src,
-                        "type_destination": type_dest,
-                    },
-                )
-                _verif = json.loads(_verif_raw)
-                if _verif.get("deja_transforme"):
-                    state["reponse_brute"]  = _verif["message"]
-                    state["reponse_finale"] = _verif["message"]
-                    return state
+                import sqlite3
+                _db  = sqlite3.connect(str(_db_path))
+                _cur = _db.cursor()
+
+                if type_dest == "FACTURE":
+                    # Cherche si une facture (DO_Type=3) est déjà liée à ce BL via DO_Ref
+                    _cur.execute("""
+                        SELECT COUNT(*) FROM F_DOCENTETE
+                        WHERE DO_Ref = ? AND DO_Type = 3 AND DO_Domaine = 0
+                    """, (num_piece_src,))
+                    nb_fa = _cur.fetchone()[0]
+                    if nb_fa > 0:
+                        _db.close()
+                        state["reponse_brute"] = (
+                            f"⚠️  Le BL **{num_piece_src}** a déjà été transformé en facture.\n"
+                            f"   ({nb_fa} facture(s) existante(s) liée(s) à ce BL)\n"
+                            f"   Utilisez 'liste des factures' pour retrouver la facture correspondante."
+                        )
+                        state["reponse_finale"] = state["reponse_brute"]
+                        return state
+
+                elif type_dest == "BF":
+                    # Cherche si un BF (DO_Type=4) est déjà lié à cet OF via DO_Ref
+                    _cur.execute("""
+                        SELECT COUNT(*) FROM F_DOCENTETE
+                        WHERE DO_Ref = ? AND DO_Type = 4 AND DO_Domaine = 2
+                    """, (num_piece_src,))
+                    nb_bf = _cur.fetchone()[0]
+                    if nb_bf > 0:
+                        _db.close()
+                        state["reponse_brute"] = (
+                            f"⚠️  L'OF **{num_piece_src}** a déjà été transformé en Bon de Fabrication.\n"
+                            f"   ({nb_bf} BF existant(s) lié(s) à cet OF)\n"
+                            f"   La fabrication est déjà en cours ou terminée."
+                        )
+                        state["reponse_finale"] = state["reponse_brute"]
+                        return state
+
+                _db.close()
+
             except Exception as e_verif:
-                print(f"   ⚠️  [Vérif doublon MCP] {_safe_str(e_verif)}")
+                print(f"   ⚠️  [Vérif doublon] {_safe_str(e_verif)}")
                 # On continue même si la vérification échoue
- 
-            # ── Transformation effective ───────────────────────────
+
+            # ── Transformation effective ───────────────────────────────────
             raw  = await mcp_pool.call("actions", "transformer_document", {
                 "num_piece_source": num_piece_src,
                 "type_destination": type_dest,
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or json.dumps(data, ensure_ascii=False)
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # CREER_AVOIR
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
+
         elif act == "CREER_AVOIR":
             raw  = await mcp_pool.call("actions", "creer_facture_avoir", {
                 "num_facture_origine": state["num_piece"],
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or json.dumps(data, ensure_ascii=False)
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # REGLEMENT
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
+
         elif act == "REGLEMENT":
             raw  = await mcp_pool.call("actions", "enregistrer_reglement_facture", {
                 "num_piece":     state["num_piece"],
@@ -3596,32 +3487,18 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or json.dumps(data, ensure_ascii=False)
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # MOUVEMENT_STOCK
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
+
         elif act == "MOUVEMENT_STOCK":
             raw  = await mcp_pool.call("actions", "ajuster_mouvement_stock", {
                 "ref_article":    state["ref_article"],
                 "qte_mouvement":  state["quantite"],
-                "type_mouvement": (
-                    "SORTIE"
-                    if "sort" in state["demande_brute"].lower()
-                    else "ENTREE"
-                ),
+                "type_mouvement": "SORTIE" if "sort" in state["demande_brute"].lower() else "ENTREE",
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or json.dumps(data, ensure_ascii=False)
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # PROPOSITION_ACHAT
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
+
         elif act == "PROPOSITION_ACHAT":
             raw  = await mcp_pool.call("actions", "generer_proposition_achat", {
                 "ref_article":      state["ref_article"],
@@ -3630,22 +3507,16 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
             })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = (
-                err or data.get("message", json.dumps(data, ensure_ascii=False))
-            )
- 
-        # ════════════════════════════════════════════════════════════
-        # Action inconnue
-        # ════════════════════════════════════════════════════════════
+            state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
+
         else:
             state["reponse_brute"] = f"__INCONNU__:{act}"
             return state
- 
+
         await response_cache.invalidate_writes()
- 
+
     except Exception as e:
         state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
- 
     return state
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD WORKFLOW
@@ -3806,7 +3677,57 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
     # Dernier recours
     return f"📊 Résultat de « {question} » :\n{rb}"
 
+# ── Helpers anti-hallucination (coller AVANT noeud_synthese) ──────────────
 
+_HALLUCINATION_MARKERS = (
+    "par exemple", "supposons", "imaginons", "à titre d'exemple",
+    "typiquement", "généralement", "en général", "il est probable",
+    "il se peut que", "je suppose", "je présume", "hypothétiquement",
+    "dans ce cas fictif", "données fictives", "exemple fictif",
+)
+
+def _rb_est_vide(rb: str) -> bool:
+    """True si rb ne contient aucune donnée exploitable."""
+    if not rb or not rb.strip():
+        return True
+    rb_strip = rb.strip()
+    if rb_strip in ("{}", "[]", '{"statut": "OK"}', '{"statut":"OK"}'):
+        return True
+    try:
+        data = json.loads(rb_strip)
+        if isinstance(data, dict):
+            values = [v for k, v in data.items() if k != "statut"]
+            if all(v in (None, [], {}, "", 0) for v in values):
+                return True
+        elif isinstance(data, list) and len(data) == 0:
+            return True
+    except Exception:
+        pass
+    return len(rb_strip) < 10
+
+def _detecter_hallucination(synthese: str, rb: str) -> bool:
+    """Détecte si le LLM a probablement inventé des données."""
+    if not synthese:
+        return False
+    s_lower = synthese.lower()
+    # 1. Marqueurs linguistiques d'invention
+    for marker in _HALLUCINATION_MARKERS:
+        if marker in s_lower:
+            print(f"   🚨 [Anti-hallucination] Marqueur détecté : '{marker}'")
+            return True
+    # 2. Données vides mais synthèse longue → invention quasi-certaine
+    if _rb_est_vide(rb) and len(synthese.strip()) > 200:
+        print(f"   🚨 [Anti-hallucination] Données vides + synthèse longue ({len(synthese)} chars)")
+        return True
+    # 3. Nombres absents des données source (heuristique légère)
+    import re
+    nb_synthese = set(re.findall(r'\b\d{4,}\b', synthese))
+    nb_rb       = set(re.findall(r'\b\d{4,}\b', rb))
+    inventes    = nb_synthese - nb_rb
+    if len(inventes) > 2:
+        print(f"   🚨 [Anti-hallucination] Nombres absents du rb : {inventes}")
+        return True
+    return False
 async def noeud_synthese(state: CopilotState) -> CopilotState:
     rb  = state.get("reponse_brute", "") or ""
     act = state.get("action", "")
@@ -3829,9 +3750,7 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
     # ══════════════════════════════════════════════════════════════
     if act == "NL2SQL_LIBRE" and rb and not rb.startswith("__"):
 
-        # COURT-CIRCUIT : si la réponse brute est déjà bien formatée (vient de
-        # _NL_PATTERNS ou _formater_resultats), pas besoin du LLM de synthèse.
-        # Économise 120s de timeout quand Ollama est occupé.
+        # COURT-CIRCUIT : réponse déjà formatée
         _deja_formate = rb.startswith((
             "📊", "✅", "❌", "⚠️", "─", "👥", "📦", "🏆", "⏳", "Question :"
         ))
@@ -3840,36 +3759,59 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
             state["reponse_finale"] = rb
             return state
 
+        # ── NOUVEAU : données vides → pas de LLM du tout ──────────
+        if _rb_est_vide(rb):
+            print("   ⚠️  [Synthèse NL2SQL] Données vides → pas de LLM (anti-hallucination)")
+            state["reponse_finale"] = (
+                "⚠️  Aucun résultat trouvé pour cette requête.\n"
+                "Les données demandées ne sont pas disponibles dans la base."
+            )
+            return state
+        # ──────────────────────────────────────────────────────────
+
         if ENABLE_LLM_SYNTHESE:
+            # ── PROMPT RENFORCÉ anti-hallucination ────────────────
             prompt = (
-                f'Tu es un assistant ERP Sage 100 expert.\n'
-                f'Question utilisateur : "{state["demande_brute"]}"\n\n'
-                f'Voici les données brutes retournées par la base de données :\n{rb[:3000]}\n\n'
-                f'Analyse ces données et réponds à la question de manière claire, structurée '
-                f'et en français. Utilise des tableaux ASCII, emojis et formatage pour la '
-                f'lisibilité. Si les données sont vides ou inexistantes, dis-le clairement '
-                f'avec une explication utile.\n'
-                f'IMPORTANT : réponds UNIQUEMENT en texte lisible. '
-                f'N\'écris JAMAIS de JSON, de SQL, ni de blocs de code. '
+                f'Tu es un assistant ERP Sage 100 expert et rigoureux.\n'
+                f'QUESTION UTILISATEUR : "{state["demande_brute"]}"\n\n'
+                f'DONNÉES RETOURNÉES PAR LA BASE :\n'
+                f'```\n{rb[:3000]}\n```\n\n'
+                f'RÈGLES ABSOLUES :\n'
+                f'1. Base-toi UNIQUEMENT sur les données ci-dessus.\n'
+                f'2. N\'invente AUCUN nom, chiffre, date ou montant absent des données.\n'
+                f'3. Si une information est absente → écris "Information non disponible".\n'
+                f'4. N\'utilise JAMAIS : "par exemple", "supposons", "typiquement",\n'
+                f'   "généralement", "il est probable", "je suppose".\n'
+                f'5. N\'écris JAMAIS de JSON, SQL ou bloc de code.\n'
+                f'6. Réponds uniquement en français, de façon directe et factuelle.\n\n'
+                f'Analyse les données et réponds clairement. '
+                f'Utilise des tableaux ASCII, emojis et formatage pour la lisibilité.\n'
                 f'Commence directement par la réponse en français.'
             )
+            # ──────────────────────────────────────────────────────
             try:
                 synthese = await asyncio.wait_for(
                     _invoke_llm(prompt, use_smart=True), timeout=SYNTHESE_TIMEOUT
                 )
-                # PATCH D : si Ollama répond en JSON malgré tout → fallback formateur
                 _s = synthese.strip()
                 _est_json_llm = (
                     (_s.startswith("{") and _s.endswith("}"))
                     or (_s.startswith("[") and _s.endswith("]"))
                     or _s.startswith("```json")
                     or (_s.startswith("```") and ("SELECT" in _s.upper() or "{" in _s))
-                    # Réponse très courte sans phrase = probablement du JSON ou du SQL
                     or (len(_s) > 10 and _s.count("\n") < 2 and _s.startswith("{"))
                 )
                 if _est_json_llm:
                     print("   ⚠️  [Synthèse NL2SQL] LLM a répondu en JSON → fallback formateur")
                     state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
+                # ── NOUVEAU : garde anti-hallucination ────────────
+                elif _detecter_hallucination(_s, rb):
+                    print("   🚨 [Synthèse NL2SQL] Hallucination détectée → fallback formateur")
+                    state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
+                elif not _s:
+                    print("   ⚠️  [Synthèse NL2SQL] Synthèse vide → fallback formateur")
+                    state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
+                # ──────────────────────────────────────────────────
                 else:
                     state["reponse_finale"] = synthese
                 if ENABLE_MEM0:
@@ -3901,7 +3843,6 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
         try:
             data = json.loads(rb)
             if isinstance(data, dict) and data.get("statut") in ("OK", "TROUVE"):
-                # Dernier essai avec formateur direct
                 for _act_try in [act, act.upper()]:
                     if _act_try in _FORMATEURS_JSON:
                         try:
@@ -3915,9 +3856,8 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                                 return state
                         except Exception:
                             pass
-                # JSON lisible → afficher sans LLM
                 if "factures" in data or "clients" in data or "articles" in data:
-                    state["reponse_finale"] = rb  # brut mais lisible
+                    state["reponse_finale"] = rb
                     return state
         except Exception:
             pass
@@ -3929,32 +3869,54 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
 
     # Synthèse LLM générale (actions LECTURE classiques sans formateur)
     if ENABLE_LLM_SYNTHESE and rb and not rb.startswith("__"):
+
+        # ── NOUVEAU : données vides → pas de LLM du tout ──────────
+        if _rb_est_vide(rb):
+            print("   ⚠️  [Synthèse] Données vides → pas de LLM (anti-hallucination)")
+            state["reponse_finale"] = "⚠️  Aucune donnée disponible pour cette demande."
+            return state
+        # ──────────────────────────────────────────────────────────
+
         mem_ctx = state.get("mem0_contexte", "")
         rag_ctx = state.get("rag_complement", "")
-        prompt  = (
-            f'Tu es un assistant ERP Sage 100 expert.\n'
-            f'Demande utilisateur : "{state["demande_brute"]}"\n'
+
+        # ── PROMPT RENFORCÉ anti-hallucination ────────────────────
+        prompt = (
+            f'Tu es un assistant ERP Sage 100 expert et rigoureux.\n'
+            f'DEMANDE UTILISATEUR : "{state["demande_brute"]}"\n'
         )
         if mem_ctx:
-            prompt += f'Contexte mémorisé : {mem_ctx}\n'
+            prompt += f'CONTEXTE MÉMORISÉ : {mem_ctx}\n'
         if rag_ctx:
-            prompt += f'Informations complémentaires : {rag_ctx}\n'
+            prompt += f'INFORMATIONS COMPLÉMENTAIRES : {rag_ctx}\n'
         prompt += (
-            f'Données brutes :\n{rb[:2000]}\n\n'
-            f'Rédige une réponse claire, concise et structurée en français. '
+            f'\nDONNÉES BRUTES :\n```\n{rb[:2000]}\n```\n\n'
+            f'RÈGLES ABSOLUES :\n'
+            f'1. Base-toi UNIQUEMENT sur les données ci-dessus.\n'
+            f'2. N\'invente AUCUN nom, chiffre, date ou montant absent des données.\n'
+            f'3. Si une information est absente → écris "Information non disponible".\n'
+            f'4. N\'utilise JAMAIS : "par exemple", "supposons", "typiquement",\n'
+            f'   "généralement", "il est probable", "je suppose".\n'
+            f'5. Réponds uniquement en français, de façon directe et factuelle.\n\n'
+            f'Rédige une réponse claire, concise et structurée. '
             f'Utilise des emojis et du formatage pour la lisibilité.'
         )
+        # ──────────────────────────────────────────────────────────
         try:
             synthese = await asyncio.wait_for(
                 _invoke_llm(prompt, use_smart=True), timeout=SYNTHESE_TIMEOUT
             )
-            # PATCH D2 : si Ollama répond en JSON malgré tout → réponse brute
             _s2 = synthese.strip()
             if ((_s2.startswith("{") and _s2.endswith("}"))
                     or (_s2.startswith("[") and _s2.endswith("]"))
                     or _s2.startswith("```json")):
                 print("   ⚠️  [Synthèse] LLM a répondu en JSON → réponse brute")
                 state["reponse_finale"] = rb
+            # ── NOUVEAU : garde anti-hallucination ────────────────
+            elif _detecter_hallucination(_s2, rb):
+                print("   🚨 [Synthèse] Hallucination détectée → réponse brute")
+                state["reponse_finale"] = rb
+            # ──────────────────────────────────────────────────────
             else:
                 state["reponse_finale"] = synthese
             if ENABLE_MEM0:
@@ -3969,8 +3931,6 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
 
     state["reponse_finale"] = rb or "⚠️  Aucune réponse disponible."
     return state
-
-
 # ─────────────────────────────────────────────────────────────────────
 # EXÉCUTEUR SUGGESTIONS
 # ─────────────────────────────────────────────────────────────────────
@@ -4410,17 +4370,8 @@ async def main():
                     contexte_session["dernier_ref_article"] = final_state["ref_article"]
                 if final_state.get("quantite", 0) > 0:
                     contexte_session["dernier_quantite"] = final_state["quantite"]
-                # Ne sauvegarder le nom_client que si c'est une vraie action client
-                _ACTIONS_AVEC_CLIENT = {
-                    "FICHE_CLIENT", "STATUT_CLIENT", "TOUTES_FACTURES_CLIENT",
-                    "GENERER_DOC", "TRANSFORMER_DOC", "CREER_AVOIR", "REGLEMENT",
-                    "MODIFIER_STATUT", "CREER_CLIENT", "WORKFLOW_COMMANDE",
-                }
-                if final_state.get("nom_client_brut") and final_state.get("action","") in _ACTIONS_AVEC_CLIENT:
+                if final_state.get("nom_client_brut"):
                     contexte_session["dernier_nom_client"] = final_state["nom_client_brut"]
-                elif final_state.get("action","") not in _ACTIONS_AVEC_CLIENT:
-                    # Réinitialiser le client sauvegardé si l'action n'est pas client-spécifique
-                    contexte_session["dernier_nom_client"] = ""
 
                 doc_extrait = _extraire_dernier_document(final_state)
                 if doc_extrait and doc_extrait.get("type_doc", "") not in ("OF", "BF"):
