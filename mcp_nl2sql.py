@@ -333,6 +333,241 @@ _FOURNISSEUR_RX = r"fou?r?n+i?s+e?u?r"
 
 _NL_PATTERNS: list[tuple] = [
 
+    # ── Clients classés par nombre de commandes ───────────────────
+    (
+        r"clas(?:se|sement|s[eé])\s+.{0,30}clients?.{0,30}(?:nombre|nb)\s+(?:de\s+)?commandes?"
+        r"|clients?.{0,30}par\s+(?:nombre|nb)\s+(?:de\s+)?commandes?"
+        r"|clients?.{0,30}(?:tri[eé]s?|class[eé]s?|ordonn[eé]s?|rang[eé]s?).{0,30}(?:nombre|nb).{0,20}commandes?"
+        r"|(?:nombre|nb)\s+(?:de\s+)?commandes?\s+(?:par\s+)?client"
+        r"|qui\s+(?:commande|achète|a\s+achet[eé])\s+le\s+plus",
+        lambda m, conn: {
+            "sql": """
+                SELECT c.CT_Num, c.CT_Intitule,
+                       COUNT(DISTINCT e.DO_Piece) AS nb_commandes,
+                       COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0) AS ca_total
+                FROM F_COMPTET c
+                LEFT JOIN F_DOCENTETE e ON c.CT_Num = e.CT_Num
+                    AND e.DO_Type = 3 AND e.DO_Domaine = 0
+                LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                WHERE c.CT_Type = 0
+                GROUP BY c.CT_Num, c.CT_Intitule
+                ORDER BY nb_commandes DESC
+            """,
+            "description": "Clients classés par nombre de commandes (décroissant)",
+        }
+    ),
+
+    # ── Articles sous seuil de stock ET commandés ce mois ────────
+    (
+        r"articles?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique).{0,40}command[eé]s?"
+        r"|articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)"
+        r"|articles?.{0,30}(?:stock\s+(?:faible|bas|insuffisant|inf[eé]r|critique)|sous.{0,10}seuil).{0,40}(?:command[eé]|achet[eé])"
+        r"|rupture.{0,20}command[eé]|command[eé].{0,20}rupture",
+        lambda m, conn: {
+            "sql": """
+                SELECT a.AR_Ref, a.AR_Design,
+                       COALESCE(s.AS_QteSto, 0) AS stock_dispo,
+                       COALESCE(s.AS_QteCom, 0) AS en_commande,
+                       COUNT(DISTINCT l.DO_Piece) AS nb_commandes_mois,
+                       SUM(l.DL_Qte) AS qte_commandee_mois
+                FROM F_ARTICLE a
+                LEFT JOIN F_ARTSTOCK s ON a.AR_Ref = s.AR_Ref
+                JOIN F_DOCLIGNE l ON a.AR_Ref = l.AR_Ref
+                JOIN F_DOCENTETE e ON l.DO_Piece = e.DO_Piece
+                WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                  AND STRFTIME('%Y-%m', e.DO_Date) = STRFTIME('%Y-%m', 'now')
+                  AND COALESCE(s.AS_QteSto, 0) < COALESCE(s.AS_QteCom, 5)
+                GROUP BY a.AR_Ref, a.AR_Design, s.AS_QteSto, s.AS_QteCom
+                ORDER BY stock_dispo ASC
+            """,
+            "description": "Articles dont le stock est insuffisant ET qui ont été commandés ce mois",
+        }
+    ),
+
+
+    # ── Évolution factures impayées mois par mois ─────────────────
+    (
+        r"[eé]volution.{0,30}(?:factures?\s+)?impay[eé]es?\s+mois\s+par\s+mois"
+        r"|impay[eé]es?\s+mois\s+par\s+mois"
+        r"|factures?\s+impay[eé]es?\s+par\s+mois",
+        lambda m, conn: {
+            "sql": """
+                SELECT STRFTIME('%Y-%m', e.DO_Date) AS mois,
+                       COUNT(*)                      AS nb_factures,
+                       SUM(l.DL_Qte * l.DL_PrixUnitaire) AS montant_impaye
+                FROM F_DOCENTETE e
+                JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                AND e.DO_Piece NOT IN (SELECT DO_Piece FROM reglements)
+                GROUP BY mois
+                ORDER BY mois ASC
+            """,
+            "description": "Évolution des factures impayées mois par mois",
+        }
+    ),
+
+    # ── Articles vendus à un seul client ─────────────────────────
+    (
+        r"articles?.{0,30}vendu[se]?.{0,20}(?:un\s+seul|1\s+seul|unique)\s+client"
+        r"|articles?.{0,20}(?:un\s+seul|unique)\s+client",
+        lambda m, conn: {
+            "sql": """
+                SELECT l.AR_Ref, a.AR_Design,
+                       COUNT(DISTINCT e.CT_Num) AS nb_clients
+                FROM F_DOCLIGNE l
+                JOIN F_DOCENTETE e ON l.DO_Piece = e.DO_Piece
+                JOIN F_ARTICLE a ON l.AR_Ref = a.AR_Ref
+                WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                GROUP BY l.AR_Ref
+                HAVING nb_clients = 1
+                ORDER BY l.AR_Ref
+            """,
+            "description": "Articles vendus à un seul client",
+        }
+    ),
+
+    # ── Fournisseurs livrant des articles des meilleurs clients ───
+    (
+       r"fournisseurs?.{0,80}(?:meilleurs?|top)\s+clients?"
+    r"|fournisseurs?.{0,80}articles?.{0,60}(?:meilleurs?|top)\s+clients?",
+        lambda m, conn: {
+            "sql": """
+                SELECT DISTINCT f.CT_Num, f.CT_Intitule
+                FROM F_COMPTET f
+                JOIN F_DOCENTETE ea ON ea.CT_Num = f.CT_Num AND ea.DO_Domaine = 1
+                JOIN F_DOCLIGNE la ON la.DO_Piece = ea.DO_Piece
+                WHERE f.CT_Type = 1
+                AND la.AR_Ref IN (
+                    SELECT l.AR_Ref
+                    FROM F_DOCLIGNE l
+                    JOIN F_DOCENTETE e ON l.DO_Piece = e.DO_Piece
+                    WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                    AND e.CT_Num IN (
+                        SELECT e2.CT_Num
+                        FROM F_DOCENTETE e2
+                        JOIN F_DOCLIGNE l2 ON l2.DO_Piece = e2.DO_Piece
+                        WHERE e2.DO_Type = 3 AND e2.DO_Domaine = 0
+                        GROUP BY e2.CT_Num
+                        ORDER BY SUM(l2.DL_Qte * l2.DL_PrixUnitaire) DESC
+                        LIMIT 5
+                    )
+                )
+                ORDER BY f.CT_Intitule
+            """,
+            "description": "Fournisseurs des articles vendus aux 5 meilleurs clients",
+        }
+    ),
+
+    # ── Panier moyen par client ───────────────────────────────────
+    (
+        r"panier\s+moyen(?:\s+par\s+client)?",
+        lambda m, conn: {
+            "sql": """
+                SELECT e.CT_Num, c.CT_Intitule,
+                       COUNT(DISTINCT e.DO_Piece) AS nb_factures,
+                       ROUND(SUM(l.DL_Qte * l.DL_PrixUnitaire)
+                             / COUNT(DISTINCT e.DO_Piece), 2) AS panier_moyen,
+                       SUM(l.DL_Qte * l.DL_PrixUnitaire) AS ca_total
+                FROM F_DOCENTETE e
+                JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                JOIN F_COMPTET c ON e.CT_Num = c.CT_Num
+                WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                GROUP BY e.CT_Num
+                ORDER BY panier_moyen DESC
+            """,
+            "description": "Panier moyen par client",
+        }
+    ),
+
+    # ── Clients sans commande depuis N mois (version générique) ──
+    (
+        r"clients?.{0,30}(?:pas\s+command[eé]|sans\s+commande|inactifs?)\s+depuis\s+(?:plus\s+de\s+)?(\d+)\s+mois",
+        lambda m, conn: {
+            "sql": """
+                SELECT c.CT_Num, c.CT_Intitule,
+                       MAX(e.DO_Date) AS derniere_facture,
+                       COUNT(DISTINCT e.DO_Piece) AS nb_factures_total
+                FROM F_COMPTET c
+                LEFT JOIN F_DOCENTETE e ON c.CT_Num = e.CT_Num
+                    AND e.DO_Type = 3 AND e.DO_Domaine = 0
+                WHERE c.CT_Type = 0
+                GROUP BY c.CT_Num, c.CT_Intitule
+                HAVING derniere_facture IS NULL
+                    OR derniere_facture < DATE('now', '-{jours} days')
+                ORDER BY derniere_facture ASC
+            """.format(jours=int(m.group(1)) * 30),
+            "description": f"Clients sans commande depuis {m.group(1)} mois",
+        }
+    ),
+
+    # ── BL non facturés ──────────────────────────────────────────────
+    (
+        r"bl\s+non\s+factur[eé]s?|bons?\s+de\s+livraison\s+non\s+factur[eé]s?|liste\s+(?:des?\s+)?bl\s+(?:non|en\s+attente)",
+        lambda m, conn: {
+            "sql": """
+                SELECT e.DO_Piece, e.DO_Date,
+                       e.CT_Num, c.CT_Intitule,
+                       COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0) AS montant_ht
+                FROM F_DOCENTETE e
+                LEFT JOIN F_COMPTET  c ON e.CT_Num = c.CT_Num
+                LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                WHERE e.DO_Type = 2 AND e.DO_Domaine = 0
+                  AND e.DO_Piece NOT IN (
+                      SELECT DISTINCT DO_Ref
+                      FROM F_DOCENTETE
+                      WHERE DO_Type = 3 AND DO_Domaine = 0 AND DO_Ref IS NOT NULL AND DO_Ref != ''
+                  )
+                GROUP BY e.DO_Piece
+                ORDER BY e.DO_Date DESC
+            """,
+            "description": "BL non facturés",
+        }
+    ),
+
+    # ── Articles en rupture de stock (liste des articles EN RUPTURE) ──
+    (
+        r"articles?\s+en\s+rupture|rupture\s+de\s+stock|articles?\s+(?:avec\s+)?stock\s+(?:nul|[zé]ro|négatif|faible|bas)|liste\s+(?:des?\s+)?ruptures?",
+        lambda m, conn: {
+            "sql": """
+                SELECT a.AR_Ref, a.AR_Design,
+                       COALESCE(s.AS_QteSto, 0) AS stock_disponible,
+                       COALESCE(s.AS_QteCom, 0) AS en_commande,
+                       COALESCE(s.AS_QteSto, 0) - COALESCE(s.AS_QteCom, 0) AS stock_net,
+                       a.AR_PrixVen AS prix_vente
+                FROM F_ARTICLE a
+                LEFT JOIN F_ARTSTOCK s ON a.AR_Ref = s.AR_Ref
+                WHERE COALESCE(s.AS_QteSto, 0) <= 0
+                ORDER BY a.AR_Ref
+            """,
+            "description": "Articles en rupture de stock",
+        }
+    ),
+
+    # ── Clients inactifs depuis N mois ───────────────────────────────
+    (
+        r"clients?\s+(?:qui\s+)?n['\u2019]ont\s+pas\s+command[eé]\s+depuis\s+(\d+)\s+mois"
+        r"|clients?\s+inactifs?\s+depuis\s+(\d+)\s+mois"
+        r"|quels?\s+clients?.{0,30}command[eé].{0,20}depuis\s+(\d+)\s+mois",
+        lambda m, conn: {
+            "sql": """
+                SELECT c.CT_Num, c.CT_Intitule,
+                       MAX(e.DO_Date) AS derniere_facture,
+                       COUNT(DISTINCT e.DO_Piece) AS nb_factures
+                FROM F_COMPTET c
+                LEFT JOIN F_DOCENTETE e ON c.CT_Num = e.CT_Num
+                    AND e.DO_Type = 3 AND e.DO_Domaine = 0
+                WHERE c.CT_Type = 0
+                GROUP BY c.CT_Num, c.CT_Intitule
+                HAVING derniere_facture IS NULL
+                    OR derniere_facture < DATE('now', '-{mois} days')
+                ORDER BY derniere_facture ASC
+            """.format(
+                mois=int(next((g for g in m.groups() if g), 6)) * 30
+            ),
+            "description": f"Clients inactifs depuis {next((g for g in m.groups() if g), '6')} mois",
+        }
+    ),
+
     # ── Factures par mois (nom ou numéro) ────────────────────────────
     (
         r"factures?.*?(?:du\s+mois\s+(?:de\s+)?|mois\s+)(\d{1,2})\b"
@@ -2308,9 +2543,17 @@ def lister_factures_fournisseurs_non_reglees_core(code_fourn: str = "") -> str:
 def lister_factures_fournisseurs_non_reglees(code_fournisseur: str = "") -> str:
     """Factures fournisseurs non réglées (DO_Domaine=1, absentes de reglements)."""
     return lister_factures_fournisseurs_non_reglees_core(code_fournisseur)
-# ═══════════════════════════════════════════════════════════════════════
-# ADDITIONS nl2sql_server.py — coller AVANT : if __name__ == "__main__":
-# ═══════════════════════════════════════════════════════════════════════
+
+
+@mcp.tool()
+def factures_impayees_fournisseur(code_fournisseur: str = "") -> str:
+    """[ALIAS] → lister_factures_fournisseurs_non_reglees"""
+    return lister_factures_fournisseurs_non_reglees_core(code_fournisseur)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# POINT D'ENTRÉE
+# ─────────────────────────────────────────────────────────────────────
 
 
 @mcp.tool()
@@ -2506,14 +2749,6 @@ def verifier_document_deja_transforme(
             "message":         f"Erreur vérification doublon : {e}",
         }, ensure_ascii=False)
 
-@mcp.tool()
-def factures_impayees_fournisseur(code_fournisseur: str = "") -> str:
-    """[ALIAS] → lister_factures_fournisseurs_non_reglees"""
-    return lister_factures_fournisseurs_non_reglees_core(code_fournisseur)
 
-
-# ─────────────────────────────────────────────────────────────────────
-# POINT D'ENTRÉE
-# ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     mcp.run()
