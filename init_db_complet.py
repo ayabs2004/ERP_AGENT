@@ -1,8 +1,8 @@
 import sqlite3
 from datetime import date, timedelta
 
-def init_database_complete():
-    conn = sqlite3.connect("entreprise_mock.db")
+def init_database_complete(db_path: str | None = None):
+    conn = sqlite3.connect(db_path or "entreprise_mock.db")
     cursor = conn.cursor()
 
     print("Creation de l'architecture complete type Sage...")

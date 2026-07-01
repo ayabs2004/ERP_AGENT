@@ -12,12 +12,17 @@ RÈGLE : toute modification de schéma se fait ICI uniquement.
 # Tuple : (DO_Type, DO_Domaine)
 # ─────────────────────────────────────────────────────────────────────
 DOC_CODES = {
-    "OF":      (1, 2),   # Ordre de Fabrication
-    "BL":      (2, 0),   # Bon de Livraison (vente)
-    "BF":      (2, 2),   # Bon de Fabrication
-    "FACTURE": (3, 0),   # Facture de vente  ← CA et chiffre d'affaires
-    "BC":      (4, 1),   # Bon de Commande fournisseur
-    "AVOIR":   (5, 1),   # Facture d'avoir
+    "OF":       (1, 2),   # Ordre de Fabrication
+    "BL":       (2, 0),   # Bon de Livraison (vente)
+    "BF":       (4, 2),   # Bon de Fabrication
+    "FACTURE":  (3, 0),   # Facture de vente  ← CA et chiffre d'affaires
+    "FA":       (3, 0),   # Alias facture
+    "FC":       (3, 0),   # Alias facture
+    "BC":       (6, 1),   # Bon de Commande fournisseur
+    "AV":       (9, 0),   # Avoir / note de crédit
+    "AVOIR":    (9, 0),   # Alias avoir
+    "BL_ACHAT": (2, 1),   # Bon de réception fournisseur
+    "FA_ACHAT": (3, 1),   # Facture fournisseur
 }
 
 # Raccourcis utiles
@@ -25,10 +30,26 @@ DOC_TYPE    = {k: v[0] for k, v in DOC_CODES.items()}
 DOC_DOMAINE = {k: v[1] for k, v in DOC_CODES.items()}
 
 # Types dont la création déclenche une sortie de stock
-DOC_DESTOCKANTS = {"BL", "FACTURE"}
+DOC_DESTOCKANTS = {"BL", "FACTURE", "FA", "FC"}
 
 # Types dont la création alimente le stock
-DOC_STOCKANTS = {"BF"}
+DOC_STOCKANTS = {"BF", "BL_ACHAT"}
+
+# Préfixes de pièces utilisés par le moteur d'insertion
+DOC_PREFIXES = {
+    "BL": "BL",
+    "FACTURE": "FA",
+    "FA": "FA",
+    "FC": "FA",
+    "BC": "BC",
+    "OF": "OF",
+    "BF": "BF",
+    "FF": "FF",
+    "AV": "AV",
+    "AVOIR": "AV",
+    "BL_ACHAT": "BR",
+    "FA_ACHAT": "AF",
+}
 
 # ─────────────────────────────────────────────────────────────────────
 # COLONNES (référence pour éviter les typos)
@@ -66,6 +87,9 @@ COL = {
 # ─────────────────────────────────────────────────────────────────────
 TVA_TAUX    = 0.19        # 19%
 MARGE_ESTIMEE = 0.22      # 22% marge brute estimée
+CURRENCY_CODE = "TND"
+CURRENCY_SYMBOL = "TND"
+CURRENCY_LABEL = "TND"
 
 # Filtre standard factures de vente
 SQL_FILTRE_FACTURES = "DO_Type = 3 AND DO_Domaine = 0"

@@ -9,11 +9,12 @@ Corrections v3.1 :
   - DO_Tiers remplacé par CT_Num (colonne réelle)
   - reglements et mouvements_stock créés si absents
 """
-
+from declaration import generer_declaration_mensuelle_excel as _gen_decla
 import json
 import os
 import re
 import sqlite3
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -95,17 +96,30 @@ def _resoudre_client(
     return row
 
 
+
+@mcp.tool()
+def generer_declaration_mensuelle_excel(periode: str) -> str:
+    """Génère un Excel avec 2 tableaux côte à côte (Achat / Vente) des factures du mois demandé.
+    'periode' est le texte libre de la demande (ex: 'juin 2026')."""
+    try:
+        return _gen_decla(periode)
+    except Exception as e:
+        return json.dumps({"erreur": str(e)}, ensure_ascii=False)
 # ─────────────────────────────────────────────────────────────────────
 # HELPER : MONTANT TOTAL D'UN DOCUMENT (depuis F_DOCLIGNE)
 # ─────────────────────────────────────────────────────────────────────
-def _montant_doc(conn: sqlite3.Connection, do_piece: str) -> float:
+def _to_decimal(value: object) -> Decimal:
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _montant_doc(conn: sqlite3.Connection, do_piece: str) -> Decimal:
     """Calcule le montant HT depuis F_DOCLIGNE (DO_TotalHT absent)."""
     row = conn.execute(
         """SELECT COALESCE(SUM(DL_Qte * DL_PrixUnitaire), 0) AS total
            FROM F_DOCLIGNE WHERE DO_Piece = ?""",
         (do_piece,),
     ).fetchone()
-    return float(row["total"]) if row else 0.0
+    return _to_decimal(row["total"]) if row else Decimal("0.00")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -146,9 +160,12 @@ def _formater_resultats(rows: list[dict], description: str) -> str:
         parts = []
         for k, v in row.items():
             if v is not None:
-                parts.append(
-                    f"{k}: {v:,.2f}" if isinstance(v, float) else f"{k}: {v}"
-                )
+                if isinstance(v, Decimal):
+                    parts.append(f"{k}: {v:,.2f}")
+                elif isinstance(v, float):
+                    parts.append(f"{k}: {v:,.2f}")
+                else:
+                    parts.append(f"{k}: {v}")
         lignes.append(f"  {i}. " + " | ".join(parts))
     if len(rows) > 20:
         lignes.append(f"  ... et {len(rows) - 20} résultat(s) supplémentaire(s)")

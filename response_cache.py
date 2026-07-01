@@ -67,7 +67,7 @@ class ResponseCache:
             if entry is None:
                 return None
             value, ts = entry
-            if time.monotonic() - ts > self._ttl:
+            if time.time() - ts > self._ttl:
                 del self._store[key]
                 return None
             return value
@@ -75,7 +75,7 @@ class ResponseCache:
     async def set(self, action: str, value: Any, user_id: str = "", **kwargs):
         key = self._ram_key(action, user_id, **kwargs)
         async with self._lock:
-            self._store[key] = (value, time.monotonic())
+            self._store[key] = (value, time.time())
 
     # ── Cache Disque ─────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ class ResponseCache:
                         if entry is None:
                             return None
                         value, ts = entry
-                        if time.monotonic() - ts > DISK_CACHE_TTL:
+                        if time.time() - ts > DISK_CACHE_TTL:
                             del db[key]
                             return None
                         return value
@@ -110,7 +110,7 @@ class ResponseCache:
             async with lock:
                 def _write():
                     with shelve.open(DISK_CACHE_PATH) as db:
-                        db[key] = (value, time.monotonic())
+                        db[key] = (value, time.time())
                 await asyncio.to_thread(_write)
         except Exception:
             pass
@@ -155,7 +155,7 @@ class ResponseCache:
                             _, ts = entry
                             # Marque comme expiré → sera supprimé au prochain accès
                             # Option plus agressive : supprimer toutes les entrées
-                            if time.monotonic() - ts > 0:  # toujours vrai → purge totale
+                            if time.time() - ts > 0:  # toujours vrai → purge totale
                                 del db[k]
                                 purged += 1
                     return purged
@@ -166,7 +166,7 @@ class ResponseCache:
             pass
 
     def stats(self) -> str:
-        now   = time.monotonic()
+        now   = time.time()
         total = len(self._store)
         valid = sum(1 for _, (_, ts) in self._store.items() if now - ts <= self._ttl)
         return f"Cache RAM: {valid}/{total} entrées valides (TTL={self._ttl}s)"

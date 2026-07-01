@@ -6,15 +6,71 @@ Expose toutes les fonctions de actions_sage.py comme outils MCP.
 """
 
 import json
+import logging
 import sqlite3
 import os
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp import types
+from schema_sage import (
+    DOC_CODES, DOC_DOMAINE, DOC_PREFIXES, DOC_TYPE, DOC_DESTOCKANTS, DOC_STOCKANTS,
+    CURRENCY_SYMBOL,
+)
+
+logger = logging.getLogger("sage.erp.actions")
+
+try:
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    from mcp import types
+except ModuleNotFoundError:  # pragma: no cover - fallback for test environments
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FallbackTextContent:
+        type: str
+        text: str
+
+    @dataclass
+    class _FallbackTool:
+        name: str
+        description: str
+        inputSchema: dict
+
+    class _FallbackTypes:
+        TextContent = _FallbackTextContent
+        Tool = _FallbackTool
+
+    types = _FallbackTypes()
+
+    class Server:
+        def __init__(self, name: str):
+            self.name = name
+
+        def list_tools(self):
+            def decorator(func):
+                return func
+            return decorator
+
+        def call_tool(self):
+            def decorator(func):
+                return func
+            return decorator
+
+        def create_initialization_options(self):
+            return {}
+
+    class _FallbackStdioServer:
+        async def __aenter__(self):
+            return None, None
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    stdio_server = _FallbackStdioServer
 
 # ─────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -37,6 +93,7 @@ def _safe_str(obj) -> str:
 def _get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
     # Création des tables annexes manquantes au premier accès
     conn.execute("""
         CREATE TABLE IF NOT EXISTS mouvements_stock (
@@ -61,17 +118,11 @@ def _get_conn():
     return conn
 
 
-def _generer_num_piece(type_doc: str) -> str:
-    prefixes = {
-        "BL": "BL", "FACTURE": "FA", "FA": "FA",
-        "BC": "BC", "OF": "OF", "BF": "BF", "FF": "FF",
-        "AV": "AV", "AVOIR": "AV",
-        "BL_ACHAT": "BR",   # Bon de Réception fournisseur
-        "FA_ACHAT": "AF",   # Achat Fournisseur (facture fournisseur)
-    }
-    prefix = prefixes.get(type_doc.upper(), type_doc[:2].upper())
-    ts = datetime.now().strftime("%y%m%d%H%M%S")
-    return f"{prefix}{ts}"
+def _generer_num_piece(type_doc: str, conn: Optional[sqlite3.Connection] = None) -> str:
+    prefix = DOC_PREFIXES.get(type_doc.upper(), type_doc[:2].upper())
+    ts = datetime.now().strftime("%y%m%d%H%M%S%f")
+    suffix = uuid4().hex[:8].upper()
+    return f"{prefix}{ts}{suffix}"
 
 
 def _resolve_client(conn: sqlite3.Connection, code_ou_nom: str) -> Optional[sqlite3.Row]:
@@ -90,7 +141,11 @@ def _resolve_client(conn: sqlite3.Connection, code_ou_nom: str) -> Optional[sqli
         "SELECT * FROM F_COMPTET WHERE CT_Intitule LIKE ? COLLATE NOCASE LIMIT 5",
         (f"%{code_ou_nom}%",)
     ).fetchall()
-    return dict(rows[0]) if rows else None
+    if not rows:
+        return None
+    if len(rows) > 1:
+        return None
+    return dict(rows[0])
 
 
 def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[sqlite3.Row]:
@@ -109,7 +164,23 @@ def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[sqli
         "SELECT * FROM F_ARTICLE WHERE AR_Design LIKE ? COLLATE NOCASE LIMIT 5",
         (f"%{ref_ou_nom}%",)
     ).fetchall()
-    return dict(rows[0]) if rows else None
+    if not rows:
+        return None
+    if len(rows) > 1:
+        return None
+    return dict(rows[0])
+
+
+def _to_decimal(value: object) -> Decimal:
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _money_text(value: object) -> str:
+    return f"{_to_decimal(value):.2f} {CURRENCY_SYMBOL}"
+
+
+def _decimal_sum(values) -> Decimal:
+    return sum((_to_decimal(value) for value in values), Decimal("0.00"))
 
 
 def _get_stock(conn: sqlite3.Connection, ref_article: str) -> float:
@@ -132,12 +203,22 @@ def _ajuster_stock_db(
 ) -> dict:
     """
     Met à jour F_ARTSTOCK et trace dans mouvements_stock.
+    Utilise une mise à jour atomique et refuse les sorties qui feraient
+    passer le stock sous zéro.
     """
-    stock_avant = _get_stock(conn, ref_article)
-    nouveau_stock = (
-        stock_avant - qte if type_mouvement == "SORTIE"
-        else stock_avant + qte
-    )
+    if qte < 0:
+        raise ValueError("La quantité de mouvement ne peut pas être négative")
+
+    type_mouvement = type_mouvement.upper()
+    row = conn.execute(
+        "SELECT AS_QteSto FROM F_ARTSTOCK WHERE AR_Ref = ? COLLATE NOCASE",
+        (ref_article,)
+    ).fetchone()
+    stock_avant = float(row["AS_QteSto"]) if row else 0.0
+    if type_mouvement == "SORTIE" and stock_avant < qte:
+        raise ValueError(f"Stock insuffisant pour {ref_article}: {stock_avant} < {qte}")
+
+    nouveau_stock = stock_avant - qte if type_mouvement == "SORTIE" else stock_avant + qte
     conn.execute(
         "UPDATE F_ARTSTOCK SET AS_QteSto = ? WHERE AR_Ref = ? COLLATE NOCASE",
         (nouveau_stock, ref_article)
@@ -192,57 +273,74 @@ def _inserer_document(
     type_doc: str,
     num_piece: str,
     code_client: str,
-    ref_article: str,
-    qte: float,
-    prix_unit: float,
-    montant: float,
+    ref_article: str = "",
+    qte: float = 0.0,
+    prix_unit: float = 0.0,
+    montant: float = 0.0,
     num_piece_of: str = "",
-) -> None:
+    lignes: Optional[list[dict]] = None,
+) -> str:
     """
-    Insère dans F_DOCENTETE (entête) et F_DOCLIGNE (ligne).
+    Insère dans F_DOCENTETE (entête) et F_DOCLIGNE (lignes).
     DO_Domaine : 0 = vente, 1 = achat, 2 = fabrication
     DO_Type    : 2 = BL, 3 = FA, 6 = BC, 1 = OF, 4 = BF, 9 = AV
     num_piece_of est stocké dans DO_Ref (champ libre de référence).
     """
-    domaine_map = {
-        "BL": 0, "FACTURE": 0, "FA": 0, "FC": 0, "AV": 0,
-        "BC": 1,
-        "OF": 2, "BF": 2,
-        # Achat fournisseur
-        "BL_ACHAT": 1,   # bon de réception fournisseur (DO_Domaine=1, DO_Type=2)
-        "FA_ACHAT": 1,   # facture fournisseur (DO_Domaine=1, DO_Type=3)
-    }
-    type_map = {
-        "BL": 2, "FACTURE": 3, "FA": 3, "FC": 3,
-        "BC": 6,
-        "OF": 1, "BF": 4,
-        "AV": 9,
-        # Achat fournisseur
-        "BL_ACHAT": 2,   # même DO_Type que BL vente, DO_Domaine=1 fait la différence
-        "FA_ACHAT": 3,   # même DO_Type que FA vente, DO_Domaine=1 fait la différence
-    }
-    domaine = domaine_map.get(type_doc.upper(), 0)
-    do_type = type_map.get(type_doc.upper(), 0)
+    domaine = DOC_DOMAINE.get(type_doc.upper(), 0)
+    do_type = DOC_TYPE.get(type_doc.upper(), 0)
 
-    conn.execute(
-        """INSERT OR REPLACE INTO F_DOCENTETE
-           (DO_Piece, DO_Domaine, DO_Type, DO_Date, DO_Ref, CT_Num)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (
-            num_piece,
-            domaine,
-            do_type,
-            datetime.now().date().isoformat(),
-            num_piece_of or None,
-            code_client,
-        )
-    )
-    conn.execute(
-        """INSERT INTO F_DOCLIGNE
-           (DO_Piece, AR_Ref, DL_Qte, DL_PrixUnitaire)
-           VALUES (?, ?, ?, ?)""",
-        (num_piece, ref_article, qte, prix_unit)
-    )
+    if lignes is None:
+        if isinstance(ref_article, list):
+            lignes = ref_article
+        else:
+            lignes = [{
+                "ref_article": ref_article,
+                "qte": qte,
+                "prix_unit": prix_unit,
+                "montant": montant,
+            }]
+
+    normalized_lignes = []
+    for ligne in lignes:
+        if not isinstance(ligne, dict):
+            continue
+        normalized_lignes.append({
+            "ref_article": ligne.get("ref_article") or ligne.get("AR_Ref") or "",
+            "qte": float(ligne.get("qte") or ligne.get("DL_Qte") or 0.0),
+            "prix_unit": float(_to_decimal(ligne.get("prix_unit") or ligne.get("DL_PrixUnitaire") or 0.0)),
+        })
+
+    if not normalized_lignes:
+        normalized_lignes = [{"ref_article": ref_article, "qte": qte, "prix_unit": float(_to_decimal(prix_unit))}]
+
+    piece_utilisee = num_piece or _generer_num_piece(type_doc, conn)
+    for _ in range(10):
+        try:
+            conn.execute(
+                """INSERT INTO F_DOCENTETE
+                   (DO_Piece, DO_Domaine, DO_Type, DO_Date, DO_Ref, CT_Num)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    piece_utilisee,
+                    domaine,
+                    do_type,
+                    datetime.now().date().isoformat(),
+                    num_piece_of or None,
+                    code_client,
+                )
+            )
+            for ligne in normalized_lignes:
+                conn.execute(
+                    """INSERT INTO F_DOCLIGNE
+                       (DO_Piece, AR_Ref, DL_Qte, DL_PrixUnitaire)
+                       VALUES (?, ?, ?, ?)""",
+                    (piece_utilisee, ligne["ref_article"], ligne["qte"], ligne["prix_unit"])
+                )
+            return piece_utilisee
+        except sqlite3.IntegrityError:
+            piece_utilisee = _generer_num_piece(type_doc, conn)
+            continue
+    raise sqlite3.IntegrityError("Unable to allocate a unique document number")
 
 
 def _suggestions_clients(conn: sqlite3.Connection, terme: str) -> list[dict]:
@@ -323,10 +421,30 @@ def _workflow_bl(
 
         ref_reelle  = article["AR_Ref"]
         desig       = article["AR_Design"]
-        prix_auto   = float(article["AR_PrixVen"] or 0.0)
-        prix_final  = prix_unitaire if prix_unitaire > 0 else prix_auto
+        prix_auto   = _to_decimal(article["AR_PrixVen"] or 0.0)
+        prix_final  = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(prix_auto))
         stock_dispo = _get_stock(conn, ref_reelle)
-        montant     = prix_final * quantite
+        montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        encours_max = float(client.get("CT_EncoursMax") or 0.0)
+        encours_actuel = conn.execute(
+            """
+            SELECT COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0.0) AS encours
+            FROM F_DOCENTETE e
+            LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+            WHERE e.CT_Num = ? AND e.DO_Type = 3 AND e.DO_Domaine = 0
+              AND e.DO_Piece NOT IN (SELECT DO_Piece FROM reglements)
+            """,
+            (code_reel,),
+        ).fetchone()[0]
+        if encours_max > 0 and encours_actuel + montant > encours_max:
+            return {
+                "statut": "ENCORS_MAX_ATTEINT",
+                "message": (
+                    f"⚠️  Encours dépassé pour {code_reel} : "
+                    f"{encours_actuel + montant:.2f} > {encours_max:.2f}"
+                ),
+            }
 
         # ── Contrôle stock ────────────────────────────────────────────
         if stock_dispo < quantite:
@@ -358,9 +476,8 @@ def _workflow_bl(
             }
 
         # ── Création BL ───────────────────────────────────────────────
-        num_bl = _generer_num_piece("BL")
-        _inserer_document(
-            conn, "BL", num_bl, code_reel,
+        num_bl = _inserer_document(
+            conn, "BL", "", code_reel,
             ref_reelle, quantite, prix_final, montant
         )
         mvt = _ajuster_stock_db(
@@ -374,8 +491,8 @@ def _workflow_bl(
             f"   • Client      : {nom_client} ({code_reel})\n"
             f"   • Article     : {desig} ({ref_reelle})\n"
             f"   • Quantité    : {quantite} u\n"
-            f"   • Prix unit.  : {prix_final:.2f} €\n"
-            f"   • Montant     : {montant:.2f} €\n"
+            f"   • Prix unit.  : {_money_text(prix_final)}\n"
+            f"   • Montant     : {_money_text(montant)}\n"
             f"   • Stock après : {mvt['stock_apres']} u\n"
         )
         if alerte_suspect:
@@ -501,9 +618,8 @@ def _workflow_of(
             cout_total += comp["total"]
 
         # ── Création OF dans F_DOCENTETE / F_DOCLIGNE ─────────────────
-        num_of = _generer_num_piece("OF")
-        _inserer_document(
-            conn, "OF", num_of, code_client or "PROD-INT",
+        num_of = _inserer_document(
+            conn, "OF", "", code_client or "PROD-INT",
             ref_reelle, quantite, 0.0, 0.0
         )
         conn.commit()
@@ -593,9 +709,8 @@ def _workflow_bf(
                 + (f" @ {prix:.3f} TND = {total:.3f} TND" if prix > 0 else "")
             )
 
-        num_bf = _generer_num_piece("BF")
-        _inserer_document(
-            conn, "BF", num_bf, code_client or "PROD-INT",
+        num_bf = _inserer_document(
+            conn, "BF", "", code_client or "PROD-INT",
             ref_reelle, quantite, 0.0, 0.0,
             num_piece_of=num_of          # stocké dans DO_Ref
         )
@@ -669,14 +784,51 @@ def _generer_facture_directe(
                 "suggestions": _suggestions_articles(conn, ref_article),
             }
 
-        prix_final = prix_unitaire or float(article["AR_PrixVen"] or 0.0)
-        montant    = prix_final * qte
-        num_fa     = _generer_num_piece("FACTURE")
-        _inserer_document(
-            conn, "FACTURE", num_fa,
+        statut_cl = str(client.get("CT_Validite") or "VALIDE").upper()
+        if statut_cl == "BLOQUE":
+            return {
+                "statut": "CLIENT_BLOQUE",
+                "message": f"🚫 Impossible de créer la facture : client {client['CT_Num']} est bloqué.",
+            }
+
+        prix_final = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(article["AR_PrixVen"] or 0.0))
+        montant    = float((prix_final * Decimal(str(qte))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+        stock_dispo = _get_stock(conn, article["AR_Ref"])
+        if stock_dispo < qte:
+            return {
+                "statut": "STOCK_INSUFFISANT",
+                "message": f"📦 Stock insuffisant pour {article['AR_Ref']} : dispo {stock_dispo}, demandé {qte}",
+                "stock_dispo": stock_dispo,
+                "qte_demandee": qte,
+            }
+
+        encours_max = _to_decimal(client.get("CT_EncoursMax") or 0.0)
+        encours_actuel = _to_decimal(conn.execute(
+            """
+            SELECT COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0.0) AS encours
+            FROM F_DOCENTETE e
+            LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+            WHERE e.CT_Num = ? AND e.DO_Type = 3 AND e.DO_Domaine = 0
+              AND e.DO_Piece NOT IN (SELECT DO_Piece FROM reglements)
+            """,
+            (client["CT_Num"],),
+        ).fetchone()[0])
+        if encours_max > 0 and encours_actuel + _to_decimal(montant) > encours_max:
+            return {
+                "statut": "ENCORS_MAX_ATTEINT",
+                "message": (
+                    f"⚠️  Encours dépassé pour {client['CT_Num']} : "
+                    f"{_money_text(encours_actuel + _to_decimal(montant))} > {_money_text(encours_max)}"
+                ),
+            }
+
+        num_fa = _inserer_document(
+            conn, "FACTURE", "",
             client["CT_Num"], article["AR_Ref"],
             qte, prix_final, montant
         )
+        _ajuster_stock_db(conn, article["AR_Ref"], qte, "SORTIE", motif=f"FACTURE {num_fa}")
         conn.commit()
 
         return {
@@ -690,7 +842,7 @@ def _generer_facture_directe(
                 f"   • Numéro  : {num_fa}\n"
                 f"   • Client  : {client['CT_Intitule']}\n"
                 f"   • Article : {article['AR_Design']}\n"
-                f"   • Montant : {montant:.2f} €"
+                f"   • Montant : {_money_text(montant)}"
             ),
         }
     finally:
@@ -718,11 +870,10 @@ def _generer_bc_direct(
                 "suggestions": _suggestions_articles(conn, ref_article),
             }
 
-        prix_final = prix_unitaire or float(article["AR_PrixVen"] or 0.0)
-        montant    = prix_final * qte
-        num_bc     = _generer_num_piece("BC")
-        _inserer_document(
-            conn, "BC", num_bc,
+        prix_final = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(article["AR_PrixVen"] or 0.0))
+        montant    = float((prix_final * Decimal(str(qte))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        num_bc     = _inserer_document(
+            conn, "BC", "",
             client["CT_Num"], article["AR_Ref"],
             qte, prix_final, montant
         )
@@ -736,7 +887,7 @@ def _generer_bc_direct(
                 f"   • Numéro  : {num_bc}\n"
                 f"   • Client  : {client['CT_Intitule']}\n"
                 f"   • Article : {article['AR_Design']}\n"
-                f"   • Montant : {montant:.2f} €"
+                f"   • Montant : {_money_text(montant)}"
             ),
         }
     finally:
@@ -792,15 +943,14 @@ def _workflow_bl_achat(
 
         ref_reelle  = article["AR_Ref"]
         desig       = article["AR_Design"]
-        prix_auto   = float(article["AR_PrixAch"] or 0.0)
-        prix_final  = prix_unitaire if prix_unitaire > 0 else prix_auto
+        prix_auto   = _to_decimal(article["AR_PrixAch"] or 0.0)
+        prix_final  = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(prix_auto))
         stock_avant = _get_stock(conn, ref_reelle)
-        montant     = prix_final * quantite
+        montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # ── Création BR (Bon de Réception) ─────────────────────────
-        num_br = _generer_num_piece("BL_ACHAT")
-        _inserer_document(
-            conn, "BL_ACHAT", num_br, code_reel,
+        num_br = _inserer_document(
+            conn, "BL_ACHAT", "", code_reel,
             ref_reelle, quantite, prix_final, montant
         )
         # ENTRÉE stock (on reçoit la marchandise)
@@ -823,7 +973,7 @@ def _workflow_bl_achat(
             f"   • Article         : {desig} ({ref_reelle})\n"
             f"   • Quantité reçue  : {quantite} u\n"
             f"   • Prix unit.      : {prix_final:.2f} €\n"
-            f"   • Montant HT      : {montant:.2f} €\n"
+            f"   • Montant HT      : {_money_text(montant)}\n"
             f"   • Stock avant     : {stock_avant} u\n"
             f"   • Stock après     : {mvt['stock_apres']} u  (+{quantite} u)\n"
         )
@@ -1319,22 +1469,66 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "message": f"❌ Document '{num_piece_source}' introuvable.",
                 }
             else:
-                # Lecture première ligne source
-                ligne = conn.execute(
-                    "SELECT * FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
-                    (num_piece_source,)
+                existing = conn.execute(
+                    "SELECT DO_Piece FROM F_DOCENTETE WHERE DO_Ref = ? AND DO_Type = ? AND DO_Domaine = ?",
+                    (num_piece_source, DOC_TYPE.get(type_destination.upper(), 0), DOC_DOMAINE.get(type_destination.upper(), 0)),
                 ).fetchone()
-                qte        = float(ligne["DL_Qte"])          if ligne else 0.0
-                prix_unit  = float(ligne["DL_PrixUnitaire"]) if ligne else 0.0
-                ref_article = ligne["AR_Ref"]                if ligne else ""
-                montant    = qte * prix_unit
+                if existing:
+                    result = {
+                        "statut":  "EXISTE_DEJA",
+                        "message": f"⚠️  Le document source '{num_piece_source}' a déjà été transformé en {type_destination.upper()} ({existing['DO_Piece']}).",
+                    }
+                    conn.close()
+                    return _to_text(result)
 
-                num_dest = _generer_num_piece(type_destination)
-                _inserer_document(
-                    conn, type_destination, num_dest,
-                    entete["CT_Num"], ref_article,
-                    qte, prix_unit, montant,
-                    num_piece_of=num_piece_source
+                lignes_source = conn.execute(
+                    "SELECT * FROM F_DOCLIGNE WHERE DO_Piece = ? ORDER BY DL_Ligne",
+                    (num_piece_source,)
+                ).fetchall()
+                lignes_dest = [{
+                    "ref_article": ligne["AR_Ref"],
+                    "qte": float(ligne["DL_Qte"]),
+                    "prix_unit": float(ligne["DL_PrixUnitaire"]),
+                } for ligne in lignes_source]
+
+                if type_destination.upper() in {"FACTURE", "FA", "FC"}:
+                    client = conn.execute(
+                        "SELECT CT_Num, CT_EncoursMax, CT_Validite FROM F_COMPTET WHERE CT_Num = ?",
+                        (entete["CT_Num"],),
+                    ).fetchone()
+                    if client:
+                        encours_max = _to_decimal(client["CT_EncoursMax"] or 0.0)
+                        encours_actuel = _to_decimal(conn.execute(
+                            """
+                            SELECT COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0.0) AS encours
+                            FROM F_DOCENTETE e
+                            LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                            WHERE e.CT_Num = ? AND e.DO_Type = 3 AND e.DO_Domaine = 0
+                              AND e.DO_Piece NOT IN (SELECT DO_Piece FROM reglements)
+                            """,
+                            (client["CT_Num"],),
+                        ).fetchone()[0])
+                        montant_total = float(_decimal_sum(
+                            (Decimal(str(l["qte"])) * Decimal(str(l["prix_unit"])) for l in lignes_dest)
+                        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                        if encours_max > 0 and encours_actuel + _to_decimal(montant_total) > encours_max:
+                            result = {
+                                "statut": "ENCORS_MAX_ATTEINT",
+                                "message": (
+                                    f"⚠️  Encours dépassé pour {client['CT_Num']} : "
+                                    f"{_money_text(encours_actuel + _to_decimal(montant_total))} > {_money_text(encours_max)}"
+                                ),
+                            }
+                            conn.close()
+                            return _to_text(result)
+
+                num_dest = _inserer_document(
+                    conn, type_destination, "",
+                    entete["CT_Num"],
+                    "",
+                    0.0, 0.0, 0.0,
+                    num_piece_of=num_piece_source,
+                    lignes=lignes_dest,
                 )
                 conn.commit()
                 result = {
@@ -1366,28 +1560,43 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "message": f"❌ Facture '{num_facture_origine}' introuvable.",
                 }
             else:
-                ligne = conn.execute(
-                    "SELECT * FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
+                lignes_source = conn.execute(
+                    "SELECT * FROM F_DOCLIGNE WHERE DO_Piece = ? ORDER BY DL_Ligne",
                     (num_facture_origine,)
-                ).fetchone()
-                qte       = float(ligne["DL_Qte"])          if ligne else 0.0
-                prix_unit = float(ligne["DL_PrixUnitaire"]) if ligne else 0.0
-                montant   = qte * prix_unit
-                ref_art   = ligne["AR_Ref"]                 if ligne else ""
+                ).fetchall()
+                lignes_dest = [{
+                    "ref_article": ligne["AR_Ref"],
+                    "qte": float(ligne["DL_Qte"]),
+                    "prix_unit": -float(ligne["DL_PrixUnitaire"]),
+                } for ligne in lignes_source]
 
-                num_av = _generer_num_piece("AV")
-                _inserer_document(
-                    conn, "AV", num_av,
-                    entete["CT_Num"], ref_art,
-                    qte, -prix_unit, -montant
+                existing_avoir = conn.execute(
+                    "SELECT DO_Piece FROM F_DOCENTETE WHERE DO_Ref = ? AND DO_Type = 9 AND DO_Domaine = 0",
+                    (num_facture_origine,),
+                ).fetchone()
+                if existing_avoir:
+                    result = {
+                        "statut":  "EXISTE_DEJA",
+                        "message": f"⚠️  Une avoir existe déjà pour cette facture ({existing_avoir['DO_Piece']}).",
+                    }
+                    conn.close()
+                    return _to_text(result)
+
+                num_av = _inserer_document(
+                    conn, "AV", "",
+                    entete["CT_Num"],
+                    "",
+                    0.0, 0.0, 0.0,
+                    lignes=lignes_dest,
                 )
                 conn.commit()
+                montant_total = sum(float(l["qte"]) * float(l["prix_unit"]) for l in lignes_dest)
                 result = {
                     "statut":   "CREE",
                     "DO_Piece": num_av,
                     "message": (
                         f"✅ Avoir {num_av} créé depuis {num_facture_origine}.\n"
-                        f"   Montant : -{montant:.2f} €"
+                        f"   Montant : {_money_text(-montant_total)}"
                     ),
                 }
         finally:
@@ -1416,10 +1625,21 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "SELECT DL_Qte, DL_PrixUnitaire FROM F_DOCLIGNE WHERE DO_Piece = ?",
                     (num_piece,)
                 ).fetchall()
-                montant_total = sum(
-                    float(l["DL_Qte"]) * float(l["DL_PrixUnitaire"])
-                    for l in lignes
-                )
+                montant_total = float(_decimal_sum(
+                    (Decimal(str(l["DL_Qte"])) * Decimal(str(l["DL_PrixUnitaire"])) for l in lignes)
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                existing_reglement = conn.execute(
+                    "SELECT 1 FROM reglements WHERE DO_Piece = ?",
+                    (num_piece,),
+                ).fetchone()
+                if existing_reglement:
+                    result = {
+                        "statut":  "EXISTE_DEJA",
+                        "message": f"⚠️  La facture '{num_piece}' a déjà un règlement enregistré.",
+                    }
+                    conn.close()
+                    return _to_text(result)
+
                 # Marque la facture réglée dans DO_Ref
                 conn.execute(
                     "UPDATE F_DOCENTETE SET DO_Ref = ? WHERE DO_Piece = ?",
@@ -1438,7 +1658,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "message": (
                         f"✅ Règlement enregistré !\n"
                         f"   • Document : {num_piece}\n"
-                        f"   • Montant  : {montant_total:.2f} €\n"
+                        f"   • Montant  : {_money_text(montant_total)}\n"
                         f"   • Mode     : {mode_paiement}"
                     ),
                 }

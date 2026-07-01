@@ -137,6 +137,10 @@ async def _input(prompt: str) -> str:
     return await asyncio.to_thread(input, prompt)
 
 
+def _est_mode_api() -> bool:
+    return os.getenv("APP_MODE", "").lower() in {"api", "production", "server"}
+
+
 # ─────────────────────────────────────────────────────────────────────
 # HELPERS OUI/NON
 # ─────────────────────────────────────────────────────────────────────
@@ -1055,7 +1059,11 @@ _PATTERNS_PRECLASS = [
     (r"payer?\s+(?:la\s+)?(?:facture\s+)?(?:FA|BL|BC|BF)\d+","REGLEMENT"),
     (r"paiement\s+(d.une\s+|de\s+la\s+)?facture",           "REGLEMENT"),
     (r"change.{0,20}statut.{0,20}facture.{0,20}r[eé]gl[eé]","REGLEMENT"),
-
+     # ── DECLARATION_EXCEL (mensuelle, 2 tableaux Achat/Vente) ────
+    (r".*\bd[eé]claration\b.*", "DECLARATION_EXCEL"),
+(r".*\bcr[eé]e(?:r)?\b.*\bd[eé]claration\b.*", "DECLARATION_EXCEL"),
+(r".*\bd[eé]claration\b.*\bmois\b.*", "DECLARATION_EXCEL"),
+(r".*\bd[eé]claration\b.*\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b.*", "DECLARATION_EXCEL"),
     # ══════════════════════════════════════════════════════════════
     # FIX 4 : DOCUMENTS PAR TYPE → NL2SQL_LIBRE (avant LISTE_CLIENTS)
     # ══════════════════════════════════════════════════════════════
@@ -1217,6 +1225,7 @@ _PATTERNS_PRECLASS = [
     (r"\brfm\b",                                           "RFM"),
     (r"analyse\s+rfm",                                     "RFM"),
     (r"segmentation\s+clients?",                           "RFM"),
+   
     # ── DASHBOARD_EXCEL ───────────────────────────────────────────
     (r"tableau\s+de\s+bord",                               "DASHBOARD_EXCEL"),
     (r"\bdashboard\b",                                     "DASHBOARD_EXCEL"),
@@ -1241,21 +1250,23 @@ _PATTERNS_PRECLASS = [
     (r"bon\s+de\s+fabrication",                             "GENERER_DOC"),
 ]
 
-
 def _pre_classifier(question: str) -> str | None:
-    """
-    Classification ultra-rapide par regex (0ms).
-    Prioritaire sur le LLM et les overrides sémantiques.
-    Retourne l'action ou None si aucun pattern ne matche.
-    """
     q = question.lower().strip()
-    # Si marqueur NL2SQL détecté → on bypasse les regex simples
-    if any(m in q for m in _MARQUEURS_NL2SQL_FORCE):
+
+    print("========== PRECLASS ==========")
+    print("Question :", q)
+
+    if any(re.search(r"\b" + re.escape(m) + r"\b", q) for m in _MARQUEURS_NL2SQL_FORCE):
+        print("FORCE NL2SQL")
         return "NL2SQL_LIBRE"
+
     for pattern, action in _PATTERNS_PRECLASS:
         if re.search(pattern, q, re.IGNORECASE):
-            print(f"   ⚡ [PreClass] {action} (regex, 0ms)")
+            print("MATCH :", pattern)
+            print("ACTION :", action)
             return action
+
+    print("AUCUN MATCH")
     return None
 
 
@@ -1667,7 +1678,17 @@ def _formater_ca_global(data: dict) -> str:
         f"  Nb clients    : {data.get('nb_clients', 0)}\n"
         f"  Période       : {data.get('date_debut', '?')} → {data.get('date_fin', '?')}"
     )
-
+def _formater_declaration(data: dict) -> str:
+    a, v = data.get("achat", {}), data.get("vente", {})
+    return (
+        f"📑 Déclaration {data.get('mois','')} {data.get('annee','')}\n{'─'*50}\n"
+        f"  🛒 Achat : {a.get('nb',0)} facture(s) │ HT {a.get('total_ht',0):,.2f} € │ "
+        f"TVA {a.get('total_tva',0):,.2f} € │ TTC {a.get('total_ttc',0):,.2f} €\n"
+        f"  💰 Vente : {v.get('nb',0)} facture(s) │ HT {v.get('total_ht',0):,.2f} € │ "
+        f"TVA {v.get('total_tva',0):,.2f} € │ TTC {v.get('total_ttc',0):,.2f} €\n"
+        f"{'─'*50}\n"
+        f"  📎 Fichier : {data.get('fichier','')}"
+    )
 
 def _formater_kpi(data: dict) -> str:
     return (
@@ -1781,6 +1802,7 @@ _FORMATEURS_JSON: dict[str, callable] = {
     "DSO":                    _formater_dso,
     "RFM":                    _formater_rfm,
     "DASHBOARD_EXCEL":        _formater_kpi,
+   "DECLARATION_EXCEL": _formater_declaration,
 }
 
 _ACTIONS_DEJA_TEXTE: set[str] = {
@@ -3324,6 +3346,11 @@ async def noeud_confirmation(state: CopilotState) -> CopilotState:
     if state["type_doc"]:    detail += f" | Type: {state['type_doc']}"
 
     print(f"\n⚠️  [Sécurité] [{act}]{detail}")
+    if _est_mode_api():
+        state["validation_ok"] = True
+        state["reponse_brute"] = "✅ Validation automatique en mode API ; attente de confirmation métier via le cycle draft/preview."
+        return state
+
     rep = await _input("❓ Confirmez-vous ? [Y/n] : ")
     state["validation_ok"] = rep.strip().lower() not in ("n", "no", "non")
     if not state["validation_ok"]:
@@ -3338,9 +3365,21 @@ async def noeud_lecture(state: CopilotState) -> CopilotState:
     print("📊 [Agent Lecture] Interrogation Sage...")
     act = state["action"]
 
-    _actions_client_requis = {"FICHE_CLIENT","STATUT_CLIENT","TOUTES_FACTURES_CLIENT","FACTURES_NON_REGLEES","FACTURES_NON_REGLEES_FOURN"}
+    _actions_client_requis = {
+        "FICHE_CLIENT",
+        "STATUT_CLIENT",
+        "TOUTES_FACTURES_CLIENT",
+        "FACTURES_NON_REGLEES",
+        "FACTURES_NON_REGLEES_FOURN",
+    }
+
     if act in _actions_client_requis and not state.get("code_client"):
-        nom_candidat = state.get("nom_client_brut") or state.get("dernier_code_client") or ""
+        nom_candidat = (
+            state.get("nom_client_brut")
+            or state.get("dernier_code_client")
+            or ""
+        )
+
         if nom_candidat:
             code = await _rechercher_client_par_nom(nom_candidat)
             if code:
@@ -3350,66 +3389,215 @@ async def noeud_lecture(state: CopilotState) -> CopilotState:
 
     try:
         tool_map = {
-            "TOP_CLIENTS":             ("nl2sql", "analyser_top_clients_ca",       {}),
-            "LISTE_CLIENTS":           ("nl2sql", "lister_clients_actifs",          {}),
-            "LISTE_ARTICLES":          ("nl2sql", "lister_articles_catalogue",      {}),
-            "PALMARES_ARTICLES":       ("nl2sql", "analyser_palmares_articles",     {}),
-            "CA_GLOBAL":               ("nl2sql", "calculer_ca_global_periode",     {}),
-            "CLIENTS_BAISSE":          ("nl2sql", "detecter_clients_baisse_ca",     {}),
-            "FACTURES_NON_REGLEES":    ("nl2sql", "lister_factures_impayees",       {"code_client": state.get("code_client", "")}),
-            "TOUTES_FACTURES_CLIENT":  ("nl2sql", "lister_toutes_factures_client",  {"code_client": state.get("code_client", "")}),
-            "VERIFIER_STOCK":          ("nl2sql", "verifier_stock_article",         {"ref_article": state.get("ref_article", "")}),
-            "FICHE_CLIENT":            ("nl2sql", "rechercher_fiche_client",        {"code_client": state.get("code_client", "")}),
-            "STATUT_CLIENT":           ("nl2sql", "verifier_statut_client",         {"code_client": state.get("code_client", "")}),
-            "DOCS_PERIODE":            ("nl2sql", "lister_documents_par_periode",   {"date_debut": state.get("date_debut",""), "date_fin": state.get("date_fin","")}),
-            "RENTABILITE":             ("nl2sql", "analyser_rentabilite_clients",   {}),
-            "SAISONNALITE":            ("nl2sql", "analyser_saisonnalite_ventes",   {}),
-            "DSO":                     ("nl2sql", "calculer_dso_clients",           {"code_client": state.get("code_client","")}),
-            "RFM":                     ("nl2sql", "analyser_rfm_clients",           {"code_client": state.get("code_client","")}),
-            "OFFRE_PRIX_EXCEL":        ("nl2sql", "exporter_offre_prix_excel",      {"code_client": state.get("code_client","")}),
-            "DECLARATION_EXCEL":       ("nl2sql", "exporter_declaration_fiscale_excel", {}),
-            "BALANCE_AGEE_EXCEL":      ("nl2sql", "exporter_balance_agee_excel",    {}),
-            "DASHBOARD_EXCEL":         ("nl2sql", "exporter_dashboard_kpi_excel",   {}),
-            "LISTE_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
-                "sql": "SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite FROM F_COMPTET WHERE CT_Type=1 ORDER BY CT_Intitule",
-                "description": "Liste des fournisseurs",
-            }),
-            "TOP_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
-                "sql": (
-                    "SELECT c.CT_Num, c.CT_Intitule, "
-                    "COUNT(DISTINCT e.DO_Piece) AS nb_commandes, "
-                    "COALESCE(SUM(l.DL_Qte*l.DL_PrixUnitaire),0) AS volume_achat "
-                    "FROM F_COMPTET c "
-                    "LEFT JOIN F_DOCENTETE e ON c.CT_Num=e.CT_Num AND e.DO_Type=6 AND e.DO_Domaine=1 "
-                    "LEFT JOIN F_DOCLIGNE l ON e.DO_Piece=l.DO_Piece "
-                    "WHERE c.CT_Type=1 "
-                    "GROUP BY c.CT_Num ORDER BY volume_achat DESC LIMIT 10"
-                ),
-                "description": "Top fournisseurs par volume d'achat",
-            }),
-            "FICHE_FOURNISSEUR": ("nl2sql", "executer_sql_vanna", {
-                "sql": (
-                    f"SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite "
-                    f"FROM F_COMPTET "
-                    f"WHERE CT_Type=1 AND (CT_Num='{state.get('code_client','')}' "
-                    f"OR UPPER(CT_Intitule) LIKE UPPER('%{state.get('code_client','')}%')) LIMIT 1"
-                ),
-                "description": f"Fiche fournisseur {state.get('code_client','')}",
-            }),
-            "FACTURES_NON_REGLEES_FOURN": ("nl2sql", "lister_factures_fournisseurs_non_reglees", {
-                "code_fournisseur": state.get("code_client", ""),
-            }),
+            "TOP_CLIENTS": ("nl2sql", "analyser_top_clients_ca", {}),
+            "LISTE_CLIENTS": ("nl2sql", "lister_clients_actifs", {}),
+            "LISTE_ARTICLES": ("nl2sql", "lister_articles_catalogue", {}),
+            "PALMARES_ARTICLES": ("nl2sql", "analyser_palmares_articles", {}),
+            "CA_GLOBAL": ("nl2sql", "calculer_ca_global_periode", {}),
+            "CLIENTS_BAISSE": ("nl2sql", "detecter_clients_baisse_ca", {}),
+
+            "FACTURES_NON_REGLEES": (
+                "nl2sql",
+                "lister_factures_impayees",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "TOUTES_FACTURES_CLIENT": (
+                "nl2sql",
+                "lister_toutes_factures_client",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "VERIFIER_STOCK": (
+                "nl2sql",
+                "verifier_stock_article",
+                {
+                    "ref_article": state.get("ref_article", "")
+                },
+            ),
+
+            "FICHE_CLIENT": (
+                "nl2sql",
+                "rechercher_fiche_client",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "STATUT_CLIENT": (
+                "nl2sql",
+                "verifier_statut_client",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "DOCS_PERIODE": (
+                "nl2sql",
+                "lister_documents_par_periode",
+                {
+                    "date_debut": state.get("date_debut", ""),
+                    "date_fin": state.get("date_fin", ""),
+                },
+            ),
+
+            "RENTABILITE": (
+                "nl2sql",
+                "analyser_rentabilite_clients",
+                {},
+            ),
+
+            "SAISONNALITE": (
+                "nl2sql",
+                "analyser_saisonnalite_ventes",
+                {},
+            ),
+
+            "DSO": (
+                "nl2sql",
+                "calculer_dso_clients",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "RFM": (
+                "nl2sql",
+                "analyser_rfm_clients",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "OFFRE_PRIX_EXCEL": (
+                "nl2sql",
+                "exporter_offre_prix_excel",
+                {
+                    "code_client": state.get("code_client", "")
+                },
+            ),
+
+            "DECLARATION_EXCEL": (
+                "nl2sql",
+                "generer_declaration_mensuelle_excel",
+                {
+                    "periode": state["demande_brute"]
+                },
+            ),
+
+            "BALANCE_AGEE_EXCEL": (
+                "nl2sql",
+                "exporter_balance_agee_excel",
+                {},
+            ),
+
+            "DASHBOARD_EXCEL": (
+                "nl2sql",
+                "exporter_dashboard_kpi_excel",
+                {},
+            ),
+
+            "LISTE_FOURNISSEURS": (
+                "nl2sql",
+                "executer_sql_vanna",
+                {
+                    "sql": """
+                        SELECT
+                            CT_Num,
+                            CT_Intitule,
+                            CT_Encours,
+                            CT_EncoursMax,
+                            CT_Validite
+                        FROM F_COMPTET
+                        WHERE CT_Type = 1
+                        ORDER BY CT_Intitule
+                    """,
+                    "description": "Liste des fournisseurs",
+                },
+            ),
+
+            "TOP_FOURNISSEURS": (
+                "nl2sql",
+                "executer_sql_vanna",
+                {
+                    "sql": """
+                        SELECT
+                            c.CT_Num,
+                            c.CT_Intitule,
+                            COUNT(DISTINCT e.DO_Piece) AS nb_commandes,
+                            COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire),0) AS volume_achat
+                        FROM F_COMPTET c
+                        LEFT JOIN F_DOCENTETE e
+                            ON c.CT_Num = e.CT_Num
+                            AND e.DO_Type = 6
+                            AND e.DO_Domaine = 1
+                        LEFT JOIN F_DOCLIGNE l
+                            ON e.DO_Piece = l.DO_Piece
+                        WHERE c.CT_Type = 1
+                        GROUP BY c.CT_Num, c.CT_Intitule
+                        ORDER BY volume_achat DESC
+                        LIMIT 10
+                    """,
+                    "description": "Top fournisseurs par volume d'achat",
+                },
+            ),
+
+            "FICHE_FOURNISSEUR": (
+                "nl2sql",
+                "executer_sql_vanna",
+                {
+                    "sql": (
+                        f"SELECT CT_Num, CT_Intitule, CT_Encours, "
+                        f"CT_EncoursMax, CT_Validite "
+                        f"FROM F_COMPTET "
+                        f"WHERE CT_Type=1 AND "
+                        f"(CT_Num='{state.get('code_client','')}' "
+                        f"OR UPPER(CT_Intitule) LIKE "
+                        f"UPPER('%{state.get('code_client','')}%')) "
+                        f"LIMIT 1"
+                    ),
+                    "description": f"Fiche fournisseur {state.get('code_client','')}",
+                },
+            ),
+
+            "FACTURES_NON_REGLEES_FOURN": (
+                "nl2sql",
+                "lister_factures_fournisseurs_non_reglees",
+                {
+                    "code_fournisseur": state.get("code_client", "")
+                },
+            ),
         }
+
         if act in tool_map:
             server, tool, args = tool_map[act]
             state["reponse_brute"] = await mcp_pool.call(server, tool, args)
         else:
             state["reponse_brute"] = f"__INCONNU__:{act}"
+
+        # Récupère le chemin du fichier généré (Excel, PDF, etc.)
+        if act in ACTIONS_EXPORT:
+            try:
+                data_export = json.loads(state["reponse_brute"])
+
+                if (
+                    isinstance(data_export, dict)
+                    and data_export.get("fichier")
+                ):
+                    state["pdf_path"] = data_export["fichier"]
+
+            except json.JSONDecodeError:
+                pass
+
     except Exception as e:
-        state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
+        print(f"❌ Erreur dans noeud_lecture : {e}")
+        state["reponse_brute"] = str(e)
+
     return state
-
-
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD NL2SQL
 # ─────────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ Améliorations v3 :
 """
 
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -43,6 +44,8 @@ MCP_SERVERS = {
 
 MCP_POOL_INIT_TIMEOUT = float(os.getenv("MCP_POOL_INIT_TIMEOUT", "30"))
 MCP_CALL_TIMEOUT      = float(os.getenv("MCP_CALL_TIMEOUT",      "60"))
+
+logger = logging.getLogger("sage.erp.mcp_pool")
 
 # Backoff exponentiel pour les reconnexions
 _RECONNECT_BASE_DELAY = 1.0   # secondes
@@ -117,8 +120,8 @@ class MCPPool:
         if self._ready:
             return
 
-        print("🔌 [MCPPool] Initialisation des connexions MCP persistantes...")
-        print(f"   Python : {sys.executable}")
+        logger.info("Initialisation des connexions MCP persistantes")
+        logger.info("Python : %s", sys.executable)
 
         results = await asyncio.gather(
             *[self._connect_one(name, params)
@@ -128,12 +131,11 @@ class MCPPool:
 
         for name, result in zip(MCP_SERVERS.keys(), results):
             if isinstance(result, Exception):
-                print(f"   ⚠️  [{name}] échec connexion : {result!r} "
-                      f"— fallback subprocess activé")
+                logger.warning("%s échec connexion : %r — fallback subprocess activé", name, result)
 
         self._ready = True
         connected = len(self._conns)
-        print(f"🔌 [MCPPool] {connected}/{len(MCP_SERVERS)} serveurs connectés.\n")
+        logger.info("%s/%s serveurs connectés", connected, len(MCP_SERVERS))
 
     async def _connect_one(self, name: str, params: StdioServerParameters):
         """Lance et initialise une connexion persistante pour un serveur."""
@@ -142,7 +144,7 @@ class MCPPool:
             await conn.connect(params, timeout=MCP_POOL_INIT_TIMEOUT)
             self._conns[name] = conn
             self._reconnect_attempts[name] = 0
-            print(f"   ✅ [{name}] connecté")
+            logger.info("%s connecté", name)
         except Exception as e:
             await conn.close()
             raise e
@@ -176,12 +178,19 @@ class MCPPool:
                         timeout=MCP_CALL_TIMEOUT,
                     )
                     self._reconnect_attempts[server] = 0  # reset sur succès
-                    return res.content[0].text
+                    contents = getattr(res, "content", None) or []
+                    if not contents:
+                        raise RuntimeError(f"{server}.{tool} returned an empty MCP response")
+                    first = contents[0]
+                    text = getattr(first, "text", None)
+                    if text is None:
+                        raise RuntimeError(f"{server}.{tool} returned a non-text MCP response: {first!r}")
+                    return text
                 except asyncio.TimeoutError:
-                    print(f"   ⚠️  [MCPPool] '{server}.{tool}' timeout ({MCP_CALL_TIMEOUT}s) → reconnexion")
+                    logger.warning("%s.%s timeout (%ss) → reconnexion", server, tool, MCP_CALL_TIMEOUT)
                     await self._reconnect(server)
                 except Exception as e:
-                    print(f"   ⚠️  [MCPPool] Session '{server}' erreur : {e} → reconnexion")
+                    logger.warning("Session %s erreur : %s → reconnexion", server, e)
                     await self._reconnect(server)
 
                 # Nouvelle tentative après reconnexion
@@ -198,7 +207,7 @@ class MCPPool:
                         ) from e2
 
         # ── Fallback : subprocess éphémère ───────────────────────────
-        print(f"   🔄 [MCPPool] Fallback subprocess pour '{server}.{tool}'")
+        logger.info("Fallback subprocess pour %s.%s", server, tool)
         params = MCP_SERVERS.get(server)
         if params is None:
             raise ValueError(f"[MCPPool] Serveur inconnu : '{server}'")
@@ -226,7 +235,7 @@ class MCPPool:
         self._reconnect_attempts[name] = attempt + 1
 
         if attempt > 0:
-            print(f"   ⏳ [MCPPool] '{name}' attente {delay:.1f}s avant reconnexion (essai {attempt+1})...")
+            logger.info("%s attente %.1fs avant reconnexion (essai %s)", name, delay, attempt + 1)
             await asyncio.sleep(delay)
 
         params = MCP_SERVERS.get(name)
@@ -235,23 +244,23 @@ class MCPPool:
 
         try:
             await self._connect_one(name, params)
-            print(f"   🔄 [MCPPool] '{name}' reconnecté avec succès.")
+            logger.info("%s reconnecté avec succès", name)
         except Exception as e:
-            print(f"   ❌ [MCPPool] '{name}' reconnexion impossible : {e}")
+            logger.exception("%s reconnexion impossible", name)
 
     # ──────────────────────────────────────────────────────────────────
     # Fermeture
     # ──────────────────────────────────────────────────────────────────
     async def close(self):
         """Ferme proprement toutes les sessions (appeler à la fin du programme)."""
-        print("🔌 [MCPPool] Fermeture de toutes les connexions...")
+        logger.info("Fermeture de toutes les connexions")
         await asyncio.gather(
             *[conn.close() for conn in self._conns.values()],
             return_exceptions=True,
         )
         self._conns.clear()
         self._ready = False
-        print("🔌 [MCPPool] Toutes les connexions fermées.")
+        logger.info("Toutes les connexions fermées")
 
 
 # ─────────────────────────────────────────────────────────────────────

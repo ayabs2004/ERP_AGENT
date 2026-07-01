@@ -1,23 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle, FileText, Bell, Loader } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import ReactMarkdown from 'react-markdown';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { useState, useRef, useEffect } from "react";
+import axios from "axios";
+import { Send, Sparkles, Bell, Loader2, FileText } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
+import ReactMarkdown from "react-markdown";
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+const SESSION_ID = localStorage.getItem("sessionId") || uuidv4();
+localStorage.setItem("sessionId", SESSION_ID);
 
-const SESSION_ID = localStorage.getItem('sessionId') || uuidv4();
-localStorage.setItem('sessionId', SESSION_ID);
-
-const API_BASE = 'http://localhost:8000';
+const API_BASE = "http://localhost:8000";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   pdfUrl?: string | null;
 }
@@ -32,23 +26,28 @@ interface ChatResponse {
 }
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([{
-    id: '1',
-    role: 'assistant',
-    content: "Bonjour ! Je suis **Copilot ERP**, votre assistant intelligent pour Sage 100.\nComment puis-je vous aider aujourd'hui ?"
-  }]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "1",
+      role: "assistant",
+      content:
+        "Bonjour ! Je suis **Copilot ERP**, votre assistant intelligent pour Sage 100.\nComment puis-je vous aider aujourd'hui ?",
+    },
+  ]);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [draftStatus, setDraftStatus] = useState<string>('');
+  const [draftStatus, setDraftStatus] = useState("");
   const [alerts, setAlerts] = useState<string[]>([]);
   const [attenteComplements, setAttenteComplements] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   };
 
   useEffect(() => {
@@ -60,20 +59,23 @@ function App() {
 
     const userMessage: Message = {
       id: uuidv4(),
-      role: 'user',
-      content: displayText ?? text
+      role: "user",
+      content: displayText ?? text,
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsLoading(true);
     setSuggestions([]);
 
     try {
-      const response = await axios.post<ChatResponse>(`${API_BASE}/api/chat`, {
-        session_id: SESSION_ID,
-        message: text
-      });
+      const response = await axios.post<ChatResponse>(
+        `${API_BASE}/api/chat`,
+        {
+          session_id: SESSION_ID,
+          message: text,
+        }
+      );
 
       const {
         responses,
@@ -81,50 +83,59 @@ function App() {
         draft_status,
         pdf_url,
         alerts: newAlerts,
-        attente_complements
+        attente_complements,
       } = response.data;
 
-      const newMessages: Message[] = responses.map((res, idx) => ({
+      const assistantMessages: Message[] = responses.map((msg, index) => ({
         id: uuidv4(),
-        role: 'assistant',
-        content: res,
-        pdfUrl: idx === responses.length - 1 ? pdf_url : null,
+        role: "assistant",
+        content: msg,
+        pdfUrl: index === responses.length - 1 ? pdf_url : null,
       }));
 
-      setMessages(prev => [...prev, ...newMessages]);
+      setMessages((prev) => [...prev, ...assistantMessages]);
       setSuggestions(newSuggestions ?? []);
-      setDraftStatus(draft_status ?? '');
+      setDraftStatus(draft_status ?? "");
       setAlerts(newAlerts ?? []);
-      setAttenteComplements(!!attente_complements);
+      setAttenteComplements(attente_complements);
+    } catch (err) {
+      console.error(err);
 
-    } catch (error) {
-      console.error(error);
-      setMessages(prev => [...prev, {
-        id: uuidv4(),
-        role: 'system',
-        content: "❌ Une erreur de connexion avec le serveur est survenue."
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: "system",
+          content:
+            "❌ Une erreur est survenue lors de la communication avec le serveur.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSuggestion = (action: string) => sendMessage(action);
-  const handleDraftConfirm = () => sendMessage('CONFIRM', '✅ Confirmer le document');
-  const handleDraftCancel = () => sendMessage('ANNULER', '🛑 Annuler le document');
 
-  const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+  const handleDraftConfirm = () =>
+    sendMessage("CONFIRM", "✅ Confirmer le document");
+
+  const handleDraftCancel = () =>
+    sendMessage("ANNULER", "🛑 Annuler le document");
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden">
 
       {/* SIDEBAR */}
-      <div className="w-80 bg-gray-950/80 border-r border-gray-800 flex flex-col p-6">
+      <div className="w-80 bg-gray-950 border-r border-gray-800 p-6 flex flex-col">
         <div className="flex items-center gap-3 mb-10">
-          <div className="bg-sage-600 p-2 rounded-xl text-white">
-            <Sparkles size={24} />
+          <div className="bg-green-600 p-2 rounded-xl">
+            <Sparkles />
           </div>
-          <h1 className="text-2xl font-bold">Copilot ERP</h1>
+
+          <h1 className="text-2xl font-bold">
+            Copilot ERP
+          </h1>
         </div>
 
         <div className="text-sm text-gray-400 space-y-2">
@@ -134,11 +145,18 @@ function App() {
           <p>✔ Workflow Commandes</p>
         </div>
 
-        <div className="mt-6 space-y-2">
-          <button onClick={() => sendMessage("reset")} className="text-xs bg-gray-800 px-2 py-1 rounded">
+        <div className="mt-8 space-y-2">
+          <button
+            className="w-full bg-gray-800 rounded p-2"
+            onClick={() => sendMessage("reset")}
+          >
             Reset Session
           </button>
-          <button onClick={() => sendMessage("aide")} className="text-xs bg-gray-800 px-2 py-1 rounded">
+
+          <button
+            className="w-full bg-gray-800 rounded p-2"
+            onClick={() => sendMessage("aide")}
+          >
             Aide
           </button>
         </div>
@@ -147,46 +165,91 @@ function App() {
       {/* MAIN */}
       <div className="flex-1 flex flex-col">
 
-        {/* ALERTS */}
         {alerts.length > 0 && (
-          <div className="bg-amber-900/80 p-3 text-amber-200">
-            <Bell size={16} className="inline mr-2" />
-            {alerts.join('\n')}
+          <div className="bg-amber-900 text-amber-200 p-3">
+            <Bell className="inline mr-2" size={16} />
+            {alerts.join(" • ")}
           </div>
         )}
 
-        {/* MESSAGES */}
+        {/* CHAT */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {messages.map(msg => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${
+                msg.role === "user"
+                  ? "justify-end"
+                  : "justify-start"
+              }`}
+            >
               <div className="max-w-[70%]">
 
-                <div className="bg-gray-800 p-4 rounded-xl">
+                <div className="bg-gray-800 rounded-xl p-4">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
 
-                {/* PDF LINK FIXED */}
-                {msg.pdfUrl && (
-                  <a
-                    href={`${API_BASE}${msg.pdfUrl}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-2 text-sm text-blue-400"
-                  >
-                    <FileText size={14} className="inline mr-1" />
-                    Ouvrir PDF
-                  </a>
-                )}
+                {msg.pdfUrl && (() => {
+                  const isExcel = msg.pdfUrl
+                    .toLowerCase()
+                    .endsWith(".xlsx");
 
+                  return (
+                    <a
+                      href={`${API_BASE}${msg.pdfUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={isExcel}
+                      className="inline-flex items-center gap-2 mt-2 text-blue-400 hover:text-blue-300"
+                    >
+                      <FileText size={16} />
+
+                      {isExcel
+                        ? "Télécharger Excel"
+                        : "Ouvrir PDF"}
+                    </a>
+                  );
+                })()}
               </div>
             </div>
           ))}
 
           {isLoading && (
-            <div className="text-gray-400 flex items-center gap-2">
+            <div className="flex items-center gap-2 text-gray-400">
               <Loader2 className="animate-spin" />
               Copilot réfléchit...
+            </div>
+          )}
+
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleSuggestion(s)}
+                  className="bg-gray-800 px-3 py-2 rounded-lg hover:bg-gray-700"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {draftStatus === "draft" && (
+            <div className="flex gap-3">
+              <button
+                onClick={handleDraftConfirm}
+                className="bg-green-600 px-4 py-2 rounded"
+              >
+                Confirmer
+              </button>
+
+              <button
+                onClick={handleDraftCancel}
+                className="bg-red-600 px-4 py-2 rounded"
+              >
+                Annuler
+              </button>
             </div>
           )}
 
@@ -199,23 +262,27 @@ function App() {
             e.preventDefault();
             sendMessage(input);
           }}
-          className="p-4 border-t border-gray-800 flex gap-2"
+          className="border-t border-gray-800 p-4 flex gap-2"
         >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="flex-1 bg-gray-900 p-3 rounded-xl"
-            placeholder={attenteComplements ? "Répondre au champ..." : "Message..."}
+            placeholder={
+              attenteComplements
+                ? "Répondez au complément..."
+                : "Votre message..."
+            }
+            className="flex-1 bg-gray-800 rounded-xl p-3 outline-none"
           />
 
           <button
+            type="submit"
             disabled={!input.trim() || isLoading}
-            className="bg-sage-600 px-4 rounded-xl"
+            className="bg-green-600 px-5 rounded-xl disabled:opacity-50"
           >
             <Send size={18} />
           </button>
         </form>
-
       </div>
     </div>
   );

@@ -1,12 +1,14 @@
 import asyncio
+import logging
 import os
 import shutil
+import time
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import traceback
 from typing import Dict, Any, List, Optional
 
 from orchestrateur_general import (
@@ -17,6 +19,9 @@ from orchestrateur_general import (
     _etat_initial, _extraire_dernier_document, _safe_str,
     formater_alertes_persistantes,
 )
+
+logger = logging.getLogger("sage.erp.api")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 graphe = None
 
@@ -41,7 +46,7 @@ def _exposer_pdf(pdf_path: str) -> Optional[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global graphe
-    print("⏳ [API] Chargement parallèle des composants...")
+    logger.info("Chargement parallèle des composants")
     init_tasks = [mcp_pool.init(), _warmup_ollama()]
     if ENABLE_VANNA:  init_tasks.append(_get_vanna_async())
     if ENABLE_GLINER: init_tasks.append(_get_gliner_async())
@@ -49,9 +54,9 @@ async def lifespan(app: FastAPI):
 
     await asyncio.gather(*init_tasks, return_exceptions=True)
     graphe = _construire_graphe()
-    print("✅ [API] Prêt.")
+    logger.info("API prête")
     yield
-    print("👋 [API] Arrêt en cours...")
+    logger.info("Arrêt de l'API")
     await mcp_pool.close()
 
 
@@ -70,6 +75,48 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 sessions: Dict[str, Dict[str, Any]] = {}
 dernieres_demandes: Dict[str, str] = {}
+SESSION_TTL_SECONDS = float(os.getenv("SESSION_TTL_SECONDS", "1800"))
+MAX_SESSIONS = int(os.getenv("MAX_SESSIONS", "2000"))
+
+
+def _cleanup_sessions(now: float | None = None) -> None:
+    now = now if now is not None else time.time()
+    expired = [sid for sid, state in sessions.items() if now - float(state.get("_last_access", now)) > SESSION_TTL_SECONDS]
+    for sid in expired:
+        sessions.pop(sid, None)
+        dernieres_demandes.pop(sid, None)
+    if len(sessions) > MAX_SESSIONS:
+        oldest = sorted(sessions.items(), key=lambda item: float(item[1].get("_last_access", now)))[: len(sessions) - MAX_SESSIONS]
+        for sid, _ in oldest:
+            sessions.pop(sid, None)
+            dernieres_demandes.pop(sid, None)
+
+
+def _get_or_create_session(session_id: str) -> tuple[str, Dict[str, Any]]:
+    _cleanup_sessions()
+    normalized = (session_id or "").strip() or f"anon-{uuid.uuid4().hex[:8]}"
+    state = sessions.get(normalized)
+    if state is None:
+        state = {
+            "dernier_code_client":   "",
+            "dernier_ref_article":   "",
+            "dernier_quantite":      0.0,
+            "dernier_nom_client":    "",
+            "dernier_document":      {},
+            "dernier_num_piece":     "",
+            "dernier_type_doc":      "",
+            "suggestion_en_attente": {},
+            "attente_complements":   False,
+            "pending_document":      {},
+            "document_draft":        {},
+            "statut_draft":          "",
+            "alertes_persistantes":  [],
+            "_last_access":         time.time(),
+        }
+        sessions[normalized] = state
+        dernieres_demandes[normalized] = ""
+    state["_last_access"] = time.time()
+    return normalized, state
 
 
 class ChatRequest(BaseModel):
@@ -88,28 +135,8 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
-    session_id = req.session_id
+    session_id, contexte_session = _get_or_create_session(req.session_id)
     demande = req.message.strip()
-
-    if session_id not in sessions:
-        sessions[session_id] = {
-            "dernier_code_client":   "",
-            "dernier_ref_article":   "",
-            "dernier_quantite":      0.0,
-            "dernier_nom_client":    "",
-            "dernier_document":      {},
-            "dernier_num_piece":     "",
-            "dernier_type_doc":      "",
-            "suggestion_en_attente": {},
-            "attente_complements":   False,
-            "pending_document":      {},
-            "document_draft":        {},
-            "statut_draft":          "",
-            "alertes_persistantes":  [],
-        }
-        dernieres_demandes[session_id] = ""
-
-    contexte_session = sessions[session_id]
     demande_precedente = dernieres_demandes.get(session_id, "")
 
     if not demande:
@@ -161,7 +188,8 @@ async def chat_endpoint(req: ChatRequest):
             try:
                 final_state = await graphe.ainvoke(etat)
             except Exception as e:
-                final_state = {**etat, "reponse_finale": f"❌ Erreur système : {_safe_str(e)}"}
+                logger.exception("Erreur pendant l'exécution du graphe pour session %s", session_id)
+                final_state = {**etat, "reponse_finale": "❌ Une erreur système s'est produite. Veuillez réessayer."}
 
             reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
 

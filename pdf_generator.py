@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
@@ -33,11 +34,13 @@ from reportlab.platypus import (
 from reportlab.pdfgen import canvas as _canvas
 
 from mcp_actions_sage import _get_conn, _resolve_article
+from schema_sage import CURRENCY_SYMBOL, CURRENCY_LABEL
 
 OUTPUT_DIR = Path(os.getenv("PDF_OUTPUT_DIR", "./documents_generes"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 TIMBRE_FISCAL = 1.000  # 1 DT — timbre fiscal facture (Tunisie)
+CURRENCY_UNIT = CURRENCY_SYMBOL
 
 # Titres affichés selon le type de document
 _TITRES = {
@@ -110,6 +113,10 @@ def _filigrane_draft(c: _canvas.Canvas, w: float, h: float):
     c.rotate(40)
     c.drawCentredString(0, 0, "BROUILLON")
     c.restoreState()
+
+
+def _to_decimal(value: object) -> Decimal:
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _bandeau_draft(c: _canvas.Canvas, w: float, h: float):
@@ -243,13 +250,13 @@ def generer_pdf(entete: EnteteDocument) -> str:
 
     if avec_double_qte:
         if avec_prix:
-            header = ["Référence", "Description", "Qté\ncommandée", "Qté\nlivrée", "PU (TND)", "Observations"]
+            header = ["Référence", "Description", "Qté\ncommandée", "Qté\nlivrée", f"PU ({CURRENCY_UNIT})", "Observations"]
             col_widths = [20 * mm, 55 * mm, 18 * mm, 18 * mm, 22 * mm, 24 * mm]
         else:
             header = ["Référence", "Description", "Qté\ncommandée", "Qté\nlivrée", "Observations"]
             col_widths = [22 * mm, 70 * mm, 22 * mm, 22 * mm, 33 * mm]
     elif avec_totaux:
-        header = ["Référence", "Description", "Qté", "PU (TND)", "Total HT"]
+        header = ["Référence", "Description", "Qté", f"PU ({CURRENCY_UNIT})", "Total HT"]
         col_widths = [22 * mm, 65 * mm, 18 * mm, 28 * mm, 36 * mm]
     elif avec_prix:
         header = ["Référence", "Description", "Quantité", "PU (TND)", "Observations"]
@@ -259,12 +266,12 @@ def generer_pdf(entete: EnteteDocument) -> str:
         col_widths = [24 * mm, 85 * mm, 25 * mm, 35 * mm]
 
     data = [header]
-    total_ht = 0.0
+    total_ht = Decimal("0.00")
     for l in entete.lignes:
         qte_l = l.qte_livree if l.qte_livree is not None else l.qte_commandee
         if avec_double_qte:
             if avec_prix:
-                total_ht += l.qte_commandee * l.prix_unitaire
+                total_ht += _to_decimal(Decimal(str(l.qte_commandee)) * Decimal(str(l.prix_unitaire)))
                 data.append([
                     l.reference, l.description, f"{l.qte_commandee:g}", f"{qte_l:g}",
                     f"{l.prix_unitaire:.3f}", l.observation,
@@ -290,7 +297,7 @@ def generer_pdf(entete: EnteteDocument) -> str:
         story.append(Paragraph("<b>Nomenclature / Matières premières</b>", style_bold))
         story.append(Spacer(1, 4))
         data_n = [[
-            "Réf. composant", "Désignation", "Qté", "PU (TND)", "Total TND"
+            "Réf. composant", "Désignation", "Qté", f"PU ({CURRENCY_UNIT})", f"Total {CURRENCY_UNIT}"
         ]]
         for item in entete.nomenclature:
             data_n.append([

@@ -14,6 +14,8 @@ import sqlite3
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
+from schema_sage import COL, DOC_DOMAINE, DOC_TYPE
+
 mcp = FastMCP("Sage-API-Translator")
 DB_PATH = str(Path(__file__).parent / "entreprise_mock.db")
 
@@ -31,53 +33,53 @@ SAGE_SCHEMA = {
     "TABLE_DOC_LIGNE":   "F_DOCLIGNE",
 
     # Colonnes F_COMPTET
-    "COL_CLIENT_ID":     "CT_Num",
-    "COL_CLIENT_NOM":    "CT_Intitule",
-    "COL_CLIENT_TYPE":   "CT_Type",
-    "COL_CLIENT_STATUT": "CT_Validite",
-    "COL_CLIENT_ENCOURS":"CT_Encours",
+    "COL_CLIENT_ID":     COL["CT_NUM"],
+    "COL_CLIENT_NOM":    COL["CT_INTITULE"],
+    "COL_CLIENT_TYPE":   COL["CT_TYPE"],
+    "COL_CLIENT_STATUT": COL["CT_VALIDITE"],
+    "COL_CLIENT_ENCOURS": COL["CT_ENCOURS"],
 
     # Colonnes F_ARTICLE
-    "COL_ART_REF":       "AR_Ref",
-    "COL_ART_DESIGN":    "AR_Design",
-    "COL_ART_PRIX_ACH":  "AR_PrixAch",
-    "COL_ART_PRIX_VEN":  "AR_PrixVen",
+    "COL_ART_REF":       COL["AR_REF"],
+    "COL_ART_DESIGN":    COL["AR_DESIGN"],
+    "COL_ART_PRIX_ACH":  COL["AR_PRIXACH"],
+    "COL_ART_PRIX_VEN":  COL["AR_PRIXVEN"],
     "COL_ART_TYPE":      "AR_Type",
 
     # Colonnes F_ARTSTOCK
-    "COL_STOCK_REF":     "AR_Ref",
-    "COL_STOCK_QTE":     "AS_QteSto",
-    "COL_STOCK_QTE_COM": "AS_QteCom",
+    "COL_STOCK_REF":     COL["AR_REF"],
+    "COL_STOCK_QTE":     COL["AS_QTESTO"],
+    "COL_STOCK_QTE_COM": COL["AS_QTECOM"],
     "COL_STOCK_QTE_AHA": "AS_QteAchaCom",
 
     # Colonnes F_DOCENTETE
-    "COL_DOC_PIECE":     "DO_Piece",
-    "COL_DOC_DOMAINE":   "DO_Domaine",
-    "COL_DOC_TYPE":      "DO_Type",
-    "COL_DOC_DATE":      "DO_Date",
-    "COL_DOC_TIERS":     "CT_Num",
-    "COL_DOC_REF":       "DO_Ref",
+    "COL_DOC_PIECE":     COL["DO_PIECE"],
+    "COL_DOC_DOMAINE":   COL["DO_DOMAINE"],
+    "COL_DOC_TYPE":      COL["DO_TYPE"],
+    "COL_DOC_DATE":      COL["DO_DATE"],
+    "COL_DOC_TIERS":     COL["CT_NUM"],
+    "COL_DOC_REF":       COL["DO_REF"],
 
     # Colonnes F_DOCLIGNE
-    "COL_LIG_PIECE":     "DO_Piece",
-    "COL_LIG_ART":       "AR_Ref",
-    "COL_LIG_QTE":       "DL_Qte",
-    "COL_LIG_PU":        "DL_PrixUnitaire",
+    "COL_LIG_PIECE":     COL["DO_PIECE"],
+    "COL_LIG_ART":       COL["AR_REF"],
+    "COL_LIG_QTE":       COL["DL_QTE"],
+    "COL_LIG_PU":        COL["DL_PU"],
 
     # Codes types de documents Sage
     "DOC_TYPE": {
-        "OF":      1,
-        "BF":      2,
-        "BL":      3,
-        "FACTURE": 4,
-        "AVOIR":   5,
-        "BC":      6,
+        "OF":      DOC_TYPE.get("OF", 1),
+        "BF":      DOC_TYPE.get("BF", 2),
+        "BL":      DOC_TYPE.get("BL", 2),
+        "FACTURE": DOC_TYPE.get("FACTURE", 3),
+        "AVOIR":   DOC_TYPE.get("AVOIR", 9),
+        "BC":      DOC_TYPE.get("BC", 6),
     },
     # Domaines
     "DOC_DOMAINE": {
-        "VENTE":       0,
-        "ACHAT":       1,
-        "FABRICATION": 2,
+        "VENTE":       DOC_DOMAINE.get("BL", 0),
+        "ACHAT":       DOC_DOMAINE.get("BL_ACHAT", 1),
+        "FABRICATION": DOC_DOMAINE.get("OF", 2),
     }
 }
 
@@ -182,18 +184,18 @@ def resoudre_type_document(libelle: str) -> str:
     Utile pour que l'orchestrateur n'ait pas à connaître les codes internes.
     """
     correspondances = {
-        "facture":           ("FACTURE", 4, 0),
-        "fa":                ("FACTURE", 4, 0),
-        "avoir":             ("AVOIR",   5, 0),
-        "av":                ("AVOIR",   5, 0),
-        "bon de livraison":  ("BL",      3, 0),
-        "bl":                ("BL",      3, 0),
-        "bon de commande":   ("BC",      6, 0),
-        "bc":                ("BC",      6, 0),
-        "ordre de fab":      ("OF",      1, 2),
-        "of":                ("OF",      1, 2),
-        "bon de fab":        ("BF",      2, 2),
-        "bf":                ("BF",      2, 2),
+        "facture":           ("FACTURE", DOC_TYPE.get("FACTURE", 3), DOC_DOMAINE.get("FACTURE", 0)),
+        "fa":                ("FACTURE", DOC_TYPE.get("FACTURE", 3), DOC_DOMAINE.get("FACTURE", 0)),
+        "avoir":             ("AVOIR",   DOC_TYPE.get("AVOIR", 9), DOC_DOMAINE.get("AVOIR", 0)),
+        "av":                ("AVOIR",   DOC_TYPE.get("AVOIR", 9), DOC_DOMAINE.get("AVOIR", 0)),
+        "bon de livraison":  ("BL",      DOC_TYPE.get("BL", 2), DOC_DOMAINE.get("BL", 0)),
+        "bl":                ("BL",      DOC_TYPE.get("BL", 2), DOC_DOMAINE.get("BL", 0)),
+        "bon de commande":   ("BC",      DOC_TYPE.get("BC", 6), DOC_DOMAINE.get("BC", 1)),
+        "bc":                ("BC",      DOC_TYPE.get("BC", 6), DOC_DOMAINE.get("BC", 1)),
+        "ordre de fab":      ("OF",      DOC_TYPE.get("OF", 1), DOC_DOMAINE.get("OF", 2)),
+        "of":                ("OF",      DOC_TYPE.get("OF", 1), DOC_DOMAINE.get("OF", 2)),
+        "bon de fab":        ("BF",      DOC_TYPE.get("BF", 4), DOC_DOMAINE.get("BF", 2)),
+        "bf":                ("BF",      DOC_TYPE.get("BF", 4), DOC_DOMAINE.get("BF", 2)),
     }
 
     key = libelle.lower().strip()
