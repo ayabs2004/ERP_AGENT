@@ -1,22 +1,42 @@
 import asyncio
+import os
+import shutil
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import traceback
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
-# Imports depuis l'orchestrateur général
 from orchestrateur_general import (
     mcp_pool, _warmup_ollama, ENABLE_VANNA, ENABLE_GLINER, ENABLE_MEM0,
     _get_vanna_async, _get_gliner_async, _get_mem0_async,
     _construire_graphe, _est_oui, _est_non, _executer_suggestion,
     _resoudre_references, decouper_demande_composite, _fusionner_demandes,
-    _etat_initial, _extraire_dernier_document, _safe_str
+    _etat_initial, _extraire_dernier_document, _safe_str,
+    formater_alertes_persistantes,
 )
 
-# Initialisation du graphe
 graphe = None
+
+# ── Dossier public pour servir les PDF générés ──────────────────────
+PDF_PUBLIC_DIR = "static/pdf"
+os.makedirs(PDF_PUBLIC_DIR, exist_ok=True)
+
+
+def _exposer_pdf(pdf_path: str) -> Optional[str]:
+    """Copie le PDF généré dans le dossier public et renvoie son URL relative."""
+    if not pdf_path or not os.path.exists(pdf_path):
+        return None
+    nom = os.path.basename(pdf_path)
+    dest = os.path.join(PDF_PUBLIC_DIR, nom)
+    try:
+        shutil.copy(pdf_path, dest)
+        return f"/static/pdf/{nom}"
+    except Exception:
+        return None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +46,7 @@ async def lifespan(app: FastAPI):
     if ENABLE_VANNA:  init_tasks.append(_get_vanna_async())
     if ENABLE_GLINER: init_tasks.append(_get_gliner_async())
     if ENABLE_MEM0:   init_tasks.append(_get_mem0_async())
-    
+
     await asyncio.gather(*init_tasks, return_exceptions=True)
     graphe = _construire_graphe()
     print("✅ [API] Prêt.")
@@ -34,28 +54,37 @@ async def lifespan(app: FastAPI):
     print("👋 [API] Arrêt en cours...")
     await mcp_pool.close()
 
+
 app = FastAPI(title="Sage ERP Agent API", lifespan=lifespan)
 
-# CORS pour autoriser le frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En développement
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Stockage des sessions en mémoire
+# Sert les PDF générés sous /static/pdf/...
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 sessions: Dict[str, Dict[str, Any]] = {}
 dernieres_demandes: Dict[str, str] = {}
+
 
 class ChatRequest(BaseModel):
     session_id: str
     message: str
 
+
 class ChatResponse(BaseModel):
     responses: List[str]
     suggestions: List[str]
+    draft_status: str = ""
+    pdf_url: Optional[str] = None
+    alerts: List[str] = []
+    attente_complements: bool = False
+
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -73,7 +102,10 @@ async def chat_endpoint(req: ChatRequest):
             "dernier_type_doc":      "",
             "suggestion_en_attente": {},
             "attente_complements":   False,
-            "pending_document":      {}
+            "pending_document":      {},
+            "document_draft":        {},
+            "statut_draft":          "",
+            "alertes_persistantes":  [],
         }
         dernieres_demandes[session_id] = ""
 
@@ -86,9 +118,19 @@ async def chat_endpoint(req: ChatRequest):
     sugg = contexte_session.get("suggestion_en_attente", {})
     if sugg and (_est_oui(demande) or _est_non(demande)):
         if _est_oui(demande):
+            contexte_session["pdf_path"] = ""
             reponse_sugg = await _executer_suggestion(sugg, contexte_session)
             contexte_session["suggestion_en_attente"] = {}
-            return ChatResponse(responses=[reponse_sugg], suggestions=[])
+            alertes_txt = formater_alertes_persistantes(contexte_session)
+            pdf_url = _exposer_pdf(contexte_session.get("pdf_path", ""))
+            return ChatResponse(
+                responses=[reponse_sugg],
+                suggestions=[],
+                draft_status=contexte_session.get("statut_draft", ""),
+                pdf_url=pdf_url,
+                alerts=[alertes_txt] if alertes_txt else [],
+                attente_complements=contexte_session.get("attente_complements", False),
+            )
         else:
             contexte_session["suggestion_en_attente"] = {}
             return ChatResponse(responses=["🛑 Suggestion annulée."], suggestions=[])
@@ -98,19 +140,24 @@ async def chat_endpoint(req: ChatRequest):
         sous_demandes = await decouper_demande_composite(demande_resolue)
         reponses_multi = []
         suggestions = []
+        dernier_pdf_url: Optional[str] = None
 
         for sous_d in sous_demandes:
             demande_courante = sous_d["demande"]
 
-            if (demande_precedente and demande_courante.lower() in ("oui","o","ok","yes","y") and not sugg):
+            if (demande_precedente and demande_courante.lower() in ("oui", "o", "ok", "yes", "y") and not sugg):
                 demande_courante = _fusionner_demandes(demande_precedente, demande_courante)
 
             etat = _etat_initial(demande_courante, contexte_session)
-            
+
             if contexte_session.get("attente_complements"):
                 etat["attente_complements"] = True
                 etat["pending_document"] = contexte_session.get("pending_document", {})
-                
+
+            if contexte_session.get("document_draft"):
+                etat["document_draft"] = contexte_session["document_draft"]
+                etat["statut_draft"] = contexte_session.get("statut_draft", "")
+
             try:
                 final_state = await graphe.ainvoke(etat)
             except Exception as e:
@@ -118,22 +165,30 @@ async def chat_endpoint(req: ChatRequest):
 
             reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
 
-            # Mise à jour du contexte
+            # ── Persistance du cycle draft/preview/confirm ──
+            contexte_session["document_draft"] = final_state.get("document_draft", {})
+            contexte_session["statut_draft"] = final_state.get("statut_draft", "")
+
+            # ── PDF généré pendant ce tour ──
+            pdf_url = _exposer_pdf(final_state.get("pdf_path", ""))
+            if pdf_url:
+                dernier_pdf_url = pdf_url
+
             if final_state.get("code_client"):
                 contexte_session["dernier_code_client"] = final_state["code_client"]
             if final_state.get("ref_article"):
                 contexte_session["dernier_ref_article"] = final_state["ref_article"]
             if final_state.get("quantite", 0) > 0:
                 contexte_session["dernier_quantite"] = final_state["quantite"]
-                
+
             _ACTIONS_AVEC_CLIENT = {
                 "FICHE_CLIENT", "STATUT_CLIENT", "TOUTES_FACTURES_CLIENT",
                 "GENERER_DOC", "TRANSFORMER_DOC", "CREER_AVOIR", "REGLEMENT",
                 "MODIFIER_STATUT", "CREER_CLIENT", "WORKFLOW_COMMANDE",
             }
-            if final_state.get("nom_client_brut") and final_state.get("action","") in _ACTIONS_AVEC_CLIENT:
+            if final_state.get("nom_client_brut") and final_state.get("action", "") in _ACTIONS_AVEC_CLIENT:
                 contexte_session["dernier_nom_client"] = final_state["nom_client_brut"]
-            elif final_state.get("action","") not in _ACTIONS_AVEC_CLIENT:
+            elif final_state.get("action", "") not in _ACTIONS_AVEC_CLIENT:
                 contexte_session["dernier_nom_client"] = ""
 
             doc_extrait = _extraire_dernier_document(final_state)
@@ -144,11 +199,11 @@ async def chat_endpoint(req: ChatRequest):
                     contexte_session["dernier_document"] = {}
 
             if doc_extrait:
-                num_p  = doc_extrait.get("num_piece", "")
+                num_p = doc_extrait.get("num_piece", "")
                 type_p = doc_extrait.get("type_doc", "")
                 if num_p:
                     contexte_session["dernier_num_piece"] = num_p
-                    contexte_session["dernier_type_doc"]  = type_p
+                    contexte_session["dernier_type_doc"] = type_p
 
             if not final_state.get("ambigue"):
                 contexte_session["dernier_quantite"] = 0.0
@@ -173,7 +228,18 @@ async def chat_endpoint(req: ChatRequest):
             if sugg_nouvelle:
                 suggestions.append(sugg_nouvelle.get("description", ""))
 
-        return ChatResponse(responses=reponses_multi, suggestions=suggestions)
+        # ── Alertes persistantes (ex : BF requis pour OF) ──
+        alertes_txt = formater_alertes_persistantes(contexte_session)
+        alerts = [alertes_txt] if alertes_txt else []
+
+        return ChatResponse(
+            responses=reponses_multi,
+            suggestions=suggestions,
+            draft_status=contexte_session.get("statut_draft", ""),
+            pdf_url=dernier_pdf_url,
+            alerts=alerts,
+            attente_complements=contexte_session.get("attente_complements", False),
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

@@ -11,6 +11,7 @@ v9.3 — 7 corrections appliquées :
   FIX 7 : noeud_synthese bloc NL2SQL_LIBRE dédié + SYNTHESE_TIMEOUT 120s
 """
 
+from datetime import datetime
 import asyncio
 import re
 import json
@@ -23,7 +24,15 @@ import warnings
 import shelve
 import hashlib
 import itertools
-
+from draft_flow import (
+    SCHEMAS_DOCUMENTS, est_confirmation_stricte, est_annulation_stricte,
+    champs_manquants as df_champs_manquants,
+    question_pour_champ, injecter_reponse_dans_draft,
+    construire_draft_depuis_state, generer_preview,
+    executer_draft_confirme, generer_pdf_final,
+    _verifier_stock_draft,
+    ajouter_alerte_bf_requis, resoudre_alerte_bf, formater_alertes_persistantes,
+)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -981,12 +990,15 @@ _PATTERNS_PRECLASS = [
     # ══════════════════════════════════════════════════════════════
     # FIX 2 : TRANSFORMER_DOC — PRIORITÉ ABSOLUE (avant GENERER_DOC)
     # ══════════════════════════════════════════════════════════════
-    (r"transform[e\s]+.{0,30}\bof\b.{0,20}\bbf\b",            "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,30}\bbl\b.{0,20}facture",           "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,30}\bbc\b.{0,20}\bbl\b",            "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,15}(?:fa|bl|bc|of|bf)\d+",          "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,15}[a-z]{2}\d{6,}",                 "TRANSFORMER_DOC"),
-    (r"convert[i\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)", "TRANSFORMER_DOC"),
+    (r"transform(?:e|er)?\s+.*\bof(?:\d+)?\b.*\bbf(?:\d+)?\b",            "GENERER_DOC"),
+    (r"transform(?:e|er)?\s+.*\bbf(?:\d+)?\b.*\bof(?:\d+)?\b",            "GENERER_DOC"),
+    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+)?bf\b",                           "GENERER_DOC"),
+    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+)?bon\s+de\s+fabrication\b",       "GENERER_DOC"),
+    (r"transform(?:e|er)?\s+.*\bbl\b.*\bfacture\b",                      "TRANSFORMER_DOC"),
+    (r"transform(?:e|er)?\s+.*\bbc\b.*\bbl\b",                          "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,15}(?:fa|bl|bc|of|bf)\d+",                     "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,15}[a-z]{2}\d{6,}",                            "TRANSFORMER_DOC"),
+    (r"convert[i\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)",         "TRANSFORMER_DOC"),
     (r"facturer\s+(?:le\s+)?bl\b",                             "TRANSFORMER_DOC"),
     (r"passer\s+(?:le\s+)?(?:bl|of)\b.{0,20}en\b",            "TRANSFORMER_DOC"),
 
@@ -1006,6 +1018,8 @@ _PATTERNS_PRECLASS = [
     (r"\bbl\s+(pour|client|cli)",                           "GENERER_DOC"),
     (r"cr[eé][eé]?\s+(un\s+)?of\b",                        "GENERER_DOC"),
     (r"ordre\s+de\s+fabrication",                           "GENERER_DOC"),
+    (r"cr[eé][eé]?\s+.*\bbf\s+pour\s+\bof\b",          "GENERER_DOC"),
+    (r"bf\s+pour\s+\bof\b",                                "GENERER_DOC"),
     (r"cr[eé][eé]?\s+(un\s+)?bf\b",                        "GENERER_DOC"),
     (r"cr[eé][eé]?\s+(une?\s+)?facture",                    "GENERER_DOC"),
     (r"g[eé]n[eè]re?\s+(une?\s+)?facture",                  "GENERER_DOC"),
@@ -1282,6 +1296,10 @@ class CopilotState(TypedDict):
     pending_action: dict
     pending_document: dict
     attente_complements: bool
+    document_draft:   dict
+    statut_draft:     str   # "" | "COLLECTE" | "PREVIEW"
+    pdf_path:         str
+    num_of_resolu: str
 
 
 def _etat_initial(demande: str, contexte_session: dict | None = None) -> CopilotState:
@@ -1308,8 +1326,10 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         nom_client_brut=ctx.get("dernier_nom_client", ""),
         suggestion_en_attente={},
         pending_action={},
+        document_draft={}, statut_draft="", pdf_path="",
 pending_document={},
 attente_complements=False,
+num_of_resolu=""
     )
 
 def verifier_document_incomplet(state):
@@ -2153,13 +2173,227 @@ async def _mcp_workflow_bf(
         "code_client": code_client,
     })
     return _parse_mcp_response(raw)
+async def _enrichir_draft_client_article(draft: dict) -> dict:
+    """Complète le draft avec l'intitulé client et le prix de vente de l'article."""
+    code_client = draft.get("code_client", "")
+    ref_article = draft.get("ref_article", "")
+
+    if code_client and not draft.get("intitule_client"):
+        try:
+            txt = await mcp_pool.call(
+                "nl2sql", "rechercher_fiche_client", {"code_client": code_client}
+            )
+            data = json.loads(txt)
+            if data.get("CT_Intitule"):
+                draft["intitule_client"] = data["CT_Intitule"]
+        except Exception as e:
+            print(f"   ⚠️  [Enrichissement] intitulé client : {_safe_str(e)}")
+
+    if ref_article and not draft.get("prix_unitaire"):
+        try:
+            txt = await mcp_pool.call(
+                "nl2sql", "executer_sql_vanna",
+                {
+                    "sql": f"SELECT AR_PrixVen FROM F_ARTICLE WHERE UPPER(AR_Ref)=UPPER('{ref_article}')",
+                    "description": f"Prix de vente de {ref_article}",
+                },
+            )
+            data = json.loads(txt)
+            rows = data.get("resultats") or data.get("rows") or []
+            if rows:
+                first_row = rows[0]
+                prix = first_row.get("AR_PrixVen") if isinstance(first_row, dict) else first_row["AR_PrixVen"] if "AR_PrixVen" in first_row.keys() else None
+                if prix is not None:
+                    draft["prix_unitaire"] = float(prix)
+        except Exception as e:
+            print(f"   ⚠️  [Enrichissement] prix article : {_safe_str(e)}")
+
+    return draft
+async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
+    """
+    Construit/complète le draft. Si CONFIRM/ANNULER reçu alors qu'un draft
+    est déjà en PREVIEW, route directement vers l'exécution ou l'annulation.
+    """
+    demande = state["demande_brute"]
+
+    # ── Cas 1 : un draft est déjà en attente côté session (réinjecté par main()) ──
+    draft_existant = state.get("document_draft") or {}
+    if draft_existant and state.get("statut_draft") == "PREVIEW":
+        if est_confirmation_stricte(demande):
+            state["statut_draft"] = "CONFIRME"
+            return state
+        if est_annulation_stricte(demande):
+            state["statut_draft"] = "ANNULE"
+            state["document_draft"] = {}
+            state["reponse_finale"] = "🛑 Brouillon annulé. Rien n'a été enregistré."
+            return state
+        # ni confirm ni annuler → réponse libre, on ignore et on rappelle la consigne
+        state["statut_draft"] = "PREVIEW"
+        state["reponse_finale"] = (
+            "ℹ️  Un brouillon est en attente. Tapez **CONFIRM** pour valider "
+            "ou **ANNULER** pour abandonner."
+        )
+        return state
+
+    # ── Cas 2 : complément de champ manquant (réponse à une question posée) ──
+    if draft_existant and state.get("statut_draft") == "COLLECTE":
+        draft = injecter_reponse_dans_draft(draft_existant.get("type_doc", ""), draft_existant, demande)
+        state["document_draft"] = draft
+    else:
+        # ── Cas 3 : nouveau draft depuis la classification ──
+        state["document_draft"] = construire_draft_depuis_state(state)
+    state["document_draft"] = await _enrichir_draft_client_article(state["document_draft"])
+    
+    manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
+    if manquants:
+        state["statut_draft"] = "COLLECTE"
+        state["reponse_finale"] = question_pour_champ(state["document_draft"]["type_doc"], manquants[0])
+    else:
+        type_d_check = state["document_draft"].get("type_doc", "").upper()
+
+        if type_d_check == "BL":
+            ok, stock_msg = await _verifier_stock_draft(state["document_draft"])
+            if not ok:
+                state["statut_draft"] = ""
+                state["document_draft"] = {}
+                state["reponse_finale"] = (
+                    stock_msg or
+                    "❌ Stock insuffisant pour créer le brouillon BL. Vérifiez la quantité ou le stock disponible."
+                )
+                return state
+
+        if type_d_check == "BF":
+            # ── Anti-doublon : l'OF source a-t-il déjà un BF lié ? ──
+            num_of_src = state["document_draft"].get("num_of", "")
+            if num_of_src:
+                try:
+                    import sqlite3 as _sq
+                    _conn = _sq.connect(str(_db_path))
+                    _row = _conn.execute(
+                        "SELECT DO_Piece FROM F_DOCENTETE "
+                        "WHERE DO_Ref = ? AND DO_Type = 4 AND DO_Domaine = 2 LIMIT 1",
+                        (num_of_src,)
+                    ).fetchone()
+                    _conn.close()
+                    if _row:
+                        state["statut_draft"] = ""
+                        state["document_draft"] = {}
+                        state["reponse_finale"] = (
+                            f"⚠️  L'OF **{num_of_src}** a déjà été transformé en Bon de Fabrication.\n"
+                            f"   (BF existant : {_row[0]})\n"
+                            f"   La fabrication est déjà en cours ou terminée."
+                        )
+                        return state
+                except Exception as _e:
+                    print(f"   ⚠️  [BF] Vérif doublon échouée : {_e}")
+
+        state["statut_draft"] = "PREVIEW"
+    return state
 
 
+async def noeud_preview_draft(state: CopilotState) -> CopilotState:
+    if state.get("statut_draft") != "PREVIEW":
+        return state  # déjà géré (question posée ou annulé)
+    texte, pdf_path = await generer_preview(state["document_draft"])
+    state["pdf_path"] = pdf_path
+    state["reponse_finale"] = texte
+    return state
+
+
+async def noeud_execution_draft(state: CopilotState) -> CopilotState:
+    if state.get("statut_draft") != "CONFIRME":
+        return state
+    draft = state["document_draft"]
+    type_doc = draft.get("type_doc", "").upper()
+
+    async def _transformer_document(num_piece_source: str, type_destination: str) -> dict:
+        raw = await mcp_pool.call("actions", "transformer_document", {
+            "num_piece_source": num_piece_source,
+            "type_destination": type_destination,
+        })
+        return _parse_mcp_response(raw)
+
+    resultat = await executer_draft_confirme(
+        draft,
+        mcp_workflow_bl=_mcp_workflow_bl,
+        mcp_workflow_of=_mcp_workflow_of,
+        mcp_workflow_bf=_mcp_workflow_bf,
+        mcp_workflow_bl_achat=_mcp_workflow_bl_achat,
+        mcp_pool_transformer_document=_transformer_document,
+    )
+
+    if resultat.get("statut") not in _STATUTS_ACTIONS_V3_OK:
+        # Erreur métier (stock insuffisant, client bloqué, composants manquants...)
+        state["reponse_finale"] = resultat.get("message", "❌ Erreur lors de la création.")
+        state["statut_draft"]   = ""
+        state["document_draft"] = {}
+        return state
+
+    num_piece = resultat.get("DO_Piece", "")
+    state["num_piece"] = num_piece
+    if type_doc in {"OF", "BF"} and resultat.get("nomenclature"):
+        draft["nomenclature"] = resultat["nomenclature"]
+    pdf_final = await generer_pdf_final(draft, num_piece)
+    state["pdf_path"] = pdf_final
+
+    rapport = [resultat.get("message", ""), f"\n📎 PDF définitif : {pdf_final}"]
+
+    type_doc = draft.get("type_doc", "").upper()
+
+    # ── Chaînage BL → suggestion Facture ──
+    if type_doc == "BL" and resultat.get("suggestion_facture"):
+        sugg = resultat["suggestion_facture"]
+        state["suggestion_en_attente"] = {
+            "type": "DRAFT_FACTURE_DEPUIS_BL",
+            "description": f"Créer la facture pour le BL {num_piece}",
+            "params": sugg,
+        }
+        rapport.append("\n💡 Tapez **ok** pour préparer le brouillon de la facture correspondante.")
+
+    # ── Chaînage OF → alerte persistante BF tant que non créé ──
+    # ── Chaînage OF → la création de l'alerte persistante BF est gérée
+    #    dans main() (voir bloc "Persistance du cycle draft/preview/confirm"),
+    #    car contexte_session n'est pas accessible depuis CopilotState ici.
+    if type_doc == "OF":
+        if resultat.get("suggestion_bf"):
+            sugg_bf = resultat["suggestion_bf"]
+            state["suggestion_en_attente"] = {
+                "type": "CREER_BF",
+                "description": f"Créer le BF pour OF {num_piece}",
+                "params": sugg_bf,
+            }
+            rapport.append("💡 Tapez **ok** pour créer le BF.")
+        else:
+            rapport.append(
+                f"\n💡 Pour finaliser, indiquez la quantité réellement produite : "
+                f"\"crée le BF pour {num_piece}\""
+            )
+
+    # ── BF créé → on transmet le num_of lié pour que main() résolve l'alerte ──
+    if type_doc == "BF" and draft.get("num_of"):
+        state["num_of_resolu"] = draft["num_of"]
+
+    state["reponse_finale"] = "\n".join(r for r in rapport if r)
+    state["statut_draft"]   = ""
+    state["document_draft"] = {}
+    return state
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD CLASSIFIER — v9.3
 # ─────────────────────────────────────────────────────────────────────
 async def noeud_classifier(state: CopilotState) -> CopilotState:
+   # COURT-CIRCUIT PRIORITAIRE : un brouillon est en attente de
+    # confirmation → on ne reclassifie surtout pas "CONFIRM"/"ANNULER"
+    # ══════════════════════════════════════════════════════════════
+    if state.get("document_draft") and state.get("statut_draft") == "PREVIEW":
+        print("   ⏭️  [Classifier] Brouillon en PREVIEW → bypass classification")
+        state["intention"]       = "ERP"
+        state["action"]          = "GENERER_DOC"
+        state["ambigue"]         = False
+        state["score_confiance"] = 1.0
+        return state
+
     state = injecter_complement(state)
+   
 
     if state.get("attente_complements"):
         manquants = verifier_document_incomplet(state)
@@ -2224,7 +2458,18 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
             if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
                 _ref_article_trouvee = cand
                 print(f"   🔎 [PreClass] ref_article (contexte article) : '{cand}'")
-        # Priorité 2 : token ressemblant à une vraie réf ERP (chiffres + lettres)
+        # Priorité 2 : mot explicitement après 'pièce de' ou 'piece de'
+        if not _ref_article_trouvee:
+            m_art_piece = re.search(
+                r"\bpi[eè]ce(?:s)?\s+(?:de|d')[ \t]*([A-Za-z][A-Za-z0-9\-]{1,})",
+                question, re.IGNORECASE
+            )
+            if m_art_piece:
+                cand = m_art_piece.group(1).upper()
+                if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
+                    _ref_article_trouvee = cand
+                    print(f"   🔎 [PreClass] ref_article (pièce de) : '{cand}'")
+        # Priorité 3 : token ressemblant à une vraie réf ERP (chiffres + lettres)
         if not _ref_article_trouvee:
             for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", question):
                 mot_upper = mot.upper()
@@ -2278,7 +2523,35 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                 if doc.get("code_fournisseur"): state["code_client"] = doc["code_fournisseur"]
                 if doc.get("ref_article"):      state["ref_article"] = doc["ref_article"]
                 if doc.get("quantite"):         state["quantite"]    = doc["quantite"]
-            elif re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):   state["type_doc"] = "BF"
+            elif re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):
+                state["type_doc"] = "BF"
+                # ── FIX BF : récupérer le num d'OF source + pré-remplir article/qté ──
+                m_of_src = re.search(r"\b(OF[A-Z0-9]{3,})\b", question, re.IGNORECASE)
+                if m_of_src:
+                    state["num_piece"] = m_of_src.group(1).upper()
+                    if state.get("ref_article", "").upper() == state["num_piece"].upper():
+                        state["ref_article"] = ""
+                    if not state.get("ref_article") or state.get("quantite", 0.0) <= 0.0:
+                        try:
+                            import sqlite3 as _sq
+                            _conn = _sq.connect(str(_db_path))
+                            _row = _conn.execute(
+                                "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
+                                (state["num_piece"],)
+                            ).fetchone()
+                            _conn.close()
+                            if _row:
+                                if not state.get("ref_article"):
+                                    state["ref_article"] = _row[0]
+                                if state.get("quantite", 0.0) <= 0.0:
+                                    state["quantite"] = float(_row[1])
+                                print(f"   🔗 [BF] Pré-rempli depuis {state['num_piece']} : "
+                                      f"article={state['ref_article']} qte={state['quantite']}")
+                        except Exception as _e:
+                            print(f"   ⚠️  [BF] Pré-remplissage OF échoué : {_e}")
+                elif state.get("dernier_num_piece", "").upper().startswith("OF"):
+                    state["num_piece"] = state["dernier_num_piece"]
+                    print(f"   🔗 [BF] num_piece (OF source) hérité session : '{state['num_piece']}'")
             elif re.search(r"\bof\b|ordre\s+de\s+fabrication", q_lower): state["type_doc"] = "OF"
             elif re.search(r"\bbc\b|bon\s+de\s+commande", q_lower):     state["type_doc"] = "BC"
             elif re.search(r"facture|facturer", q_lower):                state["type_doc"] = "FACTURE"
@@ -2327,12 +2600,19 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
         if action_preclass == "GENERER_DOC":
             type_d = (state.get("type_doc") or "").upper()
             _a_client = bool(state.get("code_client") or state.get("nom_client_brut"))
-            if type_d not in {"OF", "BF"} and not _a_client:
-                state["ambigue"] = True
-            if not state.get("ref_article"):
-                state["ambigue"] = True
-            if state.get("quantite", 0.0) <= 0.0:
-                state["ambigue"] = True
+            if type_d == "BF":
+                # Un BF n'a besoin que de la référence à l'OF source ;
+                # article/quantité sont pré-remplis ou seront demandés
+                # par le cycle draft (collecte_draft) s'ils manquent encore.
+                if not state.get("num_piece"):
+                    state["ambigue"] = True
+            else:
+                if type_d != "OF" and not _a_client:
+                    state["ambigue"] = True
+                if not state.get("ref_article"):
+                    state["ambigue"] = True
+                if state.get("quantite", 0.0) <= 0.0:
+                    state["ambigue"] = True
 
         # ── MODIFIER_STATUT : ambiguïté si client absent ──────────
         if action_preclass == "MODIFIER_STATUT":
@@ -2487,7 +2767,7 @@ RÈGLES IMPORTANTES :
 - "clients bloqués" → NL2SQL_LIBRE
 - "liste BL client" → NL2SQL_LIBRE
 - "liste clients" générique → LISTE_CLIENTS
-- "transformer OF en BF" → TRANSFORMER_DOC
+- "transformer OF en BF" → GENERER_DOC type_doc=BF
 - "OF" seul → GENERER_DOC type_doc=OF
 - "BF" seul → GENERER_DOC type_doc=BF
 - Si client absent → écris INCONNU
@@ -2594,14 +2874,25 @@ date_fin:VALEUR_OU_INCONNU"""
 
     # FIX 1 : extraction article insensible à la casse
     _regex_article = ""
-    for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", db):
-        mot_upper = mot.upper()
-        if (mot_upper not in _EXCL_ARTICLE
-                and not mot_upper.startswith("CLI")
-                and mot_upper != state.get("code_client", "").upper()):
-            _regex_article = mot_upper
-            print(f"   🔎 [Regex] ref_article : {_regex_article}")
-            break
+    m_art_piece = re.search(
+        r"\bpi[eè]ce(?:s)?\s+(?:de|d')[ \t]*([A-Za-z][A-Za-z0-9\-]{1,})",
+        db, re.IGNORECASE
+    )
+    if m_art_piece:
+        cand = m_art_piece.group(1).upper()
+        if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
+            _regex_article = cand
+            print(f"   🔎 [Regex] ref_article (pièce de) : {_regex_article}")
+
+    if not _regex_article:
+        for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", db):
+            mot_upper = mot.upper()
+            if (mot_upper not in _EXCL_ARTICLE
+                    and not mot_upper.startswith("CLI")
+                    and mot_upper != state.get("code_client", "").upper()):
+                _regex_article = mot_upper
+                print(f"   🔎 [Regex] ref_article : {_regex_article}")
+                break
 
     state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
     if state["ref_article"].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
@@ -2670,12 +2961,44 @@ date_fin:VALEUR_OU_INCONNU"""
     # ══════════════════════════════════════════════════════════════
     # ÉTAPE 3 — Overrides sémantiques
     # ══════════════════════════════════════════════════════════════
-    if re.search(r"transform", n) and re.search(r"\bof\b.{0,20}\bbf\b|\bbl\b.{0,20}facture|\bbc\b.{0,20}\bbl\b", n):
-        raw_action = "TRANSFORMER_DOC"
-        # FIX 3 appliquer aussi depuis le path LLM
-        m_piece = re.search(r"\b((?:OF|BL|BC|FA|BF)[A-Z0-9]{3,})\b", db, re.IGNORECASE)
-        if m_piece and not state.get("num_piece"):
-            state["num_piece"] = m_piece.group(1).upper()
+    if re.search(r"transform", n):
+        if (re.search(r"\bof\b.{0,20}\bbf\b", n)
+                or re.search(r"\bbf\b.{0,20}\bof\b", n)):
+            raw_action = "GENERER_DOC"
+            state["type_doc"] = "BF"
+            # FIX : récupérer l'OF source + pré-remplir article/qté (cohérent avec preclass)
+            m_of_src = re.search(r"\b(OF[A-Z0-9]{3,})\b", db, re.IGNORECASE)
+            if m_of_src and not state.get("num_piece"):
+                state["num_piece"] = m_of_src.group(1).upper()
+                if state.get("ref_article", "").upper() == state["num_piece"].upper():
+                    state["ref_article"] = ""
+                if not state.get("ref_article") or state.get("quantite", 0.0) <= 0.0:
+                    try:
+                        import sqlite3 as _sq
+                        _conn = _sq.connect(str(_db_path))
+                        _row = _conn.execute(
+                            "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
+                            (state["num_piece"],)
+                        ).fetchone()
+                        _conn.close()
+                        if _row:
+                            if not state.get("ref_article"):
+                                state["ref_article"] = _row[0]
+                            if state.get("quantite", 0.0) <= 0.0:
+                                state["quantite"] = float(_row[1])
+                            print(f"   🔗 [BF] Pré-rempli depuis {state['num_piece']} : "
+                                  f"article={state['ref_article']} qte={state['quantite']}")
+                    except Exception as _e:
+                        print(f"   ⚠️  [BF] Pré-remplissage OF échoué : {_e}")
+        elif re.search(r"\bbl\b.{0,20}facture|\bbc\b.{0,20}\bbl\b", n):
+            raw_action = "TRANSFORMER_DOC"
+        else:
+            raw_action = "TRANSFORMER_DOC"
+        # FIX 3 appliquer aussi depuis le path LLM (pour les cas TRANSFORMER_DOC restants)
+        if raw_action == "TRANSFORMER_DOC":
+            m_piece = re.search(r"\b((?:OF|BL|BC|FA|BF)[A-Z0-9]{3,})\b", db, re.IGNORECASE)
+            if m_piece and not state.get("num_piece"):
+                state["num_piece"] = m_piece.group(1).upper()
     elif re.search(r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur", n):
         raw_action = "GENERER_DOC"; state["type_doc"] = "BL_ACHAT"
     elif re.search(r"\bbl\b", n) or "bon de livraison" in n:
@@ -2760,9 +3083,13 @@ date_fin:VALEUR_OU_INCONNU"""
         if not quantite_explicite and state["dernier_quantite"] > 0:
             state["quantite"] = state["dernier_quantite"]
         if state["type_doc"] == "BF" and not state["num_piece"]:
-            m_of = re.search(r"(?:ordre de fabrication|\bof\b)\s*(?:n[°o]?\s*)?0*(\d{3,})", n)
+            m_of = re.search(
+                r"(?:ordre de fabrication|\bof\b)\s*(?:n[°o]?\s*)?0*(\d{3,})|(?<!\w)OF\s*0*(\d+)(?!\w)",
+                n, re.IGNORECASE
+            )
             if m_of:
-                state["num_piece"] = f"OF{int(m_of.group(1)):05d}"
+                num = m_of.group(1) or m_of.group(2)
+                state["num_piece"] = f"OF{int(num):05d}"
             elif re.match(r"^OF\d+$", state.get("dernier_num_piece", ""), re.IGNORECASE):
                 state["num_piece"] = state["dernier_num_piece"]
                 print(f"   🔗 [BF] Lié au dernier OF : {state['num_piece']}")
@@ -2794,12 +3121,19 @@ date_fin:VALEUR_OU_INCONNU"""
         state["ambigue"] = True
     if state["action"] == "GENERER_DOC":
         type_d = (state["type_doc"] or "").upper()
-        if type_d not in TYPES_DOC_FABRICATION and not _a_client:
-            state["ambigue"] = True
-        if not state["ref_article"]:
-            state["ambigue"] = True
-        if state["quantite"] <= 0.0:
-            state["ambigue"] = True
+        if type_d == "BF":
+            # Un BF n'a besoin que de la référence à l'OF source ;
+            # article/quantité sont pré-remplis ou seront demandés
+            # par le cycle draft (collecte_draft) s'ils manquent encore.
+            if not state["num_piece"]:
+                state["ambigue"] = True
+        else:
+            if type_d != "OF" and not _a_client:
+                state["ambigue"] = True
+            if not state["ref_article"]:
+                state["ambigue"] = True
+            if state["quantite"] <= 0.0:
+                state["ambigue"] = True
     if state["action"] in ("TRANSFORMER_DOC","CREER_AVOIR","REGLEMENT") and not state["num_piece"]:
         state["ambigue"] = True
     if state["score_confiance"] < SEUIL_CONFIANCE and not state["ambigue"]:
@@ -3298,11 +3632,11 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                 if sugg_fa:
                     num_bl = sugg_fa.get("num_bl", "")
                     state["suggestion_en_attente"] = {
-                        "type": "CREER_FACTURE",
-                        "description": f"Créer la facture pour BL {num_bl}",
+                        "type": "DRAFT_FACTURE_DEPUIS_BL",
+                        "description": f"Préparer le brouillon de facture pour BL {num_bl}",
                         "params": sugg_fa,
                     }
-                    rapport.append("💡 Tapez **ok** pour créer la Facture.")
+                    rapport.append("💡 Tapez **ok** pour préparer le brouillon de la facture correspondante.")
                 state["reponse_finale"] = "\n\n".join(rapport)
                 return state
             elif type_d == "OF":
@@ -3970,8 +4304,30 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
     elif type_sugg == "CREER_FACTURE":
         num_bl      = params.get("num_bl", "")
         code_client = params.get("code_client", "")
+        ref_article = params.get("ref_article", "")
+        quantite    = float(params.get("quantite", 0.0))
+        prix_unitaire = float(params.get("prix_unitaire", 0.0))
         nom_client  = params.get("nom_client", code_client)
         montant     = float(params.get("montant", 0.0))
+
+        if num_bl and code_client and ref_article and quantite > 0:
+            draft = {
+                "type_doc":        "FACTURE",
+                "code_client":     code_client,
+                "ref_article":     ref_article,
+                "quantite":        quantite,
+                "prix_unitaire":   prix_unitaire,
+                "date_str":        datetime.now().strftime("%d/%m/%Y"),
+                "num_piece_source": num_bl,
+            }
+            draft = await _enrichir_draft_client_article(draft)
+            contexte_session["document_draft"] = draft
+            contexte_session["statut_draft"]   = "PREVIEW"
+            contexte_session["suggestion_en_attente"] = {}
+            texte, pdf_path = await generer_preview(draft)
+            contexte_session["pdf_path"] = pdf_path
+            return texte
+
         try:
             raw  = await mcp_pool.call("actions", "transformer_document", {
                 "num_piece_source": num_bl,
@@ -4000,7 +4356,7 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
             )
         except Exception as e:
             return f"❌ Erreur création facture : {_safe_str(e)}"
-
+    
     elif type_sugg == "REGLER_FACTURE":
         num_piece     = params.get("num_piece", "")
         mode_paiement = params.get("mode_paiement", "Virement")
@@ -4021,6 +4377,7 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
                 f"   • Montant  : {montant:.2f} €\n"
                 f"   • Mode     : {mode_paiement}"
             )
+    
         except Exception as e:
             return f"❌ Erreur règlement : {_safe_str(e)}"
 
@@ -4029,14 +4386,24 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
         quantite    = float(params.get("quantite", 0.0))
         num_of      = params.get("num_of", "")
         code_client = params.get("code_client", "PROD-INT")
-        try:
-            result = await _mcp_workflow_bf(ref_article, quantite, num_of, code_client)
-            if result.get("statut") in _STATUTS_ERREUR_MCP:
-                return result.get("message", "❌ Erreur BF.")
-            contexte_session["suggestion_en_attente"] = {}
-            return result.get("message", "✅ BF créé.")
-        except Exception as e:
-            return f"❌ Erreur BF : {_safe_str(e)}"
+        if not ref_article or quantite <= 0 or not num_of:
+            return "❌ Impossible de préparer le BF : informations manquantes."
+
+        draft = {
+            "type_doc":      "BF",
+            "ref_article":   ref_article,
+            "quantite":      quantite,
+            "num_of":        num_of,
+            "code_client":   code_client,
+            "date_str":      datetime.now().strftime("%d/%m/%Y"),
+        }
+        draft = await _enrichir_draft_client_article(draft)
+        contexte_session["document_draft"] = draft
+        contexte_session["statut_draft"] = "PREVIEW"
+        contexte_session["suggestion_en_attente"] = {}
+        texte, pdf_path = await generer_preview(draft)
+        contexte_session["pdf_path"] = pdf_path
+        return texte
 
     elif type_sugg == "CREER_OF":
         ref_article = params.get("ref_article", "")
@@ -4084,8 +4451,8 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
                     if sugg_fa:
                         num_bl = sugg_fa.get("num_bl", "")
                         contexte_session["suggestion_en_attente"] = {
-                            "type": "CREER_FACTURE",
-                            "description": f"Créer la facture pour BL {num_bl}",
+                            "type": "DRAFT_FACTURE_DEPUIS_BL",
+                            "description": f"Préparer le brouillon de facture pour BL {num_bl}",
                             "params": sugg_fa,
                         }
                     else:
@@ -4117,7 +4484,23 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
             )
         except Exception as e:
             return f"❌ Erreur création facture fournisseur : {_safe_str(e)}"
-
+    elif type_sugg == "DRAFT_FACTURE_DEPUIS_BL":
+        params = suggestion.get("params", {})
+        draft = {
+        "type_doc":      "FACTURE",
+        "code_client":   params.get("code_client", ""),
+        "ref_article":   params.get("ref_article", ""),
+        "quantite":      params.get("quantite", 0.0),
+        "prix_unitaire": params.get("prix_unitaire", 0.0),
+        "date_str":      datetime.now().strftime("%d/%m/%Y"),
+        "num_piece_source": params.get("num_bl", ""),  # traçabilité
+    }
+        contexte_session["document_draft"] = draft
+        contexte_session["statut_draft"]   = "PREVIEW"
+        contexte_session["suggestion_en_attente"] = {}
+        texte, pdf_path = await generer_preview(draft)
+        contexte_session["pdf_path"] = pdf_path
+        return texte
     return f"⚠️  Suggestion '{type_sugg}' non reconnue."
 
 
@@ -4172,8 +4555,10 @@ def _construire_graphe() -> object:
     g.add_node("synthese",      noeud_synthese)
     g.add_node(
     "complements",
-    noeud_complements
-)
+    noeud_complements)
+    g.add_node("collecte_draft",    noeud_collecte_draft)
+    g.add_node("preview_draft",     noeud_preview_draft)
+    g.add_node("execution_draft",   noeud_execution_draft)
 
     g.add_edge(START, "classifier")
 
@@ -4190,6 +4575,8 @@ def _construire_graphe() -> object:
             return "lecture"
         if act in ACTIONS_NL2SQL:
             return "nl2sql"
+        if act == "GENERER_DOC":
+            return "collecte_draft"
         if act in ACTIONS_ECRITURE | ACTIONS_WORKFLOW:
             return "confirmation"
         if act in ACTIONS_KB:
@@ -4202,9 +4589,30 @@ def _construire_graphe() -> object:
         "clarification": "clarification",
         "lecture":       "lecture",
         "nl2sql":        "nl2sql",
+         "collecte_draft": "collecte_draft",
         "confirmation":  "confirmation",
         "kb":            "kb",
     })
+    # ── Routage interne du cycle draft ──
+    def _router_collecte(state: CopilotState) -> str:
+        statut = state.get("statut_draft", "")
+        if statut == "COLLECTE":
+            return "synthese"          # question posée → fin du tour
+        if statut == "ANNULE":
+            return "synthese"
+        if statut == "PREVIEW":
+            return "preview_draft"
+        if statut == "CONFIRME":
+            return "execution_draft"
+        return "synthese"
+
+    g.add_conditional_edges("collecte_draft", _router_collecte, {
+        "synthese":        "synthese",
+        "preview_draft":   "preview_draft",
+        "execution_draft": "execution_draft",
+    })
+    g.add_edge("preview_draft",   "synthese")
+    g.add_edge("execution_draft", "synthese")
 
     def _router_confirmation(state: CopilotState) -> str:
         if not state.get("validation_ok", False):
@@ -4245,6 +4653,7 @@ def _construire_graphe() -> object:
 # POINT D'ENTRÉE PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────
 async def main():
+    
     vanna_status    = "ON ✨" if ENABLE_VANNA  else "OFF"
     gliner_status   = "ON"   if ENABLE_GLINER else "OFF"
     mem0_status     = "ON"   if ENABLE_MEM0   else "OFF"
@@ -4288,6 +4697,8 @@ async def main():
         "dernier_num_piece":     "",
         "dernier_type_doc":      "",
         "suggestion_en_attente": {},
+         "document_draft": {}, "statut_draft": "",
+    "alertes_persistantes": [],
     }
     demande_precedente = ""
 
@@ -4357,8 +4768,44 @@ async def main():
                 if contexte_session.get("attente_complements"):
                     etat["attente_complements"] = True
                     etat["pending_document"]    = contexte_session.get("pending_document", {})
+                if contexte_session.get("document_draft"):
+                    etat["document_draft"] = contexte_session["document_draft"]
+                    etat["statut_draft"]   = contexte_session.get("statut_draft", "")
                 try:
                     final_state = await graphe.ainvoke(etat)
+                    reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
+
+                # ──────────────────────────────────────────────────────
+                # Persistance du cycle draft/preview/confirm
+                # (INDISPENSABLE — sans ce bloc, "CONFIRM" ne sera jamais
+                #  rattaché au brouillon créé au tour précédent)
+                # ──────────────────────────────────────────────────────
+                    contexte_session["document_draft"] = final_state.get("document_draft", {})
+                    contexte_session["statut_draft"]   = final_state.get("statut_draft", "")
+
+                # Gestion des alertes persistantes (OF → BF)
+                    if final_state.get("action") == "GENERER_DOC" and final_state.get("statut_draft") == "":
+                        type_doc_genere = (final_state.get("type_doc") or "").upper()
+
+                        if type_doc_genere == "OF" and final_state.get("num_piece"):
+                            ajouter_alerte_bf_requis(
+                            contexte_session,
+                            num_of=final_state["num_piece"],
+                            ref_article=final_state.get("ref_article", ""),
+                            qte_prevue=final_state.get("quantite", 0.0),
+                        )
+
+                        elif type_doc_genere == "BF":
+                            num_of_lie = (
+                            final_state.get("num_of_resolu", "")
+                            or contexte_session.get("dernier_num_piece", "")
+                        )
+                            if num_of_lie:
+                                resoudre_alerte_bf(contexte_session, num_of_lie)
+                # ──────────────────────────────────────────────────────
+
+                    if final_state.get("code_client"):
+                        contexte_session["dernier_code_client"] = final_state["code_client"]
                 except Exception as e:
                     final_state = {**etat, "reponse_finale": f"❌ Erreur système : {_safe_str(e)}"}
 
@@ -4419,8 +4866,10 @@ async def main():
             print(f"📡 COPILOT ERP :")
             print(f"{'─'*65}")
             print("\n\n".join(reponses_multi))
+            alertes_txt = formater_alertes_persistantes(contexte_session)
+            if alertes_txt:
+                print(alertes_txt)
             print(f"{'─'*65}\n")
-
         except KeyboardInterrupt:
             print("\n👋 Au revoir !")
             break

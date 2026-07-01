@@ -85,12 +85,12 @@ def _resolve_client(conn: sqlite3.Connection, code_ou_nom: str) -> Optional[sqli
         (code_ou_nom,)
     ).fetchone()
     if row:
-        return row
+        return dict(row)
     rows = conn.execute(
         "SELECT * FROM F_COMPTET WHERE CT_Intitule LIKE ? COLLATE NOCASE LIMIT 5",
         (f"%{code_ou_nom}%",)
     ).fetchall()
-    return rows[0] if rows else None
+    return dict(rows[0]) if rows else None
 
 
 def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[sqlite3.Row]:
@@ -104,12 +104,12 @@ def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[sqli
         (ref_ou_nom,)
     ).fetchone()
     if row:
-        return row
+        return dict(row)
     rows = conn.execute(
         "SELECT * FROM F_ARTICLE WHERE AR_Design LIKE ? COLLATE NOCASE LIMIT 5",
         (f"%{ref_ou_nom}%",)
     ).fetchall()
-    return rows[0] if rows else None
+    return dict(rows[0]) if rows else None
 
 
 def _get_stock(conn: sqlite3.Connection, ref_article: str) -> float:
@@ -160,12 +160,14 @@ def _ajuster_stock_db(
 def _get_nomenclature(conn: sqlite3.Connection, ref_article: str) -> list[dict]:
     """
     Lit F_NOMENCLAT (NO_RefPF / NO_RefMP / NO_Qte)
-    et joint F_ARTICLE pour la désignation du composant.
+    et joint F_ARTICLE pour la désignation et les prix du composant.
     """
     rows = conn.execute(
         """SELECT n.NO_RefMP      AS ref_composant,
                   n.NO_Qte       AS qte_necessaire,
-                  a.AR_Design    AS designation
+                  a.AR_Design    AS designation,
+                  a.AR_PrixAch   AS prix_achat,
+                  a.AR_PrixVen   AS prix_vente
            FROM F_NOMENCLAT n
            LEFT JOIN F_ARTICLE a
                   ON a.AR_Ref = n.NO_RefMP COLLATE NOCASE
@@ -177,6 +179,9 @@ def _get_nomenclature(conn: sqlite3.Connection, ref_article: str) -> list[dict]:
             "ref_composant":  r["ref_composant"],
             "designation":    r["designation"] or r["ref_composant"],
             "qte_necessaire": float(r["qte_necessaire"]),
+            "prix_achat":     float(r["prix_achat"] or 0.0),
+            "prix_vente":     float(r["prix_vente"] or 0.0),
+            "prix_utilise":   float(r["prix_achat"] or r["prix_vente"] or 0.0),
         }
         for r in rows
     ]
@@ -432,21 +437,27 @@ def _workflow_of(
                 ref_comp   = comp["ref_composant"]
                 desig_comp = comp["designation"]
                 qte_besoin = comp["qte_necessaire"] * quantite
+                prix_comp  = comp["prix_utilise"]
+                total_comp = qte_besoin * prix_comp
                 stock_comp = _get_stock(conn, ref_comp)
                 ok    = stock_comp >= qte_besoin
                 icone = "✅" if ok else "❌"
                 rapport_compo.append(
                     f"   {icone} {desig_comp} ({ref_comp}) : "
-                    f"besoin {qte_besoin} u | dispo {stock_comp} u"
+                    f"besoin {qte_besoin:.3f} u | dispo {stock_comp:.3f} u"
                     + (
-                        f" | manque {qte_besoin - stock_comp:.1f} u"
+                        f" | manque {qte_besoin - stock_comp:.3f} u"
                         if not ok else ""
                     )
                 )
                 if ok:
-                    composants_ok.append(
-                        {"ref": ref_comp, "desig": desig_comp, "qte": qte_besoin}
-                    )
+                    composants_ok.append({
+                        "ref": ref_comp,
+                        "desig": desig_comp,
+                        "qte": qte_besoin,
+                        "prix": prix_comp,
+                        "total": total_comp,
+                    })
                 else:
                     composants_manquants.append({
                         "ref":    ref_comp,
@@ -477,6 +488,7 @@ def _workflow_of(
 
         # ── Sorties composants ────────────────────────────────────────
         rapport_sorties = []
+        cout_total = 0.0
         for comp in composants_ok:
             mvt = _ajuster_stock_db(
                 conn, comp["ref"], comp["qte"], "SORTIE",
@@ -484,8 +496,9 @@ def _workflow_of(
             )
             rapport_sorties.append(
                 f"   📤 {comp['desig']} ({comp['ref']}) : "
-                f"-{comp['qte']} u → stock {mvt['stock_apres']} u"
+                f"-{comp['qte']:.3f} u → stock {mvt['stock_apres']:.3f} u"
             )
+            cout_total += comp["total"]
 
         # ── Création OF dans F_DOCENTETE / F_DOCLIGNE ─────────────────
         num_of = _generer_num_piece("OF")
@@ -503,10 +516,14 @@ def _workflow_of(
             "\n📤 Sorties stock composants :\n" + "\n".join(rapport_sorties) + "\n"
             if rapport_sorties else ""
         )
+        msg_cout = (
+            f"\n💰 Coût matières estimé : {cout_total:.3f} TND\n"
+            if cout_total > 0 else ""
+        )
 
         message = (
             f"✅ Ordre de Fabrication créé !\n"
-            + msg_compo + msg_sorties
+            + msg_compo + msg_sorties + msg_cout
             + f"\n   • Numéro OF  : {num_of}\n"
             f"   • Article    : {desig} ({ref_reelle})\n"
             f"   • Quantité   : {quantite} u\n"
@@ -520,6 +537,16 @@ def _workflow_of(
             "AR_Ref":   ref_reelle,
             "message":  message,
             "alertes":  [],
+            "nomenclature": [
+                {
+                    "ref": comp["ref"],
+                    "designation": comp["desig"],
+                    "qte": comp["qte"],
+                    "prix_unitaire": comp["prix"],
+                    "total": comp["total"],
+                }
+                for comp in composants_ok
+            ],
             "suggestion_bf": {
                 "ref_article": ref_reelle,
                 "designation": desig,
@@ -552,6 +579,20 @@ def _workflow_bf(
         desig       = article["AR_Design"]
         stock_avant = _get_stock(conn, ref_reelle)
 
+        composants = _get_nomenclature(conn, ref_reelle)
+        rapport_compo = []
+        cout_total = 0.0
+        for comp in composants:
+            qte = comp["qte_necessaire"] * quantite
+            prix = comp["prix_utilise"]
+            total = qte * prix
+            cout_total += total
+            rapport_compo.append(
+                f"   • {comp['designation']} ({comp['ref_composant']}): "
+                f"{qte:.3f} u"
+                + (f" @ {prix:.3f} TND = {total:.3f} TND" if prix > 0 else "")
+            )
+
         num_bf = _generer_num_piece("BF")
         _inserer_document(
             conn, "BF", num_bf, code_client or "PROD-INT",
@@ -569,8 +610,16 @@ def _workflow_bf(
             f"   • Numéro BF      : {num_bf}\n"
             + (f"   • Lié à OF       : {num_of}\n" if num_of else "")
             + f"   • Article        : {desig} ({ref_reelle})\n"
-            f"   • Qté fabriquée  : {quantite} u\n\n"
-            f"📦 Stock produit fini mis à jour :\n"
+            f"   • Qté fabriquée  : {quantite} u\n"
+        )
+        if rapport_compo:
+            message += (
+                "\n📋 Nomenclature :\n"
+                + "\n".join(rapport_compo)
+                + (f"\n\n💰 Coût matières total : {cout_total:.3f} TND" if cout_total > 0 else "")
+            )
+        message += (
+            "\n\n📦 Stock produit fini mis à jour :\n"
             f"   • Stock avant    : {stock_avant} u\n"
             f"   • Entrée         : +{quantite} u\n"
             f"   • Stock actuel   : {mvt['stock_apres']} u"
@@ -584,6 +633,16 @@ def _workflow_bf(
             "stock_apres": mvt["stock_apres"],
             "message":     message,
             "alertes":     [],
+            "nomenclature": [
+                {
+                    "ref": comp["ref_composant"],
+                    "designation": comp["designation"],
+                    "qte": qte,
+                    "prix_unitaire": prix,
+                    "total": total,
+                }
+                for comp in composants
+            ],
         }
     finally:
         conn.close()
