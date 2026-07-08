@@ -16,6 +16,7 @@ Intégration : voir INTEGRATION.md
 """
 
 from __future__ import annotations
+from dateutil import parser as _dtparser
 
 import re
 import time
@@ -106,28 +107,31 @@ def _enrichir_prix_preview(draft: dict) -> dict:
 # ─────────────────────────────────────────────────────────────────────
 SCHEMAS_DOCUMENTS: dict[str, dict] = {
     "BL": {
-        "champs": ["code_client", "ref_article", "quantite"],
+        "champs": ["code_client", "ref_article", "quantite","date_livraison"],
         "label_champs": {
             "code_client": "Quel client ?",
             "ref_article": "Quelle référence article ?",
             "quantite":    "Quelle quantité ?",
+            "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
         },
     },
     "FACTURE": {
-        "champs": ["code_client", "ref_article", "quantite"],
+        "champs": ["code_client", "ref_article", "quantite","date_livraison"],
         "label_champs": {
             "code_client": "Quel client ?",
             "ref_article": "Quelle référence article ?",
             "quantite":    "Quelle quantité ?",
+            "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
         },
     },
     "BL_ACHAT": {
-        "champs": ["code_fournisseur", "ref_article", "quantite", "prix_unitaire"],
+        "champs": ["code_fournisseur", "ref_article", "quantite", "prix_unitaire","date_livraison"],
         "label_champs": {
             "code_fournisseur": "Quel fournisseur ?",
             "ref_article":      "Quelle référence article ?",
             "quantite":         "Quelle quantité reçue ?",
             "prix_unitaire":    "Quel prix d'achat unitaire ?",
+            "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
         },
     },
     "OF": {
@@ -163,12 +167,22 @@ def est_confirmation_stricte(texte: str) -> bool:
 def est_annulation_stricte(texte: str) -> bool:
     return texte.strip().lower().rstrip("!.") in _MOTS_ANNULER_STRICT
 
-
 def champs_manquants(type_doc: str, draft: dict) -> list[str]:
     schema = SCHEMAS_DOCUMENTS.get((type_doc or "").upper(), {})
     requis = schema.get("champs", [])
-    return [c for c in requis if not draft.get(c) and draft.get(c) != 0]
-
+    manquants = []
+    for c in requis:
+        val = draft.get(c)
+        if c in ("quantite", "prix_unitaire"):
+            try:
+                ok = val is not None and float(val) > 0
+            except (TypeError, ValueError):
+                ok = False
+        else:
+            ok = bool(val)
+        if not ok:
+            manquants.append(c)
+    return manquants
 
 def question_pour_champ(type_doc: str, champ: str) -> str:
     schema = SCHEMAS_DOCUMENTS.get((type_doc or "").upper(), {})
@@ -201,12 +215,7 @@ async def _verifier_stock_draft(draft: dict) -> tuple[bool, str]:
         print(f"   ⚠️  [Stock draft] erreur vérification stock : {e}")
     return True, ""
 
-
 def injecter_reponse_dans_draft(type_doc: str, draft: dict, texte_user: str) -> dict:
-    """
-    Remplit le premier champ manquant du draft avec la réponse utilisateur.
-    Gère un parsing minimal selon le type de champ ciblé.
-    """
     manquants = champs_manquants(type_doc, draft)
     if not manquants:
         return draft
@@ -224,8 +233,16 @@ def injecter_reponse_dans_draft(type_doc: str, draft: dict, texte_user: str) -> 
     elif champ == "num_of":
         m = re.search(r"\b(OF[A-Z0-9]+)\b", texte, re.IGNORECASE)
         draft["num_of"] = (m.group(1).upper() if m else texte.upper())
+    elif champ == "date_livraison":                      # ← AJOUT
+        try:
+            dt = _dtparser.parse(texte, dayfirst=True, fuzzy=True)
+            if dt.date() < datetime.now().date():
+                draft["_erreur_champ"] = "📅 Date déjà passée, merci d'indiquer une date future."
+            else:
+                draft["date_livraison"] = dt.strftime("%d/%m/%Y")
+        except Exception:
+            draft["_erreur_champ"] = "📅 Date non reconnue, merci de préciser (ex: 12/08/2026)."
     else:
-        # code_client / code_fournisseur / ref_article : texte brut
         draft[champ] = texte
 
     return draft
@@ -255,17 +272,79 @@ def construire_draft_depuis_state(state: dict) -> dict:
         draft["num_of"]      = state.get("num_piece", "") or state.get("dernier_num_piece", "")
     elif type_doc == "OF":
         draft["code_client"] = state.get("code_client", "") or "PROD-INT"
+    elif type_doc == "FACTURE" and state.get("action") == "TRANSFORMER_DOC":
+        draft["code_client"]      = state.get("code_client", "")
+        draft["num_piece_source"] = state.get("num_piece", "")
     else:  # BL, FACTURE
         draft["code_client"] = state.get("code_client", "")
     return draft
-
-
+def _enrichir_facture_depuis_bl(draft: dict) -> dict:
+    if (draft.get("type_doc") or "").upper() != "FACTURE":
+        return draft
+    num_bl = draft.get("num_piece_source", "")
+    if not num_bl:
+        return draft
+    if (draft.get("code_client") and draft.get("ref_article")
+            and draft.get("quantite") and draft.get("date_livraison")):   # ← ajouter date_livraison au test
+        return draft
+    conn = _get_conn()
+    try:
+        entete = conn.execute(
+            "SELECT CT_Num, DO_Date FROM F_DOCENTETE WHERE DO_Piece = ?", (num_bl,)
+        ).fetchone()
+        if entete:
+            if not draft.get("code_client"):
+                draft["code_client"] = entete["CT_Num"]
+            if not draft.get("date_livraison") and entete["DO_Date"]:      # ← AJOUT
+                draft["date_livraison"] = entete["DO_Date"]
+        ligne = conn.execute(
+            "SELECT AR_Ref, DL_Qte, DL_PrixUnitaire FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
+            (num_bl,),
+        ).fetchone()
+        if ligne:
+            if not draft.get("ref_article"):
+                draft["ref_article"] = ligne["AR_Ref"]
+            if not draft.get("quantite"):
+                draft["quantite"] = ligne["DL_Qte"]
+            if not draft.get("prix_unitaire"):
+                draft["prix_unitaire"] = ligne["DL_PrixUnitaire"]
+    except Exception as e:
+        print(f"   ⚠️  [Facture depuis BL] {e}")
+    finally:
+        conn.close()
+    return draft
+def _enrichir_bf_depuis_of(draft: dict) -> dict:
+    if (draft.get("type_doc") or "").upper() != "BF":
+        return draft
+    if draft.get("ref_article") and draft.get("quantite"):
+        return draft
+    num_of = draft.get("num_of", "")
+    if not num_of:
+        return draft
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
+            (num_of,),
+        ).fetchone()
+        if row:
+            if not draft.get("ref_article"):
+                draft["ref_article"] = row["AR_Ref"]
+            if not draft.get("quantite"):
+                draft["quantite"] = row["DL_Qte"]
+    except Exception as e:
+        print(f"   ⚠️  [BF depuis OF] {e}")
+    finally:
+        conn.close()
+    return draft
 # ─────────────────────────────────────────────────────────────────────
 # PREVIEW — génère le PDF brouillon + texte récapitulatif
 # ─────────────────────────────────────────────────────────────────────
 async def generer_preview(draft: dict) -> tuple[str, str]:
     draft = _enrichir_prix_preview(draft)
+    draft = _enrichir_bf_depuis_of(draft)
     draft = _enrichir_nomenclature_preview(draft)
+
     pdf_path = await generer_pdf_async(draft, is_draft=True)
 
     type_doc = draft.get("type_doc", "")
@@ -308,6 +387,7 @@ async def executer_draft_confirme(
     mcp_workflow_bf,
     mcp_workflow_bl_achat,
     mcp_pool_transformer_document=None,
+    mcp_workflow_facture=None,
 ) -> dict:
     """
     Appelle le workflow MCP réel correspondant au type_doc.
@@ -339,7 +419,12 @@ async def executer_draft_confirme(
     if type_doc == "FACTURE" and mcp_pool_transformer_document and draft.get("num_piece_source"):
         # Facture directe par transformation d'un BL existant
         return await mcp_pool_transformer_document(draft["num_piece_source"], "FACTURE")
-
+    if type_doc == "FACTURE" and mcp_workflow_facture:
+        # Facture créée directement (sans BL source)
+        return await mcp_workflow_facture(
+            draft.get("code_client", ""), draft.get("ref_article", ""),
+            float(draft.get("quantite", 0)), float(draft.get("prix_unitaire", 0) or 0),
+        )
     return {"statut": "ERREUR", "message": f"Type de document non géré par le flow : {type_doc}"}
 
 

@@ -1,0 +1,335 @@
+Liste tous les clients
+
+Affiche tous les fournisseurs.
+
+Montre-moi tous les articles.
+
+
+Quel est le chiffre d'affaires global ?
+
+
+Donne-moi les factures impayées.
+
+
+Quels sont nos clients ?
+
+
+Je voudrais voir la clientèle.
+
+
+Montre le portefeuille client.
+
+
+Qui sont nos acheteurs ?
+
+
+Peux-tu afficher tous les comptes clients ?
+
+
+tu peux afficher tous les comptes clients ?
+
+
+liste les clints
+
+
+facturs impayes
+
+
+genere une factre
+
+
+Je veux générer une facture pour un client
+
+
+Je veux générer une facture pour le client CLI001
+
+
+stok de ECRAN4K
+
+
+Non , je veux dire le stock de ECRAN4K pas liste des clients
+
+
+erreur
+
+
+erreur, je veux le stock de ECRAN4K
+
+
+je veux le stock de ECRAN4K
+
+
+crer un client
+
+créer un nouveau client qui n'existe pas encore dans notre base de données
+
+
+J'aimerais savoir quels sont les clients avec lesquels nous travaillons actuellement.
+
+
+J'aimerais connaître notre chiffre d'affaires.
+
+
+Montre-moi les produits disponibles.
+
+
+non ,je veux la liste des produits
+
+
+Montre la fiche du client CLI001
+
+
+Affiche le client CLI002.
+
+
+Le client CLI001 est-il bloqué ?
+
+
+non , je veux savoir Le client CLI123 est-il bloqué ?
+
+
+Stock de ECRAN4K
+
+
+Crée une facture.
+
+
+pour CLI001
+
+
+Prépare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE
+
+
+CONFIRM
+
+
+Crée un ordre de fabrication de 2 IMPRIMANTE
+
+
+CONFIRM
+
+
+crée le BF pour OF26070411503852731044D7AADF
+
+
+CONFIRM
+
+
+Facture.
+
+
+NON , pas client facture
+
+
+Document.
+
+
+Quels sont les clients ayant plus de 5 commandes ?
+
+
+Quels articles coûtent plus de 50 DT ?
+
+
+Quels articles coûtent plus de 500 DT ?
+
+
+non pas ca
+
+
+Quels clients sont inactifs depuis un an ?
+
+
+Classe les clients selon leur chiffre d'affaires.
+
+
+non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires. 👥 Clients actifs — 5 client(s) :
+
+
+Liste les factures du mois de juin.
+
+
+Liste les BL du mois de janvier.
+
+
+Bon de Livraison
+
+
+Liste les Bon de Livraison du mois de janvier.
+
+
+Liste les BL du mois de juin.
+
+
+Montre les clients et leurs factures.
+
+
+et les factures
+
+Montre les clients et leurs factures.
+
+
+
+Liste les fournisseurs et leurs commandes.
+
+
+Donne les articles puis crée un OF de 2 pieces de ECRAN4K.
+
+
+CONFIRM
+
+Quels clients achètent beaucoup mais paient toujours en retard ?
+
+
+Quels fournisseurs nous rapportent le plus indirectement ?
+
+
+Quels produits devraient être réapprovisionnés ?
+
+
+Quels clients sont rentables mais commandent rarement ?
+
+
+Quels clients sont rentables mais commandent rarement ?
+
+
+Je veux voir tous ceux qui nous achètent des produits.
+
+
+Quels partenaires commerciaux avons-nous ?
+
+
+Je veux voir tous ceux qui nous achètent des produits.
+
+
+non , liste des clients pas produits
+
+
+Qui nous passe le plus de commandes ?
+
+
+Qui nous rapporte le plus d'argent ?
+
+
+Quels acheteurs sont les meilleurs ?
+
+
+statut client
+
+
+stock
+
+
+rupture de stock
+
+
+seuil de stock
+
+
+le stock de l article IMPRIMANTE
+
+
+le stock de l article LAPTOP
+
+
+Gestion client.
+
+
+Document commercial.
+
+
+Créer un document.
+
+
+Historique.
+
+
+État client.
+
+
+Combien ai-je de clients actifs ?
+
+
+Quels sont les clients créés ce mois-ci ?
+
+
+Affiche tous les clients bloqués
+
+
+Quels articles ont un stock inférieur à 5 ?
+
+
+
+Quelles factures sont en retard de paiement ?
+
+
+Factures du client CLI003
+
+
+CA par mois
+
+
+Marge par article
+
+
+Clients ayant plus de 3 factures impayées
+
+
+Articles les plus vendus ce mois-ci
+
+
+Clients dont le CA a baissé
+
+
+Fournisseurs avec factures non réglées
+
+
+Encours total par client
+
+
+Clients et leurs factures non payees
+
+
+Clients + nombre de commandes + CA total
+
+
+Moyenne des factures par client
+
+
+en fonction du nombre de factures
+
+
+Moyenne des factures par client en fonction du nombre de factures
+
+
+Clients classés par nombre de commandes
+
+
+Top fournisseurs par volume d’achat
+
+
+
+top Clients par nombre de commandes
+
+
+Quels produits marchent le mieux ?
+
+
+Quels clients me posent problème ?
+
+
+Résumé des ventes
+
+
+Stock + prix de l’article IMPRIMANTE
+
+
+Stock et prix de l’article REF444
+
+
+Factures impayées + encours élevé
+
+
+liste les clients avec leurs factures impayées
+
+quitter
+

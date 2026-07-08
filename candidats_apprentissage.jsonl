@@ -1,0 +1,1 @@
+{"question": "calculer la moyenne des factures par client en fonction de  nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "ARBITRAGE_LLM", "score": 0.829845101078924, "score2": 0.0, "timestamp": 1783184397.241177, "confirme": true}

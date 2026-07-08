@@ -9,6 +9,19 @@ v9.3 — 7 corrections appliquées :
   FIX 5 : _est_nom_valide rejette chiffres + mots parasites supplémentaires
   FIX 6 : _rechercher_client_par_nom len > 3 + sortie rapide si liste vide
   FIX 7 : noeud_synthese bloc NL2SQL_LIBRE dédié + SYNTHESE_TIMEOUT 120s
+================================================================================
+v9.4 — PATCHS APPLIQUÉS (session de debug) :
+  PATCH A : GENERER_DOC routé vers collecte_draft avant vérif ambigue (déjà présent v9.3)
+  PATCH B : intention de création vérifiée avant heuristique facture+client (déjà présent v9.3)
+  PATCH C : DOCS_PERIODE avec \b...\b sur du/au/bl (déjà présent v9.3)
+  PATCH D/E : "client X est-il bloqué" → STATUT_CLIENT (regex + fallback LLM)
+  PATCH F : _est_nom_valide rejette les phrases composées de mots vides
+  PATCH G : PRIX/TARIF/COUT exclus de la capture article + capture "prix de X"
+  PATCH H : "classe/classer/classés" réintégré aux marqueurs NL2SQL_LIBRE forcés
+  PATCH H2 : "liste les BL du mois de ..." → NL2SQL_LIBRE
+  PATCH #4 : "articles coûtent plus de N DT" → NL2SQL_LIBRE (évite faux PALMARES)
+  PATCH J : persistance pending_action/statut_confirmation entre tours (session)
+  PATCH K : CREER_CLIENT exige un nom_client_brut valide avant de confirmer
 """
 
 from datetime import datetime
@@ -20,6 +33,7 @@ import traceback as tb
 import time
 import sys
 import io
+from draft_flow import enrichir_draft,_verifier_stock_draft
 import warnings
 import shelve
 import hashlib
@@ -30,7 +44,6 @@ from draft_flow import (
     question_pour_champ, injecter_reponse_dans_draft,
     construire_draft_depuis_state, generer_preview,
     executer_draft_confirme, generer_pdf_final,
-    _verifier_stock_draft,
     ajouter_alerte_bf_requis, resoudre_alerte_bf, formater_alertes_persistantes,
 )
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -73,20 +86,28 @@ if not _db_path.exists() or _db_path.stat().st_size < 1000:
     print("✅ [DB] Base initialisée.")
 
 from typing import TypedDict, Optional
-from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama  # noqa: F401  (gardé pour retour arrière rapide)
+from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 from mcp_pool import pool as mcp_pool
+import semantic_classifier as sc
+import classification_engine as ce
 from response_cache import cache as response_cache
+from interaction_logger import logger_decision, detecter_correction
+from apprentissage_semi_auto import enregistrer_signal_confirmation, enregistrer_signal_correction
+from llm_anonymizer import invoke_llm_anonymise, anonymise_sync, deanonymise_with_map
 
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────
-MODELE_FAST  = os.getenv("LLM_FAST",  "qwen2.5:3b")
-MODELE_SMART = os.getenv("LLM_SMART", "qwen2.5:7b")
-
 FALLBACK_URL   = os.getenv("LLM_FALLBACK_URL",   "https://api.groq.com/openai/v1")
 FALLBACK_KEY   = (os.getenv("LLM_FALLBACK_KEY", "") or "").strip()
 FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+
+GROQ_URL     = os.getenv("GROQ_URL", FALLBACK_URL)
+GROQ_KEY     = (os.getenv("GROQ_KEY", "") or FALLBACK_KEY).strip()
+MODELE_FAST  = os.getenv("GROQ_FAST",  "llama-3.1-8b-instant")
+MODELE_SMART = os.getenv("GROQ_SMART", "llama-3.3-70b-versatile")
 
 OLLAMA_TIMEOUT_FAST   = float(os.getenv("OLLAMA_TIMEOUT_FAST",   "120"))
 OLLAMA_TIMEOUT_SMART  = float(os.getenv("OLLAMA_TIMEOUT_SMART",  "300"))
@@ -104,12 +125,13 @@ ENABLE_HALLUCINATION_CHECK = os.getenv("ENABLE_HALLUCINATION_CHECK", "false").lo
 ENABLE_VANNA               = os.getenv("ENABLE_VANNA",  "false").lower() == "true"
 ENABLE_MEM0                = os.getenv("ENABLE_MEM0",   "false").lower() == "true"
 ENABLE_GLINER              = os.getenv("ENABLE_GLINER", "false").lower() == "true"
+ENABLE_SEMANTIC_CLASSIFIER = os.getenv("ENABLE_SEMANTIC_CLASSIFIER", "true").lower() == "true"
+ENABLE_STRUCTURED_EXTRACTION = os.getenv("ENABLE_STRUCTURED_EXTRACTION", "true").lower() == "true"
 PLANNER_TIMEOUT            = float(os.getenv("PLANNER_TIMEOUT", "60"))
 
 ENABLE_LLM_SYNTHESE = os.getenv("ENABLE_LLM_SYNTHESE", "true").lower() == "true"
-# FIX 7 : timeout synthèse porté à 120s (était 45s — trop court pour qwen2.5:7b)
-SYNTHESE_TIMEOUT       = max(120.0, float(os.getenv("SYNTHESE_TIMEOUT", "120")))  # PATCH C-1 : plancher 120s
-VANNA_GENERATE_TIMEOUT = float(os.getenv("VANNA_GENERATE_TIMEOUT", "300"))  # réduit : si pas trouvé en 20s → fallback immédiat
+SYNTHESE_TIMEOUT       = max(120.0, float(os.getenv("SYNTHESE_TIMEOUT", "120")))
+VANNA_GENERATE_TIMEOUT = float(os.getenv("VANNA_GENERATE_TIMEOUT", "300"))
 
 _LLM_MAX_CONCURRENT = int(os.getenv("LLM_MAX_CONCURRENT", "2"))
 _llm_semaphore: asyncio.Semaphore | None = None
@@ -121,8 +143,8 @@ _disk_cache_lock = None
 # ─────────────────────────────────────────────────────────────────────
 # LLM
 # ─────────────────────────────────────────────────────────────────────
-llm_fast  = ChatOllama(model=MODELE_FAST,  temperature=0)
-llm_smart = ChatOllama(model=MODELE_SMART, temperature=0)
+llm_fast  = ChatOpenAI(model=MODELE_FAST,  temperature=0, api_key=GROQ_KEY, base_url=GROQ_URL)
+llm_smart = ChatOpenAI(model=MODELE_SMART, temperature=0, api_key=GROQ_KEY, base_url=GROQ_URL)
 
 _ollama_warmed_up: dict[str, bool] = {"fast": False, "smart": False}
 
@@ -135,10 +157,6 @@ def _safe_str(obj) -> str:
 
 async def _input(prompt: str) -> str:
     return await asyncio.to_thread(input, prompt)
-
-
-def _est_mode_api() -> bool:
-    return os.getenv("APP_MODE", "").lower() in {"api", "production", "server"}
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -322,7 +340,31 @@ _gliner_model:      object | None = None
 _gliner_load_tried: bool          = False
 _gliner_lock:       asyncio.Lock | None = None
 
-
+async def _verifier_encours_draft(draft: dict) -> str:
+    """Avertit si l'encours sera dépassé — ne bloque jamais."""
+    code_client = draft.get("code_client", "")
+    if not code_client or draft.get("type_doc", "").upper() not in ("BL", "FACTURE"):
+        return ""
+    try:
+        txt = await mcp_pool.call("nl2sql", "verifier_statut_client", {"code_client": code_client})
+        m_enc = re.search(r"CT_Encours\s*:\s*([\d.,]+)", txt)
+        m_max = re.search(r"CT_EncoursMax\s*:\s*([\d.,]+)", txt)
+        if not (m_enc and m_max):
+            return ""
+        encours     = float(m_enc.group(1).replace(",", "."))
+        encours_max = float(m_max.group(1).replace(",", "."))
+        if encours_max <= 0:
+            return ""
+        montant = float(draft.get("quantite", 0) or 0) * float(draft.get("prix_unitaire", 0) or 0)
+        if encours + montant > encours_max:
+            return (
+                f"⚠️  Attention : ce document portera l'encours de {code_client} à "
+                f"{encours + montant:.2f} € (max autorisé : {encours_max:.2f} €). "
+                f"Vous pouvez continuer (CONFIRM) ou ANNULER."
+            )
+    except Exception:
+        pass
+    return ""
 def _get_gliner_sync() -> object | None:
     global _gliner_model, _gliner_load_tried
     if not ENABLE_GLINER:
@@ -522,22 +564,36 @@ def _get_vanna_sync():
         return _vanna_client
     _vanna_load_tried = True
     try:
-        from vanna.ollama import Ollama
+        from vanna.openai import OpenAI_Chat
         from vanna.chromadb import ChromaDB_VectorStore
+        from openai import OpenAI as _OpenAIClient
 
-        class VannaERP(ChromaDB_VectorStore, Ollama):
-            def __init__(self, config=None):
+        class VannaERP(ChromaDB_VectorStore, OpenAI_Chat):
+            def __init__(self, config=None, client=None):
                 ChromaDB_VectorStore.__init__(self, config=config)
-                Ollama.__init__(self, config=config)
+                OpenAI_Chat.__init__(self, client=client, config=config)
 
-        vn = VannaERP(config={
-            "model":       MODELE_SMART,
-            "ollama_host": OLLAMA_BASE_URL,
-            "path":        "./vanna_erp_db",
-        })
-        _vanna_entrainer_schema(vn)
+        _groq_client = _OpenAIClient(api_key=GROQ_KEY, base_url=GROQ_URL)
+        vn = VannaERP(
+            config={"model": MODELE_SMART, "path": "./vanna_erp_db"},
+            client=_groq_client,
+        )
+        try:
+            existing = vn.get_training_data()
+            nb_existing = len(existing) if existing is not None else 0
+        except Exception:
+            nb_existing = 0
+
+        if nb_existing == 0:
+             _vanna_entrainer_schema(vn)
+        else:
+            print(f"   ℹ️  [Vanna] {nb_existing} exemples déjà en base → entraînement ignoré")
+            print("      (tapez 'vanna_retrain' pour forcer un ré-entraînement propre)")
+
         _vanna_client = vn
-        print("✅ [Vanna] Initialisé et entraîné sur le schéma Sage 100.")
+        _vanna_entrainer_schema(vn)
+        
+        print("✅ [Vanna] Initialisé (Groq) et entraîné sur le schéma Sage 100.")
     except ImportError:
         print("⚠️  [Vanna] pip install vanna chromadb")
         _vanna_client = None
@@ -567,13 +623,12 @@ async def _get_vanna_async():
 
 
 def _vanna_entrainer_schema(vn):
-    # Entraînement DDL table par table (évite duplication dans ChromaDB)
     tables_ddl = [
         """CREATE TABLE F_COMPTET (
             CT_Num       TEXT PRIMARY KEY,
             CT_Intitule  TEXT,
-            CT_Type      INTEGER,   -- 0=client, 1=fournisseur, 2=interne
-            CT_Validite  TEXT,      -- 'VALIDE' | 'BLOQUE' | 'SUSPECT'
+            CT_Type      INTEGER,
+            CT_Validite  TEXT,
             CT_EncoursMax REAL,
             CT_Encours   REAL DEFAULT 0.0
         )""",
@@ -582,27 +637,27 @@ def _vanna_entrainer_schema(vn):
             AR_Design  TEXT,
             AR_PrixAch REAL,
             AR_PrixVen REAL,
-            AR_Type    INTEGER       -- 0=produit fini, 1=composant
+            AR_Type    INTEGER
         )""",
         """CREATE TABLE F_ARTSTOCK (
             AR_Ref        TEXT PRIMARY KEY,
-            AS_QteSto     REAL,      -- stock disponible
-            AS_QteCom     REAL,      -- en commande
+            AS_QteSto     REAL,
+            AS_QteCom     REAL,
             AS_QteAchaCom REAL
         )""",
         """CREATE TABLE F_NOMENCLAT (
-            NO_RefPF TEXT,           -- référence produit fini
-            NO_RefMP TEXT,           -- référence composant
+            NO_RefPF TEXT,
+            NO_RefMP TEXT,
             NO_Qte   REAL,
             PRIMARY KEY (NO_RefPF, NO_RefMP)
         )""",
         """CREATE TABLE F_DOCENTETE (
             DO_Piece   TEXT PRIMARY KEY,
-            DO_Domaine INTEGER,       -- 0=vente, 1=achat, 2=fabrication
-            DO_Type    INTEGER,       -- 2=BL, 3=FA, 6=BC, 1=OF, 4=BF, 9=AV
+            DO_Domaine INTEGER,
+            DO_Type    INTEGER,
             DO_Date    TEXT,
-            DO_Ref     TEXT,          -- référence libre / statut règlement
-            CT_Num     TEXT           -- code tiers (client/fournisseur)
+            DO_Ref     TEXT,
+            CT_Num     TEXT
         )""",
         """CREATE TABLE F_DOCLIGNE (
             DL_Ligne        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -613,7 +668,7 @@ def _vanna_entrainer_schema(vn):
         )""",
         """CREATE TABLE reglements (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            DO_Piece       TEXT,      -- numéro de facture réglée
+            DO_Piece       TEXT,
             mode_paiement  TEXT,
             montant        REAL,
             date_reglement TEXT
@@ -621,7 +676,7 @@ def _vanna_entrainer_schema(vn):
         """CREATE TABLE mouvements_stock (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             AR_Ref         TEXT,
-            type_mouvement TEXT,      -- 'ENTREE' | 'SORTIE'
+            type_mouvement TEXT,
             qte            REAL,
             motif          TEXT,
             date_mouvement TEXT
@@ -630,7 +685,6 @@ def _vanna_entrainer_schema(vn):
     for ddl in tables_ddl:
         vn.train(ddl=ddl)
 
-    # Une seule documentation consolidée (évite les 3 blocs identiques)
     vn.train(documentation="""
         RÈGLES SAGE 100 COMPLÈTES :
         - DO_Type=3 AND DO_Domaine=0 → factures de vente
@@ -717,7 +771,6 @@ def _vanna_entrainer_schema(vn):
  "WHERE e.DO_Type=2 AND e.DO_Domaine=1 AND c.CT_Type=1 "
  "GROUP BY e.DO_Piece ORDER BY e.DO_Date DESC"),
 
-        # Nouveaux exemples pour questions filtrées
         ("clients qui ont passe plus de 3 commandes",
          "SELECT c.CT_Num, c.CT_Intitule, COUNT(DISTINCT e.DO_Piece) AS nb_factures, "
          "COALESCE(SUM(l.DL_Qte*l.DL_PrixUnitaire),0) AS ca_total "
@@ -769,27 +822,26 @@ def _vanna_entrainer_schema(vn):
 
 
 def _vanna_generer_sql(question: str) -> tuple[str | None, float]:
-    """
-    FIX B : few-shot limité à 3 exemples + timeout thread 60s.
-    Évite que qwen2.5:7b se bloque sur un prompt ChromaDB trop long.
-    """
     import threading
 
     vn = _vanna_client
     if vn is None:
         return None, 0.0
 
-    result_container: list = [None, None]  # [sql, error]
+    result_container: list = [None, None]
 
     def _run():
         try:
-            # FIX B : max 3 few-shot (was 5)
             original_get = getattr(vn, "get_similar_question_sql", None)
             if original_get:
                 def _get_limited(q, **kw):
+                    
+                    nonlocal nb_similaires
                     results = original_get(q, **kw)
-                    return results[:3] if results else []  # 3 au lieu de 5
+                    nb_similaires = len(results) if results else 0
+                    return results[:3] if results else []
                 vn.get_similar_question_sql = _get_limited
+                
 
             sql = vn.generate_sql(question)
 
@@ -797,9 +849,10 @@ def _vanna_generer_sql(question: str) -> tuple[str | None, float]:
                 vn.get_similar_question_sql = original_get
 
             result_container[0] = sql
+            result_container[2] = nb_similaires
         except Exception as e:
             result_container[1] = e
-
+    result_container: list = [None, None, 0]
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     t.join(timeout=VANNA_GENERATE_TIMEOUT)
@@ -813,15 +866,16 @@ def _vanna_generer_sql(question: str) -> tuple[str | None, float]:
         return None, 0.0
 
     sql = result_container[0]
+    nb_similaires = result_container[2]
     if not sql or not sql.strip().upper().startswith("SELECT"):
         return None, 0.0
 
     try:
         import sqlglot
         sqlglot.parse_one(sql, dialect="sqlite")
-        score = 0.85
+        score = 0.55 + min(0.35, nb_similaires * 0.12)
     except Exception:
-        score = 0.55
+        score = 0.35
     return sql.strip(), score
 
 
@@ -915,7 +969,12 @@ _TYPES_DOC_INVALIDES_COMME_ARTICLE = {
     "OF", "BF", "BL", "BL_ACHAT", "FA_ACHAT", "FA", "FC", "BC", "FACTURE", "AVOIR", "AV",
 }
 TYPES_DOC_FABRICATION = {"OF", "BF"}
-
+_EXPRESSIONS_FR_EXCLUES = {
+    "A-T-IL", "A-T-ELLE", "A-T-ON", "EST-CE", "EST-IL", "EST-ELLE",
+    "SONT-ILS", "SONT-ELLES", "Y-A-T-IL", "N-EST-CE-PAS", "QU-EST-CE",
+    "PEUT-IL", "PEUT-ELLE", "DOIT-IL", "DOIT-ELLE", "FAUT-IL",
+    "VA-T-IL", "VA-T-ELLE", "AVAIT-IL", "POURRAIT-IL", "POURRAIT-ELLE",
+}
 _EXCL_ARTICLE = {
     "CLI", "BL", "FA", "FC", "BC", "OF", "BF", "BA", "AV",
     "ERP", "NL2SQL", "SQL", "PDF", "KPI", "DSO", "RFM", "CA",
@@ -926,10 +985,8 @@ _EXCL_ARTICLE = {
     "TOUS", "TOUTES", "MONTRE", "CLIENTS", "ARTICLES", "CLIENT",
     "ARTICLE", "ENCOURS", "STATUT", "FICHE", "INFO", "FOURNISSEUR", "FOURNISSEURS", "FOUR", "GROSSISTE", "FOURN",
     "ACHAT", "ACHATS", "COMMANDE", "COMMANDES",
-    # FIX BUGD : mots génériques qui ne sont pas des articles
     "FACTURES", "FACTURE", "FOURNISSEUR", "FOURNISSEURS",
     "LISTE", "DETAIL", "DETAILS", "RAPPORT",
-    # FIX BUG-ARTICLE : mots capturés à tort comme référence article
     "STOCK", "STOCKS", "DISPONIBLE", "DISPONIBLES", "RESTANT",
     "RUPTURE", "RUPTURES", "FAIBLE", "FAIBLES",
     "ONT", "PASSE", "COMMANDE", "DEPUIS", "MOIS",
@@ -942,6 +999,8 @@ _EXCL_ARTICLE = {
     "VENDUS", "ACHETÉS", "COMMANDÉS",
     "GLOBAL", "TOTAL", "MENSUEL", "ANNUEL",
     "CLIENTS", "ARTICLES", "FOURNISSEURS",
+    # PATCH G : mots liés au prix, jamais des références article
+    "PRIX", "TARIF", "COUT", "COÛT", "VALEUR", "MONTANT", "DT", "EUR", "EUROS",
 }
 
 _MOTS_GENERIQUES_NER = {
@@ -957,9 +1016,13 @@ _MARQUEURS_NL2SQL_FORCE = {
     "meilleurs clients", "top.*client.*fourni", "vendus à un seul",
     "having", "ratio", "panier moyen", "taux de",
     "par nombre de commandes", "nombre de commandes",
-    "seuil", "commandés ce mois", "commandé ce mois",
+    "commandés ce mois", "commandé ce mois",
     "inférieur au seuil", "stock insuffisant", "trier par commandes",
-    "classement", "classé", "classe",
+    "classement", "classé",
+    # PATCH H : réintégration de "classe" (impératif) — ne matche pas
+    # "déclaration" car _MARQUEURS_NL2SQL_FORCE_RE compile chaque motif
+    # avec des frontières de mot \b...\b.
+    "classe", "classer", "classés", "classee", "classees",
 }
 
 CAPACITES_SYSTEME = """Ce que je sais faire sur votre ERP Sage 100 :
@@ -979,8 +1042,14 @@ _LLM_PLACEHOLDERS = {
     "NON_RENSEIGNE", "NON_RENSEIGNÉ",
     "INDEFINI", "INDÉFINI", "UNDEFINED", "UNKNOWN",
     "VALEUR", "VALEUR_MANQUANTE", "MANQUANT",
+    "NOM_COMPLET_OU_CODE_OU_INCONNU", "VALEUR_OU_INCONNU",
+    "CODE_CLIENT", "CODE_OU_INCONNU",
 }
-
+_ACTIONS_TOUTES_CONNUES = (
+    ACTIONS_LECTURE | ACTIONS_NL2SQL | ACTIONS_EXPORT | ACTIONS_ECRITURE
+    | ACTIONS_WORKFLOW | ACTIONS_KB | ACTIONS_HUB | {"AMBIGUE"}
+)
+_LLM_PLACEHOLDERS |= _ACTIONS_TOUTES_CONNUES
 
 def _clean(v: str) -> str:
     v = v.replace('"', "").replace("'", "").strip()
@@ -988,60 +1057,56 @@ def _clean(v: str) -> str:
 
 
 # ═════════════════════════════════════════════════════════════════════
-# PRÉ-CLASSIFICATION REGEX — v9.3
+# PRÉ-CLASSIFICATION REGEX — v9.4 (patchée)
 # ═════════════════════════════════════════════════════════════════════
 _PATTERNS_PRECLASS = [
     # ══════════════════════════════════════════════════════════════
     # FIX 2 : TRANSFORMER_DOC — PRIORITÉ ABSOLUE (avant GENERER_DOC)
     # ══════════════════════════════════════════════════════════════
-    (r"transform(?:e|er)?\s+.*\bof(?:\d+)?\b.*\bbf(?:\d+)?\b",            "GENERER_DOC"),
-    (r"transform(?:e|er)?\s+.*\bbf(?:\d+)?\b.*\bof(?:\d+)?\b",            "GENERER_DOC"),
-    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+)?bf\b",                           "GENERER_DOC"),
-    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+)?bon\s+de\s+fabrication\b",       "GENERER_DOC"),
-    (r"transform(?:e|er)?\s+.*\bbl\b.*\bfacture\b",                      "TRANSFORMER_DOC"),
-    (r"transform(?:e|er)?\s+.*\bbc\b.*\bbl\b",                          "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,15}(?:fa|bl|bc|of|bf)\d+",                     "TRANSFORMER_DOC"),
-    (r"transform[e\s]+.{0,15}[a-z]{2}\d{6,}",                            "TRANSFORMER_DOC"),
-    (r"convert[i\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)",         "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,60}\bof\b.{0,60}\bbf\b",            "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,60}\bbl\b.{0,60}facture",           "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,30}\bbc\b.{0,20}\bbl\b",            "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,15}(?:fa|bl|bc|of|bf)\d+",          "TRANSFORMER_DOC"),
+    (r"transform[e\s]+.{0,15}[a-z]{2}\d{6,}",                 "TRANSFORMER_DOC"),
+    (r"(?:transform|passe|converti).{0,30}num[eé]ro.{0,60}\b(?:of|bl|bc|bf|fa)[A-Z0-9]+.{0,20}\b(?:bf|bl|facture|bc)\b", "TRANSFORMER_DOC"),
+    (r"convert[i\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)", "TRANSFORMER_DOC"),
     (r"facturer\s+(?:le\s+)?bl\b",                             "TRANSFORMER_DOC"),
     (r"passer\s+(?:le\s+)?(?:bl|of)\b.{0,20}en\b",            "TRANSFORMER_DOC"),
-
-    # ── GÉNÉRATION DOCUMENTS ──────────────────────────────────────
-    # Priorité absolue : BL ACHAT (avant tout autre pattern 'facture')
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:la\s+|une\s+|le\s+|un\s+)?bf\s+(?:pour|de|à\s+partir\s+de)\s+.{0,10}\bof[a-z0-9]*\d+", "TRANSFORMER_DOC"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:la\s+|une\s+|le\s+|un\s+)?facture\s+(?:pour|de|à\s+partir\s+de)\s+.{0,10}\bbl[a-z0-9]*\d+", "TRANSFORMER_DOC"),
+    # ── GÉNÉRATION DOCUMENTS — ordre : BL_ACHAT > TRANSFORMER > GENERER
     (r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur|livraison\s+fournisseur", "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+.{0,20}bl\s+achat",                "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+.{0,20}r[eé]ception\s+fournisseur","GENERER_DOC"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+.{0,20}bl\s+achat", "GENERER_DOC"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+.{0,20}r[eé]ception\s+fournisseur", "GENERER_DOC"),
     # Priorité absolue : REGLEMENT (avant TOUTES_FACTURES_CLIENT)
     (r"r[eé]gler?\s+(la\s+|une\s+|les\s+)?(?:facture|fa)\s+[A-Z0-9]+",   "REGLEMENT"),
     (r"r[eé]glement\s+(?:de\s+la\s+)?(?:facture|fa)\s+[A-Z0-9]+",        "REGLEMENT"),
     (r"change.{0,30}(?:statut|status).{0,30}(?:facture|fa)\s+[A-Z0-9]+",  "REGLEMENT"),
     (r"marquer?\s+(?:la\s+)?(?:facture|fa)\s+[A-Z0-9]+.{0,30}r[eé]gl[eé]","REGLEMENT"),
     (r"(?:facture|fa)\s+([A-Z0-9]{3,})\s+.{0,20}r[eé]gl[eé]e?",          "REGLEMENT"),
-    (r"cr[eé][eé]?\s+(un\s+)?bl\b",                        "GENERER_DOC"),
-    (r"g[eé]n[eè]re?\s+(un\s+)?bl\b",                      "GENERER_DOC"),
-    (r"\bbl\s+(pour|client|cli)",                           "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+(un\s+)?of\b",                        "GENERER_DOC"),
+    # BL — avec ou sans article 'un'
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bl\b", "GENERER_DOC"),
+    (r"\bbl\s+(pour|client|cli|de\s+\d)",                  "GENERER_DOC"),
+    # OF — avec ou sans article
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?of\b", "GENERER_DOC"),
     (r"ordre\s+de\s+fabrication",                           "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+.*\bbf\s+pour\s+\bof\b",          "GENERER_DOC"),
-    (r"bf\s+pour\s+\bof\b",                                "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+(un\s+)?bf\b",                        "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+(une?\s+)?facture",                    "GENERER_DOC"),
-    (r"g[eé]n[eè]re?\s+(une?\s+)?facture",                  "GENERER_DOC"),
-    (r"[eé]tabli[rs]\s+(une?\s+)?facture",                  "GENERER_DOC"),
-    (r"cr[eé][eé]?\s+(un\s+)?bc\b",                        "GENERER_DOC"),
+    # BF
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bf\b", "GENERER_DOC"),
+    # FACTURE
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t)|[eé]tabli[rs])\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?facture", "GENERER_DOC"),
+    # BC
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bc\b", "GENERER_DOC"),
     (r"bon\s+de\s+commande",                                "GENERER_DOC"),
-    (r"g[eé]n[eè]re?\s+(un\s+)?bon",                       "GENERER_DOC"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bon\b", "GENERER_DOC"),
 
     # ── ÉCRITURE CLIENTS ──────────────────────────────────────────
-    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?client", "CREER_CLIENT"),
-    (r"cr[eé][eé]?z?\s+(?:un\s+|le\s+|la\s+)?(?:nouveau\s+)?client",    "CREER_CLIENT"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?client", "CREER_CLIENT"),
     (r"enregistr(?:er?|ez?)\s+(?:un\s+|le\s+)?(?:nouveau\s+)?client",   "CREER_CLIENT"),
     (r"saisi[rs]?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?client",             "CREER_CLIENT"),
     (r"nouveau\s+client",                                               "CREER_CLIENT"),
     (r"ajouter?\s+(un\s+)?client",                                      "CREER_CLIENT"),
     # ── CREER_FOURNISSEUR ──
-    (r"cr[eé][eé]?(?:r|er)?\s+(?:un\s+|le\s+|un\s+nouveau\s+|nouveau\s+)?fournisseur", "CREER_FOURNISSEUR"),
-    (r"cr[eé][eé]?z?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur",    "CREER_FOURNISSEUR"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?fournisseur", "CREER_FOURNISSEUR"),
     (r"enregistr(?:er?|ez?)\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur", "CREER_FOURNISSEUR"),
     (r"saisi[rs]?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur",       "CREER_FOURNISSEUR"),
     (r"nouveau\s+fournisseur",                                             "CREER_FOURNISSEUR"),
@@ -1052,18 +1117,49 @@ _PATTERNS_PRECLASS = [
     (r"modifier?\s+(le\s+)?statut",                         "MODIFIER_STATUT"),
 
     # ── AVOIR / RÈGLEMENT ─────────────────────────────────────────
-    (r"cr[eé][eé]?\s+(un\s+)?avoir",                        "CREER_AVOIR"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?avoir", "CREER_AVOIR"),
     (r"r[eé]gler?\s+(la\s+|une\s+|les\s+)?factures?",       "REGLEMENT"),
     (r"r[eé]glement\s+(d.une\s+|de\s+la\s+)?facture",       "REGLEMENT"),
     (r"payer?\s+(la\s+|une\s+|les\s+)?factures?",           "REGLEMENT"),
     (r"payer?\s+(?:la\s+)?(?:facture\s+)?(?:FA|BL|BC|BF)\d+","REGLEMENT"),
     (r"paiement\s+(d.une\s+|de\s+la\s+)?facture",           "REGLEMENT"),
     (r"change.{0,20}statut.{0,20}facture.{0,20}r[eé]gl[eé]","REGLEMENT"),
-     # ── DECLARATION_EXCEL (mensuelle, 2 tableaux Achat/Vente) ────
-    (r".*\bd[eé]claration\b.*", "DECLARATION_EXCEL"),
-(r".*\bcr[eé]e(?:r)?\b.*\bd[eé]claration\b.*", "DECLARATION_EXCEL"),
-(r".*\bd[eé]claration\b.*\bmois\b.*", "DECLARATION_EXCEL"),
-(r".*\bd[eé]claration\b.*\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b.*", "DECLARATION_EXCEL"),
+
+
+
+(r"fiche\s+technique\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
+(r"caract[eé]ristiques?\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
+(r"r[eé]clamations?\s+.{0,20}articles?",      "RECHERCHE_PROCEDURE"),                          
+(r"articles?\s+.{0,20}r[eé]clamations?",  "RECHERCHE_PROCEDURE"),
+# ══════════════════════════════════════════════════════════════
+    # PATCH KB-A : vocabulaire qui n'existe QUE dans la base documentaire
+    # (jamais dans F_ARTICLE/F_COMPTET/F_DOCENTETE) → routage KB direct,
+    # avant tout essai NL2SQL (cf. diagnostic cas 6,9,10,11,12,13,5,3)
+    # ══════════════════════════════════════════════════════════════
+    (r"r[eé]clamations?",                                    "RECHERCHE_PROCEDURE"),
+    (r"motifs?\s+de\s+r[eé]clamation",                       "RECHERCHE_PROCEDURE"),
+    (r"\bd[eé]fauts?\b",                                     "RECHERCHE_PROCEDURE"),
+    (r"\bpannes?\b",                                         "RECHERCHE_PROCEDURE"),
+    (r"\bsav\b",                                             "RECHERCHE_PROCEDURE"),
+    (r"tol[eé]rance",                                        "RECHERCHE_PROCEDURE"),
+    (r"proc[eé]d[eé]\s+de\s+fabrication",                    "RECHERCHE_PROCEDURE"),
+    (r"\bmati[eè]re\b",                                      "RECHERCHE_PROCEDURE"),
+    (r"temp[eé]rature",                                      "RECHERCHE_PROCEDURE"),
+    (r"\bprocess\b",                                         "RECHERCHE_PROCEDURE"),
+    (r"pr[eé]caution",                                       "RECHERCHE_PROCEDURE"),
+    (r"garantie",                                            "RECHERCHE_PROCEDURE"),
+    (r"\bremise\b",                                          "RECHERCHE_PROCEDURE"),
+    (r"conditions?\s+(commerciales?|n[eé]goci[eé]es?)",      "RECHERCHE_PROCEDURE"),
+    (r"command[eé]e?s?\s+par\s+email",                       "RECHERCHE_PROCEDURE"),
+    (r"email\s+de\s+commande",                                "RECHERCHE_PROCEDURE"),                              
+    # ══════════════════════════════════════════════════════════════
+    # PATCH D : STATUT_CLIENT avec code client — priorité absolue,
+    # AVANT tout autre pattern client (bloqué/actif/etc.)
+    # ══════════════════════════════════════════════════════════════
+    (r"\bclient\b.{0,25}\best[\s-]il\s+bloqu[eé]",              "STATUT_CLIENT"),
+    (r"\bclient\b.{0,25}\best[\s-]il\s+(?:actif|valide|suspect)","STATUT_CLIENT"),
+    (r"le\s+client\s+[A-Z0-9]+\s+est[\s-]il",                    "STATUT_CLIENT"),
+
     # ══════════════════════════════════════════════════════════════
     # FIX 4 : DOCUMENTS PAR TYPE → NL2SQL_LIBRE (avant LISTE_CLIENTS)
     # ══════════════════════════════════════════════════════════════
@@ -1074,14 +1170,22 @@ _PATTERNS_PRECLASS = [
     (r"(?:liste|donne|affiche|montre).{0,30}ordres?\s+de\s+fabrication","NL2SQL_LIBRE"),
     (r"bons?\s+de\s+livraison\s+(?:du\s+|de\s+)?client",               "NL2SQL_LIBRE"),
     (r"\bbl\b.{0,30}(?:du\s+|de\s+)?client",                           "NL2SQL_LIBRE"),
+    # PATCH H2 : BL + période (mois/date) → NL2SQL_LIBRE
+    (r"(?:liste|donne|affiche|montre).{0,20}\bbl\b.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)", "NL2SQL_LIBRE"),
+    (r"\bbl\b.{0,20}(?:du\s+mois|de\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre))", "NL2SQL_LIBRE"),
+    (r"bons?\s+de\s+livraison.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)", "NL2SQL_LIBRE"),
     # ── REQUÊTES ANALYTIQUES AVEC FILTRE ─────────────────────────
+    # PATCH #4 : articles + comparatif de prix numérique → NL2SQL avant PALMARES
+    (r"articles?\s+(?:qui\s+)?co[uû]tent\s+(?:plus|moins)\s+(?:de|que)\s*\d+", "NL2SQL_LIBRE"),
+    (r"articles?\s+(?:dont|avec).{0,20}prix.{0,20}(?:sup[eé]r|inf[eé]r|plus|moins|>|<)\s*\d+", "NL2SQL_LIBRE"),
     (r"factures?\s+(?:sup[eé]rieure?s?\s+[àa]|plus\s+(?:de|que)|>\s*)\s*\d+",  "NL2SQL_LIBRE"),
     (r"factures?\s+(?:inf[eé]rieure?s?\s+[àa]|moins\s+(?:de|que)|<\s*)\s*\d+", "NL2SQL_LIBRE"),
     (r"factures?\s+entre\s+\d+\s+et\s+\d+",                                     "NL2SQL_LIBRE"),
     (r"clients?\s+(?:ayant|avec|qui\s+ont)\s+(?:des?\s+)?factures?",             "NL2SQL_LIBRE"),
     (r"clients?\s+(?:dont|avec)\s+(?:un\s+)?(?:ca|chiffre).{0,30}\d+",          "NL2SQL_LIBRE"),
     (r"clients?\s+(?:dont|avec)\s+(?:un\s+)?encours.{0,30}\d+",                 "NL2SQL_LIBRE"),
-    (r"articles?\s+(?:dont|avec)\s+(?:un\s+)?stock.{0,20}\d+",                  "NL2SQL_LIBRE"),
+    (r"articles?\s+(?:dont|avec).{0,30}stock.{0,20}\d+",                  "NL2SQL_LIBRE"),
+    (r"articles?.{0,20}stock.{0,20}(?:inf[eé]r|sup[eé]r|<|>)\s*\d+",       "NL2SQL_LIBRE"),
     (r"articles?\s+(?:vendus?|achet[eé]s?)\s+(?:plus|moins)\s+(?:de|que)\s+\d+","NL2SQL_LIBRE"),
     (r"top\s+\d+\s+(?!clients?)(?:articles?|produits?|références?)",              "NL2SQL_LIBRE"),
     (r"(?:liste|donne|affiche|montre)\s+.{0,40}(?:o[ùu]|mais|dont|sauf|seulement|uniquement|filtre)", "NL2SQL_LIBRE"),
@@ -1109,6 +1213,8 @@ _PATTERNS_PRECLASS = [
     (r"clients?.{0,30}par\s+(?:nombre|nb)\s+(?:de\s+)?commandes?",    "NL2SQL_LIBRE"),
     (r"(?:nombre|nb)\s+(?:de\s+)?commandes?\s+(?:par\s+)?client",     "NL2SQL_LIBRE"),
     (r"qui\s+(?:commande|achète|a\s+achet[eé])\s+le\s+plus",           "NL2SQL_LIBRE"),
+    # PATCH H : "classe(r) les clients selon/par leur CA" → NL2SQL_LIBRE
+    (r"clas(?:se|ser|s[eé]s?)\s+les\s+clients?\s+.{0,30}(?:chiffre|ca\b)", "NL2SQL_LIBRE"),
     # ── ARTICLES STOCK SEUIL + COMMANDÉS ─────────────────────────
     (r"articles?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique).{0,40}command[eé]s?", "NL2SQL_LIBRE"),
     (r"articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)", "NL2SQL_LIBRE"),
@@ -1134,7 +1240,7 @@ _PATTERNS_PRECLASS = [
     (r"cr[eé]dit\s+(du\s+)?client",                        "NL2SQL_LIBRE"),
     (r"solde\s+(du\s+)?client",                             "NL2SQL_LIBRE"),
     (r"limite\s+(du\s+)?client",                            "NL2SQL_LIBRE"),
-    # Ajouter après les patterns LISTE_CLIENTS
+    # Fournisseurs
 (r"liste\s+(tous\s+)?(les\s+)?fournisseurs?",   "LISTE_FOURNISSEURS"),
 (r"(tous|toutes)\s+(les\s+)?fournisseurs?",      "LISTE_FOURNISSEURS"),
 (r"affiche\s+(les\s+)?fournisseurs?",            "LISTE_FOURNISSEURS"),
@@ -1225,13 +1331,14 @@ _PATTERNS_PRECLASS = [
     (r"\brfm\b",                                           "RFM"),
     (r"analyse\s+rfm",                                     "RFM"),
     (r"segmentation\s+clients?",                           "RFM"),
-   
+    (r"d[eé]claration\s*(fiscale|tva|mensuelle)?", "DECLARATION_EXCEL"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|exporte?(?:r|z)?)\s+.{0,15}d[eé]claration", "DECLARATION_EXCEL"),
     # ── DASHBOARD_EXCEL ───────────────────────────────────────────
     (r"tableau\s+de\s+bord",                               "DASHBOARD_EXCEL"),
     (r"\bdashboard\b",                                     "DASHBOARD_EXCEL"),
     (r"\bkpi\b",                                           "DASHBOARD_EXCEL"),
     (r"r[eé]sum[eé]\s+(g[eé]n[eé]ral|global)?",            "DASHBOARD_EXCEL"),
-    # ── PALMARES_ARTICLES ─────────────────────────────────────────
+    # ── PALMARES_ARTICLES (patché : exclut les comparatifs de prix) ──
     (r"palm[aà]r[eè]s",                                    "PALMARES_ARTICLES"),
     (r"articles?\s+les?\s+plus?\s+vendus?",                "PALMARES_ARTICLES"),
     (r"meilleurs?\s+articles?",                            "PALMARES_ARTICLES"),
@@ -1250,23 +1357,22 @@ _PATTERNS_PRECLASS = [
     (r"bon\s+de\s+fabrication",                             "GENERER_DOC"),
 ]
 
+
+_MARQUEURS_NL2SQL_FORCE_RE = [
+    re.compile(r"\b" + re.escape(m) + r"\b", re.IGNORECASE)
+    for m in _MARQUEURS_NL2SQL_FORCE
+]
+
 def _pre_classifier(question: str) -> str | None:
     q = question.lower().strip()
-
-    print("========== PRECLASS ==========")
-    print("Question :", q)
-
-    if any(re.search(r"\b" + re.escape(m) + r"\b", q) for m in _MARQUEURS_NL2SQL_FORCE):
-        print("FORCE NL2SQL")
+    if any(p.search(q) for p in _MARQUEURS_NL2SQL_FORCE_RE):
         return "NL2SQL_LIBRE"
-
     for pattern, action in _PATTERNS_PRECLASS:
         if re.search(pattern, q, re.IGNORECASE):
-            print("MATCH :", pattern)
-            print("ACTION :", action)
+            print(f"   ⚡ [PreClass] {action} (regex, 0ms)")
             return action
-
-    print("AUCUN MATCH")
+    if any(p.search(q) for p in _MARQUEURS_NL2SQL_FORCE_RE):
+        return "NL2SQL_LIBRE"
     return None
 
 
@@ -1311,6 +1417,13 @@ class CopilotState(TypedDict):
     statut_draft:     str   # "" | "COLLECTE" | "PREVIEW"
     pdf_path:         str
     num_of_resolu: str
+    dernier_action_classifiee:    str
+    derniere_question_classifiee: str
+    # PATCH J : persistance de la confirmation d'écriture entre les tours
+    statut_confirmation: str
+    ct_validite: str
+    ct_encours_max: float
+    numero_piece_paiement: str
 
 
 def _etat_initial(demande: str, contexte_session: dict | None = None) -> CopilotState:
@@ -1336,79 +1449,133 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         plan_execution=[], etape_courante=0,
         nom_client_brut=ctx.get("dernier_nom_client", ""),
         suggestion_en_attente={},
-        pending_action={},
+        pending_action=ctx.get("pending_action", {}),
         document_draft={}, statut_draft="", pdf_path="",
-pending_document={},
-attente_complements=False,
-num_of_resolu=""
+        pending_document={},
+        attente_complements=False,
+        ct_encours_max =ctx.get("ct_encours_max", 0.0),
+        ct_validite=ctx.get("ct_validite", "VALIDE"),
+        num_of_resolu="",
+        dernier_action_classifiee=ctx.get("dernier_action_classifiee", ""),
+        derniere_question_classifiee=ctx.get("derniere_question_classifiee", ""),
+        # PATCH J
+        statut_confirmation=ctx.get("statut_confirmation", ""),
+        numero_piece_paiement="",
     )
 
 def verifier_document_incomplet(state):
     doc = state.get("pending_document", {})
-
     type_doc = doc.get("type_doc")
 
     if type_doc == "BL_ACHAT":
-        champs = [
-            "code_fournisseur",
-            "ref_article",
-            "quantite",
-            "prix_unitaire"
-        ]
+        champs = ["code_fournisseur", "ref_article", "quantite", "prix_unitaire"]
     elif type_doc == "BL":
-        champs = [
-            "code_client",
-            "ref_article",
-            "quantite"
-        ]
+        champs = ["code_client", "ref_article", "quantite"]
+    elif type_doc == "CLIENT_CREATION":
+        champs = ["nom_client_brut", "ct_validite", "ct_encours_max"]   # ← AJOUT des 2 champs
+    elif type_doc == "FOURNISSEUR_CREATION":
+        champs = ["nom_client_brut"]
+    elif type_doc == "REGLEMENT_INFOS":
+        champs = ["mode_paiement"]
+        _mode_actuel = str(doc.get("mode_paiement") or "").strip().capitalize()
+        if _mode_actuel in ("Cheque", "Traite"):
+            champs.append("numero_piece_paiement")
     else:
         return None
-
-    manquants = []
-
-    for c in champs:
-        if not doc.get(c):
-            manquants.append(c)
-
-    return manquants
+    return [c for c in champs if not doc.get(c) and doc.get(c) != 0]   # ← il manquait aussi le return !
 async def noeud_complements(state):
-
     manquants = verifier_document_incomplet(state)
-
     if not manquants:
         state["attente_complements"] = False
         return state
 
     champ = manquants[0]
-
     questions = {
-        "code_fournisseur":
-            "Quel fournisseur ?",
-
-        "code_client":
-            "Quel client ?",
-
-        "ref_article":
-            "Quelle référence article ?",
-
-        "quantite":
-            "Quelle quantité ?",
-
-        "prix_unitaire":
-            "Quel prix unitaire ?"
+        "code_fournisseur": "Quel fournisseur ?",
+        "code_client":      "Quel client ?",
+        "ref_article":      "Quelle référence article ?",
+        "quantite":         "Quelle quantité ?",
+        "prix_unitaire":    "Quel prix unitaire ?",
+        "nom_client_brut":  "Quel est le nom / raison sociale à créer ?",
+        "ct_validite":      "Quel statut pour ce client ? (VALIDE / SUSPECT / BLOQUE)",   # ← AJOUT
+        "ct_encours_max":   "Quel encours maximum autorisé (en DT) ?",                    # ← AJOUT
+        "mode_paiement":         "Quel mode de paiement ? (Virement / Cheque / Traite / Especes / CB)",
+        "numero_piece_paiement": "Quel est le numéro du chèque / de la traite ?",
     }
-
     state["attente_complements"] = True
     state["reponse_finale"] = questions[champ]
-
     return state
+_VERBES_NOUVELLE_DEMANDE = re.compile(
+    r"^(?:cr[eé]e[rz]?|liste[rz]?|affiche[rz]?|montre[rz]?|donne[rz]?|"
+    r"g[eé]n[eé]r\w*|transforme[rz]?|r[eè]gle[rz]?|annule[rz]?|stop|quitter)\b",
+    re.IGNORECASE
+)
 def injecter_complement(state):
-
     if not state.get("attente_complements"):
         return state
 
-    doc = state.get("pending_document", {})
     texte = state["demande_brute"].strip()
+
+    if _VERBES_NOUVELLE_DEMANDE.match(texte):
+        state["attente_complements"] = False
+        state["pending_document"] = {}
+        return state
+
+    texte = re.sub(
+        r"^(?:nom|client|fournisseur|intitul[eé])\s*[:=]\s*",
+        "", texte, flags=re.IGNORECASE
+    ).strip()
+
+    doc = state.get("pending_document", {})
+
+    if not doc.get("prix_unitaire") and doc.get("type_doc") == "BL_ACHAT":
+        try:
+            doc["prix_unitaire"] = float(texte.replace(",", "."))
+        except Exception:
+            pass
+    elif not doc.get("quantite") and doc.get("type_doc") in ("BL_ACHAT", "BL"):
+        m = re.search(r"(\d+(?:[.,]\d+)?)", texte)
+        if m:
+            doc["quantite"] = float(m.group(1).replace(",", "."))
+    elif not doc.get("ref_article") and doc.get("type_doc") in ("BL_ACHAT", "BL"):
+        doc["ref_article"] = texte
+    elif not doc.get("code_fournisseur") and doc.get("type_doc") == "BL_ACHAT":
+        doc["code_fournisseur"] = texte
+    elif not doc.get("code_client") and doc.get("type_doc") == "BL":
+        doc["code_client"] = texte
+    elif not doc.get("nom_client_brut") and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc["nom_client_brut"] = texte
+    elif not doc.get("ct_validite") and doc.get("type_doc") == "CLIENT_CREATION":    # ← AJOUT
+        v = texte.strip().upper()
+        doc["ct_validite"] = v if v in ("VALIDE", "SUSPECT", "BLOQUE") else "VALIDE"
+    elif not doc.get("ct_encours_max") and doc.get("type_doc") == "CLIENT_CREATION": # ← AJOUT
+        m = re.search(r"(\d+(?:[.,]\d+)?)", texte)
+        doc["ct_encours_max"] = float(m.group(1).replace(",", ".")) if m else 0.0
+    elif not doc.get("mode_paiement") and doc.get("type_doc") == "REGLEMENT_INFOS":
+        t = texte.strip().lower()
+        _MODE_MAP = {
+            "cheque": "Cheque", "chèque": "Cheque",
+            "virement": "Virement",
+            "especes": "Especes", "espèces": "Especes",
+            "cb": "CB", "carte": "CB",
+            "traite": "Traite",
+        }
+        mode_trouve = next((v for k, v in _MODE_MAP.items() if k in t), None)
+        doc["mode_paiement"] = mode_trouve or texte.strip().capitalize()
+    elif (doc.get("type_doc") == "REGLEMENT_INFOS"
+            and doc.get("mode_paiement") in ("Cheque", "Traite")
+            and not doc.get("numero_piece_paiement")):
+        doc["numero_piece_paiement"] = texte.strip()
+    state["pending_document"] = doc
+    return state
+
+    # Nettoyage des préfixes du type "nom:", "nom :", "client:"
+    texte = re.sub(
+        r"^(?:nom|client|fournisseur|intitul[eé])\s*[:=]\s*",
+        "", texte, flags=re.IGNORECASE
+    ).strip()
+
+    doc = state.get("pending_document", {})
 
     if not doc.get("prix_unitaire"):
 
@@ -1440,6 +1607,10 @@ def injecter_complement(state):
 
         doc["code_client"] = texte
 
+    elif not doc.get("nom_client_brut"):
+
+        doc["nom_client_brut"] = texte
+
     state["pending_document"] = doc
 
     return state
@@ -1448,6 +1619,34 @@ def _fusionner_demandes(precedente: str, complement: str) -> str:
         f"Demande initiale : {precedente}\n"
         f"Précision apportée par l'utilisateur : {complement}"
     )
+
+
+async def _arbitrer_semantique_llm(question, decision_sem, action_llm):
+    if decision_sem is None:
+        return action_llm
+    if action_llm == decision_sem.action:
+        return action_llm
+    return None
+
+
+async def _verifier_rag(question):
+    try:
+        texte = await mcp_pool.call(
+            "kb",
+            "classifier_document",
+            {"requete": question}
+        )
+        import json
+        doc = json.loads(texte)
+        if doc.get("score", 0) >= 0.82:
+            dt = doc.get("doc_type")
+            if dt in ("relance_commerciale", "recouvrement"):
+                return "RECOMMANDATION"
+            if dt in ("procedure", "fiche_article", "reclamation_sav"):
+                return "RECHERCHE_PROCEDURE"
+    except Exception as e:
+        print(f"   ⚠️  [RAG Check] {e}")
+    return None
 
 
 def _extraire_dernier_document(final_state: dict) -> dict | None:
@@ -1481,15 +1680,46 @@ def _extraire_dernier_document(final_state: dict) -> dict | None:
 # ═════════════════════════════════════════════════════════════════════
 # DÉCOUPAGE MULTI-DEMANDES
 # ═════════════════════════════════════════════════════════════════════
+_VERBES_ACTION_MULTI = (
+    r"cr[eé]e(?:r|z)?|g[ée]n[ée]r\w*|transforme(?:r|z)?|r[eè]gle(?:r|z)?|"
+    r"lance(?:r|z)?|fai(?:s|t|re)|liste(?:r|z)?|affiche(?:r|z)?|montre(?:r|z)?|"
+    r"v[eé]rifie(?:r|z)?|cherche(?:r|z)?|recherche(?:r|z)?|confirme(?:r|z)?|"
+    r"envoie(?:r|z)?|supprime(?:r|z)?|exporte(?:r|z)?|[eé]dite(?:r|z)?|"
+    r"ajoute(?:r|z)?|calcule(?:r|z)?|dis|dire|indique(?:r|z)?|pr[eé]cise(?:r|z)?|donne(?:r|z)?"
+)
+_NOMS_INFO_MULTI = (
+    r"stocks?|caract[eé]ristiques?|prix|tarifs?|garanties?|tol[eé]rances?|"
+    r"r[eé]clamations?|disponibilit[eé]s?|d[eé]lais?|encours|statuts?|conditions?"
+)
 _CONNECTEURS = re.compile(
-    r"\bpuis\b|\bensuite\b|\baprès\b|\bet\s+(?=(?:crée|génère|transforme|règle|lance|fait|fais|liste|affiche|montre|vérifie))|"
-    r"\bet\s+aussi\b|\bde\s+plus\b|\bégalement\b|,\s+(?=(?:crée|génère|liste|affiche|montre|vérifie|calcule|donne))",
+    r"\bpuis\b|\bensuite\b|\baprès\b|"
+    rf"\bet\s+(?=(?:{_VERBES_ACTION_MULTI}))|"
+    rf"\bet\s+(?=(?:les?\s+|la\s+|des\s+)?(?:{_NOMS_INFO_MULTI})\b)|"
+    r"\bet\s+aussi\b|\bde\s+plus\b|\bégalement\b|"
+    rf",\s+(?=(?:{_VERBES_ACTION_MULTI}))",
     re.IGNORECASE
 )
 
 
+_PHRASES_SPLIT_RE = re.compile(r"(?<=[.?!])\s+")
+_VERBE_DEBUT_PHRASE_RE = re.compile(
+    r"^(?:" + _VERBES_ACTION_MULTI + r"|quels?|quelles?|combien|qui|"
+    r"quel\s+est|quelle\s+est|est[\s-]ce)\b",
+    re.IGNORECASE,
+)
+
+
 def _contient_multi_demandes(texte: str) -> bool:
-    return bool(_CONNECTEURS.search(texte))
+    if _CONNECTEURS.search(texte):
+        return True
+    if texte.count("?") >= 2:
+        return True
+    phrases = [p.strip() for p in _PHRASES_SPLIT_RE.split(texte) if p.strip()]
+    if len(phrases) >= 2:
+        nb_phrases_action = sum(1 for p in phrases if _VERBE_DEBUT_PHRASE_RE.match(p))
+        if nb_phrases_action >= 2:
+            return True
+    return False
 
 def _formater_liste_fournisseurs(data: dict) -> str:
     fournisseurs = data.get("fournisseurs", [])
@@ -1678,17 +1908,7 @@ def _formater_ca_global(data: dict) -> str:
         f"  Nb clients    : {data.get('nb_clients', 0)}\n"
         f"  Période       : {data.get('date_debut', '?')} → {data.get('date_fin', '?')}"
     )
-def _formater_declaration(data: dict) -> str:
-    a, v = data.get("achat", {}), data.get("vente", {})
-    return (
-        f"📑 Déclaration {data.get('mois','')} {data.get('annee','')}\n{'─'*50}\n"
-        f"  🛒 Achat : {a.get('nb',0)} facture(s) │ HT {a.get('total_ht',0):,.2f} € │ "
-        f"TVA {a.get('total_tva',0):,.2f} € │ TTC {a.get('total_ttc',0):,.2f} €\n"
-        f"  💰 Vente : {v.get('nb',0)} facture(s) │ HT {v.get('total_ht',0):,.2f} € │ "
-        f"TVA {v.get('total_tva',0):,.2f} € │ TTC {v.get('total_ttc',0):,.2f} €\n"
-        f"{'─'*50}\n"
-        f"  📎 Fichier : {data.get('fichier','')}"
-    )
+
 
 def _formater_kpi(data: dict) -> str:
     return (
@@ -1785,6 +2005,24 @@ def _formater_clients_baisse(data: dict) -> str:
     lignes.append("─" * 60)
     return "\n".join(lignes)
 
+def _formater_declaration(data: dict) -> str:
+    import os
+    a = data.get("achat", {})
+    v = data.get("vente", {})
+    fichier = data.get("fichier", "")
+    nom_f = os.path.basename(fichier) if fichier else ""
+    lien_md = f"[{nom_f}](/static/pdf/{nom_f})" if nom_f else "Non généré"
+    
+    return (
+        f"📄 Déclaration {data.get('mois','')} {data.get('annee','')}\n"
+        f"{'─'*45}\n"
+        f"  🛒 Achats  : {a.get('nb',0)} doc(s) │ "
+        f"HT: {a.get('total_ht',0):,.2f} € │ TVA: {a.get('total_tva',0):,.2f} € │ TTC: {a.get('total_ttc',0):,.2f} €\n"
+        f"  💰 Ventes  : {v.get('nb',0)} doc(s) │ "
+        f"HT: {v.get('total_ht',0):,.2f} € │ TVA: {v.get('total_tva',0):,.2f} € │ TTC: {v.get('total_ttc',0):,.2f} €\n"
+        f"{'─'*45}\n"
+        f"📎 Fichier Excel : {lien_md}"
+    )
 
 _FORMATEURS_JSON: dict[str, callable] = {
     "LISTE_ARTICLES":         _formater_liste_articles,
@@ -1802,7 +2040,7 @@ _FORMATEURS_JSON: dict[str, callable] = {
     "DSO":                    _formater_dso,
     "RFM":                    _formater_rfm,
     "DASHBOARD_EXCEL":        _formater_kpi,
-   "DECLARATION_EXCEL": _formater_declaration,
+    "DECLARATION_EXCEL":      _formater_declaration,
 }
 
 _ACTIONS_DEJA_TEXTE: set[str] = {
@@ -1860,7 +2098,7 @@ Réponds UNIQUEMENT avec ce JSON :
 [{{"demande": "texte complet action 1", "sequentiel": false}},
  {{"demande": "texte complet action 2", "sequentiel": true}}]"""
     try:
-        texte = await _invoke_llm(prompt, use_smart=False)
+        texte = await invoke_llm_anonymise(prompt, _invoke_llm, use_smart=False)
         texte = texte.replace("```json", "").replace("```", "").strip()
         m = re.search(r"\[.*\]", texte, re.DOTALL)
         if not m:
@@ -1886,7 +2124,26 @@ Réponds UNIQUEMENT avec ce JSON :
     except Exception:
         return [{"demande": demande, "sequentiel": False, "index": 0}]
 
+_RX_PIECES_REGLEMENT = re.compile(
+    r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[A-Z0-9]{2,}\d{2,})\b", re.IGNORECASE
+)
 
+def _decouper_reglement_multiple(demande: str) -> list[str] | None:
+    """PROB 4d : 'règle FA1 et FA2' → une sous-demande par pièce,
+    au lieu de ne garder que pieces_trouvees[-1]."""
+    if not re.search(r"r[eé]gl|paye?r?|paiement", demande, re.IGNORECASE):
+        return None
+    pieces = list(dict.fromkeys(
+        p.upper() for p in _RX_PIECES_REGLEMENT.findall(demande)
+    ))
+    if len(pieces) <= 1:
+        return None
+    m_mode = re.search(
+        r"(?:par\s+)(chèque|cheque|virement|espèces?|especes?|cb|carte|traite)",
+        demande, re.IGNORECASE
+    )
+    suffixe = f" par {m_mode.group(1)}" if m_mode else ""
+    return [f"règle la facture {p}{suffixe}" for p in pieces]
 # ─────────────────────────────────────────────────────────────────────
 # RÉSOLUTION RÉFÉRENCES CONTEXTUELLES
 # ─────────────────────────────────────────────────────────────────────
@@ -1972,7 +2229,7 @@ _MOTS_PREFIX_CLIENT = (
     r"|(?:(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|tiers\s+))"
     r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)(?:client\s+))"
     r"|(?:pour\s+(?:le\s+|la\s+)?(?:client\s+|tiers\s+)?)"
-    r"|(?:client\s+)"
+    r"|(?:(?:du|de|le|la)\s+client\s+)"   # forme explicite uniquement
 )
 _PATTERN_NOM_CLIENT = re.compile(
     r"(?:" + _MOTS_PREFIX_CLIENT + r")"
@@ -1989,46 +2246,73 @@ def _nettoyer_nom_client(nom: str) -> str:
     return re.sub(r"\s{2,}", " ", nom).strip()
 
 
+# PATCH F : mots vides français qui ne forment jamais un nom de client,
+# même en combinaison de 2+ mots (ex: "en fonction du nombre de factures")
+_MOTS_VIDES_NOM = {
+    "en", "fonction", "du", "de", "des", "le", "la", "les", "un", "une",
+    "et", "ou", "que", "qui", "dont", "pour", "avec", "sur", "par",
+    "au", "aux", "ce", "cette", "ces", "cet", "nombre", "total",
+    "moyenne", "montant", "selon", "chaque", "tous", "toutes",
+    "dans", "sans", "sous", "entre", "vers", "chez", "depuis",
+}
+
 # FIX 5 : _est_nom_valide rejette les noms contenant des chiffres
+# À placer au niveau module, avant _est_nom_valide (une seule fois)
+_MOTS_METIER_INVALIDES = {
+    "client", "tiers", "societe", "société", "entreprise",
+    "sarl", "sa", "sas", "le", "la", "les", "un", "une",
+    "pour", "avec", "sur", "du", "de", "plus", "moins",
+    "que", "dont", "ayant", "liste", "tous", "toutes",
+    "bons", "bon", "livraison", "commande", "fabrication",
+    "facture", "factures", "pieces", "piece", "unites", "unite",
+    "fournisseur", "fournisseurs", "fourn", "grossiste",
+    "achat", "achats", "reception", "réception",
+    "article", "articles", "catalogue", "produit", "produits",
+    "stock", "stocks", "rupture",
+    "impayées", "impayees", "impayés", "impayé",
+    "encours", "supérieur", "superieur", "inférieur", "inferieur",
+    "actifs", "actif", "inactifs", "inactif", "bloqués", "bloques",
+    "reglées", "réglées", "reglés", "réglés",
+    # ajouts pour couvrir les cas vus en test
+    "nombre", "montant", "moyenne", "total", "fonction",
+    "quantite", "quantité",
+}
+
+
 def _est_nom_valide(nom: str) -> bool:
     if not nom or len(nom) < 2:
         return False
-    # Rejeter si contient des chiffres (montants, codes numériques, "4k", etc.)
     if re.search(r'\d', nom):
         return False
     mots = nom.strip().split()
+    mots_lower = [m.lower() for m in mots]
+    # PATCH F : si TOUS les mots sont des mots vides → jamais un nom valide
+    if all(m in _MOTS_VIDES_NOM for m in mots_lower):
+        return False
     if len(mots) >= 2:
+        nb_vides = sum(1 for m in mots_lower if m in _MOTS_VIDES_NOM)
+        if nb_vides >= len(mots) - 1:
+            mots_pleins = [m for m in mots_lower if m not in _MOTS_VIDES_NOM]
+            if not mots_pleins or all(len(m) <= 3 for m in mots_pleins):
+                return False
+        # ── CORRECTIF : la longueur ne suffit pas à valider un mot
+        # "plein" (ex: "factures" = 8 caractères mais c'est du
+        # vocabulaire métier, pas un nom). On rejette si TOUS les mots
+        # significatifs (hors mots vides) appartiennent au vocabulaire
+        # métier interdit.
+        mots_pleins = [m for m in mots_lower if m not in _MOTS_VIDES_NOM]
+        if mots_pleins and all(m in _MOTS_METIER_INVALIDES for m in mots_pleins):
+            return False
         return True
     mot_lower = mots[0].lower()
-    invalides = {
-        "client", "tiers", "societe", "société", "entreprise",
-        "sarl", "sa", "sas", "le", "la", "les", "un", "une",
-        "pour", "avec", "sur", "du", "de", "plus", "moins",
-        "que", "dont", "ayant", "liste", "tous", "toutes",
-        "bons", "bon", "livraison", "commande", "fabrication",
-        "facture", "factures", "pieces", "piece", "unites", "unite",
-        # mots métier génériques → ne jamais résoudre en client
-        "fournisseur", "fournisseurs", "fourn", "grossiste",
-        "achat", "achats", "reception", "réception",
-        "article", "articles", "catalogue", "produit", "produits",
-        "stock", "stocks", "rupture",
-        # mots NL2SQL / filtres quantitatifs → jamais un nom de client
-        "impayées", "impayees", "impayés", "impayés", "impayé",
-        "encours", "supérieur", "superieur", "inférieur", "inferieur",
-        "actifs", "actif", "inactifs", "inactif", "bloqués", "bloques",
-        "reglées", "réglées", "reglés", "réglés",
-    }
-    return mot_lower not in invalides and len(mots[0]) > 2
-
+    return mot_lower not in _MOTS_METIER_INVALIDES and len(mots[0]) > 2
 
 _PREFIXES_PIECES = re.compile(r"^(FA|FF|BL|BC|BF|OF|AV|BR|AF)[A-Z0-9]*\d+$", re.IGNORECASE)
 
 def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
-    # FIX BUGA : \d{2,} au lieu de \d{3,} pour couvrir FOUR01, CLI01, F001, etc.
     m_code = re.search(r"\b([A-Z]{2,6}\d{2,})\b", db, re.IGNORECASE)
     if m_code:
         code = m_code.group(1).upper()
-        # Si c'est un numéro de pièce document → ne pas l'assigner comme client
         if _PREFIXES_PIECES.match(code):
             print(f"   🔎 [Regex] '{code}' détecté comme numéro de pièce (pas client)")
             return "", ""
@@ -2046,7 +2330,36 @@ def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
             print(f"   ⚠️  [Regex] nom_client '{nom}' rejeté")
     return "", ""
 
+import difflib
+import difflib
 
+_articles_refs_cache: list[str] | None = None
+
+def _charger_refs_articles() -> list[str]:
+    global _articles_refs_cache
+    if _articles_refs_cache is not None:
+        return _articles_refs_cache
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(_db_path))
+        rows = conn.execute("SELECT AR_Ref FROM F_ARTICLE").fetchall()
+        conn.close()
+        _articles_refs_cache = [r[0] for r in rows]
+    except Exception:
+        _articles_refs_cache = []
+    return _articles_refs_cache
+
+def _corriger_ref_article(ref: str) -> str:
+    if not ref:
+        return ref
+    refs = _charger_refs_articles()
+    if ref.upper() in refs:
+        return ref.upper()
+    matches = difflib.get_close_matches(ref.upper(), refs, n=1, cutoff=0.72)
+    if matches:
+        print(f"   🔧 [Fuzzy] '{ref}' → '{matches[0]}' (correction automatique)")
+        return matches[0]
+    return ref
 # FIX 6 : _rechercher_client_par_nom — len > 3, sortie rapide si liste vide
 async def _rechercher_client_par_nom(nom: str) -> str:
     if not nom or len(nom.strip()) < 2:
@@ -2059,15 +2372,13 @@ async def _rechercher_client_par_nom(nom: str) -> str:
         return cached
 
     _MOTS_PARASITES = {"le","la","les","du","de","des","et","ou","un","une","pour","avec","sur"}
-    # FIX 6 : len > 3 (était > 1) + rejet chiffres et mots mixtes numériques
     mots_significatifs = [
         m for m in nom_lower.split()
         if m not in _MOTS_PARASITES
         and len(m) > 3
         and not m.isdigit()
-        and not re.search(r'\d', m)   # rejette "4k", "27p", "1000", etc.
+        and not re.search(r'\d', m)
     ]
-    # FIX 6 : sortie immédiate si liste vide (évite les faux positifs MCP)
     if not mots_significatifs:
         _client_nom_cache[nom_lower] = ""
         print(f"   ⚠️  [Recherche Nom] '{nom}' → aucun mot significatif, abandon")
@@ -2160,7 +2471,17 @@ async def _mcp_workflow_bl_achat(
         "prix_unitaire":    prix_unitaire,
     })
     return _parse_mcp_response(raw)
-
+async def _mcp_workflow_facture(
+    code_client: str, ref_article: str, quantite: float, prix_unitaire: float = 0.0
+) -> dict:
+    raw = await mcp_pool.call("actions", "generer_document_sage", {
+        "type_doc":      "FACTURE",
+        "code_client":   code_client,
+        "ref_article":   ref_article,
+        "qte":           quantite,
+        "prix_unitaire": prix_unitaire,
+    })
+    return _parse_mcp_response(raw)
 
 async def _mcp_workflow_bl(
     code_client: str, ref_article: str, quantite: float, prix_unitaire: float = 0.0
@@ -2195,6 +2516,13 @@ async def _mcp_workflow_bf(
         "code_client": code_client,
     })
     return _parse_mcp_response(raw)
+async def _mcp_transformer_document(num_piece_source: str, type_destination: str) -> dict:
+    raw = await mcp_pool.call("actions", "transformer_document", {
+        "num_piece_source": num_piece_source,
+        "type_destination": type_destination,
+    })
+    return _parse_mcp_response(raw)
+
 async def _enrichir_draft_client_article(draft: dict) -> dict:
     """Complète le draft avec l'intitulé client et le prix de vente de l'article."""
     code_client = draft.get("code_client", "")
@@ -2222,9 +2550,8 @@ async def _enrichir_draft_client_article(draft: dict) -> dict:
             )
             data = json.loads(txt)
             rows = data.get("resultats") or data.get("rows") or []
-            if rows:
-                first_row = rows[0]
-                prix = first_row.get("AR_PrixVen") if isinstance(first_row, dict) else first_row["AR_PrixVen"] if "AR_PrixVen" in first_row.keys() else None
+            if rows and isinstance(rows, list):
+                prix = rows[0].get("AR_PrixVen")
                 if prix is not None:
                     draft["prix_unitaire"] = float(prix)
         except Exception as e:
@@ -2238,7 +2565,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
     """
     demande = state["demande_brute"]
 
-    # ── Cas 1 : un draft est déjà en attente côté session (réinjecté par main()) ──
     draft_existant = state.get("document_draft") or {}
     if draft_existant and state.get("statut_draft") == "PREVIEW":
         if est_confirmation_stricte(demande):
@@ -2249,7 +2575,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
             state["document_draft"] = {}
             state["reponse_finale"] = "🛑 Brouillon annulé. Rien n'a été enregistré."
             return state
-        # ni confirm ni annuler → réponse libre, on ignore et on rappelle la consigne
         state["statut_draft"] = "PREVIEW"
         state["reponse_finale"] = (
             "ℹ️  Un brouillon est en attente. Tapez **CONFIRM** pour valider "
@@ -2257,67 +2582,66 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
         )
         return state
 
-    # ── Cas 2 : complément de champ manquant (réponse à une question posée) ──
     if draft_existant and state.get("statut_draft") == "COLLECTE":
+        champ_avant = df_champs_manquants(draft_existant.get("type_doc",""), draft_existant)
+        premier_champ = champ_avant[0] if champ_avant else None
         draft = injecter_reponse_dans_draft(draft_existant.get("type_doc", ""), draft_existant, demande)
+
+        # ← AJOUT : vérif client bloqué juste après avoir reçu le code_client
+        if premier_champ == "code_client" and draft.get("code_client"):
+            try:
+                txt = await mcp_pool.call("nl2sql", "verifier_statut_client",
+                                           {"code_client": draft["code_client"]})
+                if "STATUT : BLOQUE" in txt:
+                    state["reponse_finale"] = f"🚫 Client bloqué, impossible de continuer.\n{txt}"
+                    state["statut_draft"] = ""
+                    state["document_draft"] = {}
+                    return state
+            except Exception:
+                pass
+
+        # ← AJOUT : vérif stock juste après avoir reçu la quantité
+        if premier_champ == "quantite" and draft.get("quantite"):
+            ok, msg = await _verifier_stock_draft(draft)   # déjà écrite dans draft_flow.py
+            if not ok:
+                state["reponse_finale"] = msg
+                state["statut_draft"] = ""
+                state["document_draft"] = {}
+                return state
+
         state["document_draft"] = draft
     else:
-        # ── Cas 3 : nouveau draft depuis la classification ──
         state["document_draft"] = construire_draft_depuis_state(state)
     state["document_draft"] = await _enrichir_draft_client_article(state["document_draft"])
+    from draft_flow import _enrichir_facture_depuis_bl,_enrichir_bf_depuis_of
+    state["document_draft"] = _enrichir_facture_depuis_bl(state["document_draft"])
+    state["document_draft"] = _enrichir_bf_depuis_of(state["document_draft"])
+    manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
     
     manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
     if manquants:
         state["statut_draft"] = "COLLECTE"
         state["reponse_finale"] = question_pour_champ(state["document_draft"]["type_doc"], manquants[0])
     else:
-        type_d_check = state["document_draft"].get("type_doc", "").upper()
-
-        if type_d_check == "BL":
-            ok, stock_msg = await _verifier_stock_draft(state["document_draft"])
-            if not ok:
-                state["statut_draft"] = ""
-                state["document_draft"] = {}
-                state["reponse_finale"] = (
-                    stock_msg or
-                    "❌ Stock insuffisant pour créer le brouillon BL. Vérifiez la quantité ou le stock disponible."
-                )
-                return state
-
-        if type_d_check == "BF":
-            # ── Anti-doublon : l'OF source a-t-il déjà un BF lié ? ──
-            num_of_src = state["document_draft"].get("num_of", "")
-            if num_of_src:
-                try:
-                    import sqlite3 as _sq
-                    _conn = _sq.connect(str(_db_path))
-                    _row = _conn.execute(
-                        "SELECT DO_Piece FROM F_DOCENTETE "
-                        "WHERE DO_Ref = ? AND DO_Type = 4 AND DO_Domaine = 2 LIMIT 1",
-                        (num_of_src,)
-                    ).fetchone()
-                    _conn.close()
-                    if _row:
-                        state["statut_draft"] = ""
-                        state["document_draft"] = {}
-                        state["reponse_finale"] = (
-                            f"⚠️  L'OF **{num_of_src}** a déjà été transformé en Bon de Fabrication.\n"
-                            f"   (BF existant : {_row[0]})\n"
-                            f"   La fabrication est déjà en cours ou terminée."
-                        )
-                        return state
-                except Exception as _e:
-                    print(f"   ⚠️  [BF] Vérif doublon échouée : {_e}")
-
+        state["statut_draft"] = "PREVIEW"
+    return state
+    manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
+    if manquants:
+        state["statut_draft"] = "COLLECTE"
+        state["reponse_finale"] = question_pour_champ(state["document_draft"]["type_doc"], manquants[0])
+    else:
         state["statut_draft"] = "PREVIEW"
     return state
 
 
 async def noeud_preview_draft(state: CopilotState) -> CopilotState:
     if state.get("statut_draft") != "PREVIEW":
-        return state  # déjà géré (question posée ou annulé)
+        return state
     texte, pdf_path = await generer_preview(state["document_draft"])
     state["pdf_path"] = pdf_path
+    alerte = await _verifier_encours_draft(state["document_draft"])
+    if alerte:
+        texte = alerte + "\n\n" + texte
     state["reponse_finale"] = texte
     return state
 
@@ -2326,14 +2650,39 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
     if state.get("statut_draft") != "CONFIRME":
         return state
     draft = state["document_draft"]
-    type_doc = draft.get("type_doc", "").upper()
+    type_doc = (draft.get("type_doc") or "").upper()
 
-    async def _transformer_document(num_piece_source: str, type_destination: str) -> dict:
-        raw = await mcp_pool.call("actions", "transformer_document", {
-            "num_piece_source": num_piece_source,
-            "type_destination": type_destination,
-        })
-        return _parse_mcp_response(raw)
+    source_piece = draft.get("num_of") if type_doc == "BF" else draft.get("num_piece_source")
+    if source_piece:
+        try:
+            import sqlite3
+            _db = sqlite3.connect(str(_db_path))
+            _cur = _db.cursor()
+            if type_doc == "FACTURE":
+                _cur.execute(
+                    "SELECT COUNT(*) FROM F_DOCENTETE WHERE DO_Ref=? AND DO_Type=3 AND DO_Domaine=0",
+                    (source_piece,),
+                )
+                if _cur.fetchone()[0] > 0:
+                    _db.close()
+                    state["reponse_finale"] = f"⚠️  Le BL **{source_piece}** a déjà été transformé en facture."
+                    state["statut_draft"] = ""
+                    state["document_draft"] = {}
+                    return state
+            elif type_doc == "BF":
+                _cur.execute(
+                    "SELECT COUNT(*) FROM F_DOCENTETE WHERE DO_Ref=? AND DO_Type=4 AND DO_Domaine=2",
+                    (source_piece,),
+                )
+                if _cur.fetchone()[0] > 0:
+                    _db.close()
+                    state["reponse_finale"] = f"⚠️  L'OF **{source_piece}** a déjà été transformé en BF."
+                    state["statut_draft"] = ""
+                    state["document_draft"] = {}
+                    return state
+            _db.close()
+        except Exception as e:
+            print(f"   ⚠️  [Vérif doublon draft] {e}")
 
     resultat = await executer_draft_confirme(
         draft,
@@ -2341,11 +2690,11 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
         mcp_workflow_of=_mcp_workflow_of,
         mcp_workflow_bf=_mcp_workflow_bf,
         mcp_workflow_bl_achat=_mcp_workflow_bl_achat,
-        mcp_pool_transformer_document=_transformer_document,
+        mcp_pool_transformer_document=_mcp_transformer_document,
+        mcp_workflow_facture=_mcp_workflow_facture,
     )
 
     if resultat.get("statut") not in _STATUTS_ACTIONS_V3_OK:
-        # Erreur métier (stock insuffisant, client bloqué, composants manquants...)
         state["reponse_finale"] = resultat.get("message", "❌ Erreur lors de la création.")
         state["statut_draft"]   = ""
         state["document_draft"] = {}
@@ -2353,8 +2702,6 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
 
     num_piece = resultat.get("DO_Piece", "")
     state["num_piece"] = num_piece
-    if type_doc in {"OF", "BF"} and resultat.get("nomenclature"):
-        draft["nomenclature"] = resultat["nomenclature"]
     pdf_final = await generer_pdf_final(draft, num_piece)
     state["pdf_path"] = pdf_final
 
@@ -2362,7 +2709,6 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
 
     type_doc = draft.get("type_doc", "").upper()
 
-    # ── Chaînage BL → suggestion Facture ──
     if type_doc == "BL" and resultat.get("suggestion_facture"):
         sugg = resultat["suggestion_facture"]
         state["suggestion_en_attente"] = {
@@ -2372,26 +2718,12 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
         }
         rapport.append("\n💡 Tapez **ok** pour préparer le brouillon de la facture correspondante.")
 
-    # ── Chaînage OF → alerte persistante BF tant que non créé ──
-    # ── Chaînage OF → la création de l'alerte persistante BF est gérée
-    #    dans main() (voir bloc "Persistance du cycle draft/preview/confirm"),
-    #    car contexte_session n'est pas accessible depuis CopilotState ici.
     if type_doc == "OF":
-        if resultat.get("suggestion_bf"):
-            sugg_bf = resultat["suggestion_bf"]
-            state["suggestion_en_attente"] = {
-                "type": "CREER_BF",
-                "description": f"Créer le BF pour OF {num_piece}",
-                "params": sugg_bf,
-            }
-            rapport.append("💡 Tapez **ok** pour créer le BF.")
-        else:
-            rapport.append(
-                f"\n💡 Pour finaliser, indiquez la quantité réellement produite : "
-                f"\"crée le BF pour {num_piece}\""
-            )
+        rapport.append(
+            f"\n💡 Pour finaliser, indiquez la quantité réellement produite : "
+            f"\"crée le BF pour {num_piece}\""
+        )
 
-    # ── BF créé → on transmet le num_of lié pour que main() résolve l'alerte ──
     if type_doc == "BF" and draft.get("num_of"):
         state["num_of_resolu"] = draft["num_of"]
 
@@ -2400,30 +2732,141 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
     state["document_draft"] = {}
     return state
 # ─────────────────────────────────────────────────────────────────────
-# NŒUD CLASSIFIER — v9.3
+# NŒUD CLASSIFIER — v9.4
 # ─────────────────────────────────────────────────────────────────────
 async def noeud_classifier(state: CopilotState) -> CopilotState:
-   # COURT-CIRCUIT PRIORITAIRE : un brouillon est en attente de
-    # confirmation → on ne reclassifie surtout pas "CONFIRM"/"ANNULER"
+    demande_actuelle = state["demande_brute"]
+    _prev_action = state.get("dernier_action_classifiee", "")
+    _prev_question = state.get("derniere_question_classifiee", "")
+    if _prev_action and _prev_question:
+        correction = detecter_correction(_prev_question, _prev_action, demande_actuelle)
+        if correction:
+            enregistrer_signal_correction(_prev_question, _prev_action, demande_actuelle)
+        else:
+            enregistrer_signal_confirmation(_prev_question)
+
+    result = await _noeud_classifier_impl(state)
+
+    if result.get("intention") == "ERP" and result.get("action"):
+        origine = result.get("_origine_classification", "INCONNUE")
+        logger_decision(
+            demande_actuelle, result["action"], origine,
+            result.get("score_confiance", 0.0),
+        )
+        result["dernier_action_classifiee"] = result["action"]
+        result["derniere_question_classifiee"] = demande_actuelle
+    return result
+
+async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
     # ══════════════════════════════════════════════════════════════
-    if state.get("document_draft") and state.get("statut_draft") == "PREVIEW":
-        print("   ⏭️  [Classifier] Brouillon en PREVIEW → bypass classification")
-        state["intention"]       = "ERP"
-        state["action"]          = "GENERER_DOC"
-        state["ambigue"]         = False
+    # COURT-CIRCUIT PRIORITAIRE : confirmation en attente
+    # ══════════════════════════════════════════════════════════════
+    if state.get("pending_action") and state.get("statut_confirmation") == "ATTENTE":
+        if est_confirmation_stricte(state["demande_brute"]) or _est_oui(state["demande_brute"]):
+            state["statut_confirmation"] = "CONFIRME"
+            state.update(state["pending_action"])
+            state["validation_ok"] = True
+            state["intention"] = "ERP"
+            return state
+
+        if est_annulation_stricte(state["demande_brute"]) or _est_non(state["demande_brute"]):
+            state["statut_confirmation"] = ""
+            state["pending_action"] = {}
+            state["reponse_finale"] = "🛑 Action annulée."
+            state["intention"] = "ERP"
+            return state
+
+        state["reponse_finale"] = "ℹ️ Répondez **Y** pour confirmer ou **N** pour annuler."
+        state["intention"] = "ERP"
+        return state
+
+    # ══════════════════════════════════════════════════════════════
+    # Bypass brouillon / collecte
+    # ══════════════════════════════════════════════════════════════
+    if state.get("document_draft") and state.get("statut_draft") in ("PREVIEW", "COLLECTE"):
+        action_bypass = state.get("dernier_action_classifiee") or "GENERER_DOC"
+
+        print(f"⏭️ [Classifier] Brouillon en {state['statut_draft']} → bypass classification ({action_bypass})")
+
+        state["intention"] = "ERP"
+        state["action"] = action_bypass
+        state["ambigue"] = False
         state["score_confiance"] = 1.0
         return state
 
+    # ══════════════════════════════════════════════════════════════
+    # Compléments
+    # ══════════════════════════════════════════════════════════════
     state = injecter_complement(state)
-   
 
     if state.get("attente_complements"):
         manquants = verifier_document_incomplet(state)
+
         if not manquants:
             state["attente_complements"] = False
+            type_pending = state.get("pending_document", {}).get("type_doc")
+
+            if type_pending == "CLIENT_CREATION":
+                pd = state["pending_document"]
+
+                state["nom_client_brut"] = pd.get("nom_client_brut", "")
+                state["code_client"] = _generer_code_client(state["nom_client_brut"])
+                state["ct_validite"] = pd.get("ct_validite", "VALIDE")
+                state["ct_encours_max"] = pd.get("ct_encours_max", 0.0)
+
+                state["action"] = "CREER_CLIENT"
+                state["intention"] = "ERP"
+                state["ambigue"] = False
+                return state
+
+            elif type_pending == "FOURNISSEUR_CREATION":
+                pd = state["pending_document"]
+
+                state["nom_client_brut"] = pd.get("nom_client_brut", "")
+                state["code_client"] = _generer_code_fournisseur(state["nom_client_brut"])
+
+                state["action"] = "CREER_FOURNISSEUR"
+                state["intention"] = "ERP"
+                state["ambigue"] = False
+                return state
+            elif type_pending == "REGLEMENT_INFOS":
+                pd = state["pending_document"]
+                state["num_piece"]             = pd.get("num_piece", state.get("num_piece", ""))
+                state["mode_paiement"]         = pd.get("mode_paiement", "Virement")
+                state["numero_piece_paiement"] = pd.get("numero_piece_paiement", "")
+                state["action"]    = "REGLEMENT"
+                state["intention"] = "ERP"
+                state["ambigue"]   = False
+                return state
+
+            # fallback sécurisé
             state["action"] = "GENERER_DOC"
+            state["intention"] = "ERP"
+            state["ambigue"] = False
             return state
 
+        # cas incomplet → question
+        questions = {
+            "code_fournisseur": "Quel fournisseur ?",
+            "code_client": "Quel client ?",
+            "ref_article": "Quelle référence article ?",
+            "quantite": "Quelle quantité ?",
+            "prix_unitaire": "Quel prix unitaire ?",
+            "nom_client_brut": "Quel est le nom / raison sociale à créer ?",
+            "ct_validite": "Quel statut pour ce client ? (VALIDE / SUSPECT / BLOQUE)",
+            "ct_encours_max": "Quel encours maximum autorisé (en DT) ?",
+            "mode_paiement":         "Quel mode de paiement ? (Virement / Cheque / Traite / Especes / CB)",
+            "numero_piece_paiement": "Quel est le numéro du chèque / de la traite ?",
+        }
+
+        champ = manquants[0]
+        state["reponse_finale"] = questions.get(champ, "Merci de préciser cette information.")
+        state["intention"] = "ERP"
+        state["ambigue"] = False
+        return state
+
+    # ══════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
     print("\n🧠 [Orchestrateur] Classification de la demande...")
     question = state["demande_brute"]
     t0       = time.perf_counter()
@@ -2432,6 +2875,67 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
     # ÉTAPE 0 — Pré-classification regex (0ms, prioritaire)
     # ══════════════════════════════════════════════════════════════
     action_preclass = _pre_classifier(question)
+    if action_preclass:
+        state["_origine_classification"] = "REGEX"
+
+    # ══════════════════════════════════════════════════════════════
+    # ÉTAPE 0b — Classification sémantique hiérarchique
+    # ══════════════════════════════════════════════════════════════
+    if action_preclass is None and ENABLE_SEMANTIC_CLASSIFIER:
+        try:
+            decision_sem = await ce.evaluer_semantique(question)
+            if decision_sem.action is not None:
+                print(
+                    f"   🧠 [Sémantique] {decision_sem.action} score={decision_sem.score:.3f} "
+                    f"marge={decision_sem.marge:.3f} seuil_haut={decision_sem.seuil_haut:.2f} "
+                    f"seuil_bas={decision_sem.seuil_bas:.2f}"
+                )
+
+                _fam1 = decision_sem.famille
+                _sem_top2_action = None
+                if decision_sem.score2 > decision_sem.seuil_bas:
+                    for _a, _ctr in sc._action_centroids.items():
+                        if _a == decision_sem.action:
+                            continue
+                        _fam2 = sc.ACTION_TO_FAMILY.get(_a, "")
+                        if _fam2 != _fam1:
+                            _sem_top2_action = _a
+                            break
+                SEUIL_SEM_MIN = 0.80  # jamais en dessous, quel que soit le calcul adaptatif interne
+
+                if decision_sem.statut == "ACCEPTE" and decision_sem.seuil_haut < SEUIL_SEM_MIN:
+                    print(f"   🚫 [Sémantique] Seuil adaptatif trop bas ({decision_sem.seuil_haut:.2f}) → rejeté par garde-fou orchestrateur")
+                    decision_sem.statut = "ZONE_GRISE"
+                if decision_sem.statut == "ACCEPTE":
+                    # GARDE-FOU : rejette l'acceptation sémantique si la
+                    # question ne contient AUCUN mot-clé du domaine client,
+                    # pour éviter les faux positifs type "stock"/"seuil" →
+                    # LISTE_CLIENTS.
+                    _mots_domaine_client = ("client", "clients", "tiers", "société", "entreprise")
+                    _action_est_client = decision_sem.action in (
+                        "LISTE_CLIENTS", "TOP_CLIENTS", "FICHE_CLIENT",
+                        "STATUT_CLIENT", "TOUTES_FACTURES_CLIENT",
+                    )
+                    if _action_est_client and not any(w in question.lower() for w in _mots_domaine_client):
+                        print(f"   🚫 [Sémantique] Rejeté malgré score={decision_sem.score:.3f} : "
+                              f"aucun mot-clé client dans la question")
+                    else:
+                        action_preclass = decision_sem.action
+                        state["_decision_sem"] = decision_sem
+                        state["score_confiance"] = decision_sem.score
+                        state["_origine_classification"] = "SEMANTIQUE"
+                        print(f"   ✅ [Sémantique] Accepté (score={decision_sem.score:.3f} >= seuil={decision_sem.seuil_haut:.2f})")
+                    from apprentissage_semi_auto import enregistrer_prediction
+                    enregistrer_prediction(question, decision_sem.action, "SEMANTIQUE", decision_sem.score, decision_sem.score2)
+                elif decision_sem.statut == "ZONE_GRISE":
+                    state["_decision_sem"] = decision_sem
+                    print(f"   🔶 [Sémantique] Zone grise ({decision_sem.seuil_bas:.2f} <= score={decision_sem.score:.3f} < seuil={decision_sem.seuil_haut:.2f})")
+                else:
+                    state["_decision_sem"] = decision_sem
+                    print(f"   ❌ [Sémantique] Score trop bas ({decision_sem.score:.3f} < seuil_bas={decision_sem.seuil_bas:.2f})")
+        except Exception as _sem_err:
+            print(f"   ⚠️  [Sémantique] Erreur classification : {_sem_err}")
+
     if action_preclass:
         entites_ner = _ner_extraire_entites(question)
         for _champ in ("client", "article"):
@@ -2457,62 +2961,80 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
             if code_trouve:
                 state["code_client"] = code_trouve
             elif action_preclass == "CREER_CLIENT":
-                # FIX CREER_CLIENT : client nouveau → générer code incrémental
                 state["code_client"] = _generer_code_client(state["nom_client_brut"])
                 print(f"   🔧 [CREER_CLIENT] Nouveau client → code généré : '{state['code_client']}'")
             elif action_preclass == "CREER_FOURNISSEUR":
                 state["code_client"] = _generer_code_fournisseur(state["nom_client_brut"])
-                # Effacer ref_article s'il = nom fournisseur
                 _nom_up = (state.get("nom_client_brut") or "").upper()
                 if _nom_up and state.get("ref_article", "").upper() == _nom_up:
                     state["ref_article"] = ""
                 print(f"   🔧 [CREER_FOURNISSEUR] Nouveau fournisseur → code généré : '{state['code_client']}'")
-
-        # FIX 1 : extraction article insensible à la casse
-        # Priorité 1 : mot explicitement après "article", "stock de", "ref", "produit"
+        _piece_tokens_q = [t.upper() for t in re.findall(
+            r"\b(?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,}\b", question, re.IGNORECASE
+        )]
+        def _est_sous_chaine_piece(cand: str) -> bool:
+            return any(cand in pt for pt in _piece_tokens_q)
+        # FIX 1 + PATCH G : extraction article insensible à la casse,
+        # avec exclusion prioritaire du contexte "prix de X"
         _ref_article_trouvee = ""
+        # PATCH G : "prix de X" / "stock et prix de X" → capturer X, pas PRIX
+        m_prix_de = re.search(
+            r"prix\s+de\s+(?:l['\u2019]article\s+)?([A-Za-z][A-Za-z0-9\-]{2,})",
+            question, re.IGNORECASE
+        )
+        if m_prix_de:
+            cand = m_prix_de.group(1).upper()
+            if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
+                _ref_article_trouvee = cand
+                print(f"   🔎 [PreClass/PatchG] ref_article (prix de) : '{cand}'")
         m_art_ctx = re.search(
             r"(?:article|stock\s+de\s+(?:l['\u2019])?(?:article\s+)?|r[eé]f(?:[eé]rence)?\s+|produit)\s+([A-Za-z][A-Za-z0-9\-]{1,})",
             question, re.IGNORECASE
         )
-        if m_art_ctx:
+        if not _ref_article_trouvee and m_art_ctx:
             cand = m_art_ctx.group(1).upper()
             if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
                 _ref_article_trouvee = cand
                 print(f"   🔎 [PreClass] ref_article (contexte article) : '{cand}'")
-        # Priorité 2 : mot explicitement après 'pièce de' ou 'piece de'
-        if not _ref_article_trouvee:
-            m_art_piece = re.search(
-                r"\bpi[eè]ce(?:s)?\s+(?:de|d')[ \t]*([A-Za-z][A-Za-z0-9\-]{1,})",
-                question, re.IGNORECASE
-            )
-            if m_art_piece:
-                cand = m_art_piece.group(1).upper()
-                if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
-                    _ref_article_trouvee = cand
-                    print(f"   🔎 [PreClass] ref_article (pièce de) : '{cand}'")
-        # Priorité 3 : token ressemblant à une vraie réf ERP (chiffres + lettres)
         if not _ref_article_trouvee:
             for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", question):
                 mot_upper = mot.upper()
                 has_digit = bool(re.search(r"\d", mot_upper))
                 has_dash_ref = ("-" in mot_upper and
                     all(len(p) >= 2 for p in mot_upper.split("-")) and
-                    any(len(p) >= 3 for p in mot_upper.split("-")))
-                if (has_digit or has_dash_ref) and mot_upper not in _EXCL_ARTICLE and not mot_upper.startswith("CLI"):
+                    any(len(p) >= 3 for p in mot_upper.split("-")) and
+                    mot_upper not in _EXPRESSIONS_FR_EXCLUES)
+                is_piece_ref = bool(re.match(r"^(?:OF|BL|BC|BF|FA)\d", mot_upper))
+                if (has_digit or has_dash_ref) and mot_upper not in _EXCL_ARTICLE and mot_upper not in _EXPRESSIONS_FR_EXCLUES and not mot_upper.startswith("CLI") and not is_piece_ref:
                     _ref_article_trouvee = mot_upper
                     print(f"   🔎 [PreClass] ref_article (ref ERP) : '{mot_upper}'")
                     break
-        state["ref_article"] = _ref_article_trouvee
+        if not _ref_article_trouvee:
+            m_art_qte = re.search(
+        r"\b\d+(?:[.,]\d+)?\s*(?:pi[eè]ces?|unit[eé]s?)?\s*(?:de\s+)?([A-Za-z][A-Za-z0-9\-]{2,})\b",
+        question,
+        re.IGNORECASE,
+    )
 
-        # FIX 2 CREER_CLIENT / CREER_FOURNISSEUR : effacer ref_article = nom tiers
+            if m_art_qte:
+                cand = m_art_qte.group(1).upper()
+
+                if (
+                    cand not in _EXCL_ARTICLE
+                    and not cand.startswith("CLI")
+                    and cand != state.get("code_client", "").upper()
+                    and not _est_sous_chaine_piece(cand)
+                ):
+                    _ref_article_trouvee = cand
+                    print(f"   🔎 [PreClass] ref_article (après quantité) : '{cand}'")
+        state["ref_article"] = _ref_article_trouvee
+        state["ref_article"] = _corriger_ref_article(state["ref_article"])
         if action_preclass in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
             nom_up = (state.get("nom_client_brut") or "").upper()
             if nom_up and state.get("ref_article", "").upper() == nom_up:
                 state["ref_article"] = ""
                 print(f"   🧹 [CREER_CLIENT] ref_article '{nom_up}' effacé (= nom client)")
 
-        # Extraction quantité
         m_q = re.search(
             r"(?:quantit[eé]s?\s*[=:>]?\s*|qte\s*[=:]?\s*|\b)(\d+(?:[.,]\d+)?)\s*(?:pièces?|pieces?|unités?|u\.?\b)?",
             question, re.IGNORECASE
@@ -2522,12 +3044,10 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
             if val > 0:
                 state["quantite"] = val
 
-        # ── Pour GENERER_DOC : détecter type_doc (BL_ACHAT en priorité) ──
         if action_preclass == "GENERER_DOC" and not state.get("type_doc"):
             q_lower = question.lower()
             if re.search(r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur", q_lower):
                 state["type_doc"] = "BL_ACHAT"
-                # Extraction souple des champs BL_ACHAT
                 m_four = re.search(r"fournisseur\s+([A-Z0-9]+)", question, re.IGNORECASE)
                 m_art  = re.search(r"article\s+([A-Z0-9]+)", question, re.IGNORECASE)
                 m_qte  = re.search(r"quantit[eé]s?\s*[=:>]?\s*(\d+(?:[.,]\d+)?)", question, re.IGNORECASE)
@@ -2541,57 +3061,25 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                 doc["type_doc"] = "BL_ACHAT"
                 state["pending_document"] = doc
                 
-                # Mettre à jour state principal
                 if doc.get("code_fournisseur"): state["code_client"] = doc["code_fournisseur"]
                 if doc.get("ref_article"):      state["ref_article"] = doc["ref_article"]
                 if doc.get("quantite"):         state["quantite"]    = doc["quantite"]
-            elif re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):
-                state["type_doc"] = "BF"
-                # ── FIX BF : récupérer le num d'OF source + pré-remplir article/qté ──
-                m_of_src = re.search(r"\b(OF[A-Z0-9]{3,})\b", question, re.IGNORECASE)
-                if m_of_src:
-                    state["num_piece"] = m_of_src.group(1).upper()
-                    if state.get("ref_article", "").upper() == state["num_piece"].upper():
-                        state["ref_article"] = ""
-                    if not state.get("ref_article") or state.get("quantite", 0.0) <= 0.0:
-                        try:
-                            import sqlite3 as _sq
-                            _conn = _sq.connect(str(_db_path))
-                            _row = _conn.execute(
-                                "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
-                                (state["num_piece"],)
-                            ).fetchone()
-                            _conn.close()
-                            if _row:
-                                if not state.get("ref_article"):
-                                    state["ref_article"] = _row[0]
-                                if state.get("quantite", 0.0) <= 0.0:
-                                    state["quantite"] = float(_row[1])
-                                print(f"   🔗 [BF] Pré-rempli depuis {state['num_piece']} : "
-                                      f"article={state['ref_article']} qte={state['quantite']}")
-                        except Exception as _e:
-                            print(f"   ⚠️  [BF] Pré-remplissage OF échoué : {_e}")
-                elif state.get("dernier_num_piece", "").upper().startswith("OF"):
-                    state["num_piece"] = state["dernier_num_piece"]
-                    print(f"   🔗 [BF] num_piece (OF source) hérité session : '{state['num_piece']}'")
+            elif re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):   state["type_doc"] = "BF"
             elif re.search(r"\bof\b|ordre\s+de\s+fabrication", q_lower): state["type_doc"] = "OF"
             elif re.search(r"\bbc\b|bon\s+de\s+commande", q_lower):     state["type_doc"] = "BC"
             elif re.search(r"facture|facturer", q_lower):                state["type_doc"] = "FACTURE"
             else:                                                          state["type_doc"] = "BL"
 
-        # FIX 3 : TRANSFORMER_DOC — extraction num_piece + type_doc destination
         if action_preclass == "TRANSFORMER_DOC":
-            # Extraire le numéro de pièce source (OF260625..., BL001..., etc.)
             m_piece = re.search(
-                r"\b((?:OF|BL|BC|FA|BF)[A-Z0-9]{3,})\b", question, re.IGNORECASE
-            )
+    r"\b((?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,})\b", question, re.IGNORECASE
+)
             if m_piece:
                 state["num_piece"] = m_piece.group(1).upper()
                 print(f"   🔎 [Fix3] num_piece extrait : '{state['num_piece']}'")
             elif state.get("dernier_num_piece"):
                 state["num_piece"] = state["dernier_num_piece"]
                 print(f"   🔗 [Fix3] num_piece hérité session : '{state['num_piece']}'")
-            # Détecter le type destination
             q_lower = question.lower()
             if re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):
                 state["type_doc"] = "BF"
@@ -2601,11 +3089,9 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                 state["type_doc"] = "BL"
             elif re.search(r"\bbc\b|bon\s+de\s+commande", q_lower):
                 state["type_doc"] = "BC"
-            # Ambiguïté seulement si num_piece absent
             if not state.get("num_piece"):
                 state["ambigue"] = True
 
-        # ── Pour MODIFIER_STATUT ──────────────────────────────────
         if action_preclass == "MODIFIER_STATUT" and not state.get("type_doc"):
             q_lower = question.lower()
             if re.search(r"d[eé]bloquer?|r[eé]activer?|valider?", q_lower):
@@ -2618,25 +3104,16 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
         state["ambigue"]         = state.get("ambigue", False)
         state["intention"]       = "ERP"
 
-        # ── GENERER_DOC : ambiguïté si client/article/quantité manquants
         if action_preclass == "GENERER_DOC":
             type_d = (state.get("type_doc") or "").upper()
             _a_client = bool(state.get("code_client") or state.get("nom_client_brut"))
-            if type_d == "BF":
-                # Un BF n'a besoin que de la référence à l'OF source ;
-                # article/quantité sont pré-remplis ou seront demandés
-                # par le cycle draft (collecte_draft) s'ils manquent encore.
-                if not state.get("num_piece"):
-                    state["ambigue"] = True
-            else:
-                if type_d != "OF" and not _a_client:
-                    state["ambigue"] = True
-                if not state.get("ref_article"):
-                    state["ambigue"] = True
-                if state.get("quantite", 0.0) <= 0.0:
-                    state["ambigue"] = True
+            if type_d not in {"OF", "BF"} and not _a_client:
+                state["ambigue"] = True
+            if not state.get("ref_article"):
+                state["ambigue"] = True
+            if state.get("quantite", 0.0) <= 0.0:
+                state["ambigue"] = True
 
-        # ── MODIFIER_STATUT : ambiguïté si client absent ──────────
         if action_preclass == "MODIFIER_STATUT":
             q_lower = question.lower()
             if re.search(r"d[eé]bloquer?|r[eé]activer?|valider?|activer?", q_lower):
@@ -2646,14 +3123,14 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
             if not state.get("code_client"):
                 state["ambigue"] = True
 
-        # ── CREER_CLIENT / REGLEMENT / CREER_AVOIR ────────────────
+        # PATCH K : CREER_CLIENT exige un nom_client_brut réellement
+        # exploitable (pas juste un code auto-généré depuis rien) avant
+        # de considérer la demande comme non ambiguë.
         if action_preclass == "CREER_CLIENT":
-            # PATCH B-2 : si on a un nom mais pas de code, générer le code
             nom_brut = state.get("nom_client_brut") or ""
             if not state.get("code_client") and nom_brut:
                 state["code_client"] = _generer_code_client(nom_brut)
                 print(f"   🔧 [CREER_CLIENT] Code généré depuis nom '{nom_brut}' → '{state['code_client']}'")
-            # FIX 2 : si nom_client_brut vide, extraire depuis la demande (noms courts inclus)
             if not state.get("code_client"):
                 m_cli = re.search(
                     r"(?:cr[eé][eé]?|nouveau|ajouter?)\s+(?:le\s+|un\s+)?(?:client|tiers)\s+([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ0-9\s\-&'.]{1,60}?)(?:\s*[?.,;!]|\s*$)",
@@ -2666,20 +3143,27 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                     )
                 if m_cli:
                     nom_extrait = m_cli.group(1).strip()
-                    _invalides_cli = {"le","la","les","du","de","un","une","des","pour","avec","sur"}
-                    if nom_extrait.lower() not in _invalides_cli and len(nom_extrait) >= 2:
+                    _invalides_cli = {"le","la","les","du","de","un","une","des","pour","avec","sur",
+                                       "qui","n'existe","nexiste","pas","encore","dans","notre","base",
+                                       "donnees","données","de","données"}
+                    if (nom_extrait.lower() not in _invalides_cli
+                            and len(nom_extrait) >= 2
+                            and _est_nom_valide(nom_extrait)):
                         state["nom_client_brut"] = nom_extrait
                         state["code_client"] = _generer_code_client(nom_extrait)
                         print(f"   🔧 [CREER_CLIENT] Nom extrait: '{nom_extrait}' → Code: '{state['code_client']}'")
-                # FIX 3 : fallback sur ref_article si toujours vide
                 if not state.get("code_client") and state.get("ref_article"):
                     nom_secours = state["ref_article"]
                     state["nom_client_brut"] = nom_secours
                     state["code_client"] = _generer_code_client(nom_secours)
                     state["ref_article"] = ""
                     print(f"   🔧 [CREER_CLIENT] Nom depuis ref_article: '{nom_secours}' → Code: '{state['code_client']}'")
-                if not state.get("code_client"):
-                    state["ambigue"] = True
+                # PATCH K : sans nom exploitable → ambigu, ne PAS confirmer
+                # la création d'un client fantôme "Nouveau Client"
+                if not state.get("code_client") or not state.get("nom_client_brut"):
+                    state["pending_document"] = {"type_doc": "CLIENT_CREATION"}
+                    state["attente_complements"] = True
+                    state["ambigue"] = False
             
         if action_preclass == "CREER_FOURNISSEUR":
             nom_brut = state.get("nom_client_brut") or ""
@@ -2699,10 +3183,9 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                 if m_fourn:
                     nom_extrait = m_fourn.group(1).strip()
                     _invalides = {"le","la","les","du","de","un","une","des","pour","avec","sur"}
-                    if nom_extrait.lower() not in _invalides and len(nom_extrait) >= 2:
+                    if nom_extrait.lower() not in _invalides and len(nom_extrait) >= 2 and _est_nom_valide(nom_extrait):
                         state["nom_client_brut"] = nom_extrait
                         state["code_client"] = _generer_code_fournisseur(nom_extrait)
-                        # Effacer ref_article s'il a capturé le nom du fournisseur
                         if state.get("ref_article", "").upper() == nom_extrait.upper():
                             state["ref_article"] = ""
                         print(f"   🔧 [CREER_FOURNISSEUR] Nom extrait: '{nom_extrait}' → Code: '{state['code_client']}'")
@@ -2712,22 +3195,53 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
                     state["code_client"] = _generer_code_fournisseur(nom_secours)
                     state["ref_article"] = ""
                     print(f"   🔧 [CREER_FOURNISSEUR] Nom depuis ref_article: '{nom_secours}' → Code: '{state['code_client']}'")
-                if not state.get("code_client"):
-                    state["ambigue"] = True
+                if not state.get("code_client") or not state.get("nom_client_brut"):
+                    state["pending_document"] = {"type_doc": "FOURNISSEUR_CREATION"}
+                    state["attente_complements"] = True
+                    state["ambigue"] = False
 
         if action_preclass == "REGLEMENT":
-            # FIX BUG1: \d{3,} au lieu de [A-Z0-9]{3,} pour éviter de capturer "facture" (FA+cture)
-            pieces_trouvees = re.findall(r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[A-Z0-9]{2,}\d{2,})\b", question, re.IGNORECASE)
+            pieces_trouvees = re.findall(
+                r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[A-Z0-9]{2,}\d{2,})\b",
+                question, re.IGNORECASE
+            )
             if pieces_trouvees:
-                state["num_piece"]   = pieces_trouvees[-1].upper()  # dernier match = le vrai numéro
-                state["code_client"] = ""  # pas un client
-            # Extraire le mode de paiement
-            m_mode = re.search(r"(?:par\s+)(chèque|cheque|virement|espèces?|especes?|cb|carte)", question, re.IGNORECASE)
-            if m_mode:
-                state["mode_paiement"] = m_mode.group(1).capitalize()
-            # Ambiguïté seulement si num_piece vraiment absent
+                state["num_piece"]   = pieces_trouvees[-1].upper()
+                state["code_client"] = ""
+
+            # PROB 4c : "traite" ajouté aux modes détectables
+            m_mode = re.search(
+                r"(?:par\s+)(chèque|cheque|virement|espèces?|especes?|cb|carte|traite)",
+                question, re.IGNORECASE
+            )
+            _MODE_NORM = {
+                "chèque": "Cheque", "cheque": "Cheque",
+                "virement": "Virement",
+                "espèces": "Especes", "especes": "Especes",
+                "cb": "CB", "carte": "CB",
+                "traite": "Traite",
+            }
+            mode_detecte = _MODE_NORM.get(m_mode.group(1).lower(), "") if m_mode else ""
+            state["mode_paiement"] = mode_detecte
+
+            m_num_paiement = re.search(
+                r"(?:n[°o]\s*|num[eé]ro\s*)([A-Z0-9\-]{3,})",
+                question, re.IGNORECASE
+            )
+            numero_detecte = m_num_paiement.group(1) if m_num_paiement else ""
+
             if not state.get("num_piece"):
                 state["ambigue"] = True
+            elif not mode_detecte or (mode_detecte in ("Cheque", "Traite") and not numero_detecte):
+                # mode manquant, ou chèque/traite sans n° → on complète
+                state["pending_document"] = {
+                    "type_doc":              "REGLEMENT_INFOS",
+                    "num_piece":             state["num_piece"],
+                    "mode_paiement":         mode_detecte,
+                    "numero_piece_paiement": numero_detecte,
+                }
+                state["attente_complements"] = True
+                state["ambigue"] = False
 
         if action_preclass == "CREER_AVOIR" and not state.get("num_piece"):
             state["ambigue"] = True
@@ -2755,6 +3269,7 @@ async def noeud_classifier(state: CopilotState) -> CopilotState:
     if entites_ner.get("article", "").lower() in {
         "encours", "crédit", "solde", "statut", "fiche",
         "info", "rupture", "stock", "marge", "rentabilité",
+        "prix", "tarif", "coût", "cout",
     }:
         print(f"   🧹 [GLiNER] Faux positif article supprimé : '{entites_ner['article']}'")
         entites_ner.pop("article", None)
@@ -2789,11 +3304,15 @@ RÈGLES IMPORTANTES :
 - "clients bloqués" → NL2SQL_LIBRE
 - "liste BL client" → NL2SQL_LIBRE
 - "liste clients" générique → LISTE_CLIENTS
-- "transformer OF en BF" → GENERER_DOC type_doc=BF
+- "conditions commerciales" → FICHE_CLIENT
+- "transformer OF en BF" → TRANSFORMER_DOC
 - "OF" seul → GENERER_DOC type_doc=OF
 - "BF" seul → GENERER_DOC type_doc=BF
+- "client X est-il bloqué/actif" → STATUT_CLIENT (jamais RFM)
 - Si client absent → écris INCONNU
-
+- "caractéristiques/fiche technique d'un article" → RECHERCHE_PROCEDURE
+- "réclamations/SAV sur un article" → RECHERCHE_PROCEDURE
+- "conditions négociées/historique client" → RECHERCHE_PROCEDURE (si pas dans F_COMPTET)
 FORMAT STRICT (une clé par ligne) :
 intention:VALEUR
 action:VALEUR
@@ -2846,6 +3365,23 @@ date_fin:VALEUR_OU_INCONNU"""
     llm_piece   = _clean(_val("piece"))
     llm_type    = _clean(_val("type_doc"))
 
+    decision = await _arbitrer_semantique_llm(
+        question,
+        state.get("_decision_sem"),
+        raw_action,
+    )
+
+    if decision is None:
+        rag_action = await _verifier_rag(question)
+        if rag_action:
+            decision = rag_action
+
+    if decision is None:
+        decision = raw_action
+
+    state["action"] = decision
+    raw_action = decision
+
     db = state["demande_brute"]
     n  = db.lower()
 
@@ -2894,29 +3430,59 @@ date_fin:VALEUR_OU_INCONNU"""
     if state.get("code_client", "").lower() in _CODES_IGNORES:
         state["code_client"] = ""
 
-    # FIX 1 : extraction article insensible à la casse
+    # FIX 1 + PATCH G : extraction article, priorité "prix de X"
     _regex_article = ""
-    m_art_piece = re.search(
-        r"\bpi[eè]ce(?:s)?\s+(?:de|d')[ \t]*([A-Za-z][A-Za-z0-9\-]{1,})",
+    m_prix_de2 = re.search(
+        r"prix\s+de\s+(?:l['\u2019]article\s+)?([A-Za-z][A-Za-z0-9\-]{2,})",
         db, re.IGNORECASE
     )
-    if m_art_piece:
-        cand = m_art_piece.group(1).upper()
+    if m_prix_de2:
+        cand = m_prix_de2.group(1).upper()
         if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
             _regex_article = cand
-            print(f"   🔎 [Regex] ref_article (pièce de) : {_regex_article}")
-
+    m_art_ctx = re.search(
+        r"(?:article|stock\s+de\s+(?:l['\u2019])?(?:article\s+)?|r[eé]f(?:[eé]rence)?\s+|produit)\s+([A-Za-z][A-Za-z0-9\-]{1,})",
+        db, re.IGNORECASE
+    )
+    if not _regex_article and m_art_ctx:
+        cand = m_art_ctx.group(1).upper()
+        if cand not in _EXCL_ARTICLE and not cand.startswith("CLI"):
+            _regex_article = cand
     if not _regex_article:
+        _PRONOMS_INVERSION = {"TU", "IL", "ELLE", "JE", "NOUS", "VOUS", "ILS", "ELLES", "ON", "MOI", "TOI"}
+        
         for mot in re.findall(r"\b([A-Za-z][A-Za-z0-9\-]{2,})\b", db):
             mot_upper = mot.upper()
-            if (mot_upper not in _EXCL_ARTICLE
-                    and not mot_upper.startswith("CLI")
-                    and mot_upper != state.get("code_client", "").upper()):
+            has_digit = bool(re.search(r"\d", mot_upper))
+            _segs = mot_upper.split("-")
+            has_dash_ref = (
+                "-" in mot_upper
+                and all(len(p) >= 2 for p in _segs)
+                and any(len(p) >= 3 for p in _segs)
+                and _segs[-1] not in _PRONOMS_INVERSION
+                and mot_upper not in _EXPRESSIONS_FR_EXCLUES
+            )
+            if (has_digit or has_dash_ref) and mot_upper not in _EXCL_ARTICLE \
+                    and not mot_upper.startswith("CLI") \
+                    and mot_upper != state.get("code_client", "").upper():
                 _regex_article = mot_upper
-                print(f"   🔎 [Regex] ref_article : {_regex_article}")
                 break
+    if not _regex_article:
+        m_art_qte = re.search(
+           r"\b\d+(?:[.,]\d+)?\s*(?:pi[eè]ces?|unit[eé]s?)?\s*(?:de\s+)?([A-Za-z][A-Za-z0-9\-]{2,})\b",
+            db, re.IGNORECASE
+        )
+        if m_art_qte:
+            cand = m_art_qte.group(1).upper()
+            if cand not in _EXCL_ARTICLE and not cand.startswith("CLI") and cand not in _EXPRESSIONS_FR_EXCLUES \
+                    and cand != state.get("code_client", "").upper():
+                _regex_article = cand
+    if _regex_article:
+        print(f"   🔎 [Regex] ref_article : {_regex_article}")
 
     state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
+    state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
+    state["ref_article"] = _corriger_ref_article(state["ref_article"])
     if state["ref_article"].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
         state["ref_article"] = ""
 
@@ -2972,6 +3538,31 @@ date_fin:VALEUR_OU_INCONNU"""
                 state["type_doc"] = doc_type
                 break
 
+    # ── Dernier recours : extraction structurée par LLM ────────────
+    if (ENABLE_STRUCTURED_EXTRACTION
+            and raw_action in ACTIONS_ECRITURE
+            and not state.get("code_client") and not state.get("nom_client_brut")
+            and not state.get("ref_article")):
+        try:
+            from extraction_structuree import extraire_entites_llm
+            entites_llm = await extraire_entites_llm(
+                db, lambda p: _invoke_llm(p, use_smart=False)
+            )
+            if entites_llm.get("client"):
+                state["nom_client_brut"] = entites_llm["client"]
+                code_trouve = await _rechercher_client_par_nom(entites_llm["client"])
+                if code_trouve:
+                    state["code_client"] = code_trouve
+            if entites_llm.get("article"):
+                state["ref_article"] = entites_llm["article"].upper()
+            if entites_llm.get("quantite") and not quantite_explicite:
+                state["quantite"] = entites_llm["quantite"]
+                quantite_explicite = True
+            if entites_llm:
+                print(f"   🧩 [Extraction structurée] Dernier recours LLM : {entites_llm}")
+        except Exception as _extr_err:
+            print(f"   ⚠️  [Extraction structurée] Échec : {_extr_err}")
+
     # ── AIDE ──────────────────────────────────────────────────────
     _MOTS_AIDE = {"aide", "help", "que sais-tu", "que peux-tu", "tes capacités", "fonctionnalités"}
     if any(w in n for w in _MOTS_AIDE) and not any(
@@ -2983,44 +3574,15 @@ date_fin:VALEUR_OU_INCONNU"""
     # ══════════════════════════════════════════════════════════════
     # ÉTAPE 3 — Overrides sémantiques
     # ══════════════════════════════════════════════════════════════
-    if re.search(r"transform", n):
-        if (re.search(r"\bof\b.{0,20}\bbf\b", n)
-                or re.search(r"\bbf\b.{0,20}\bof\b", n)):
-            raw_action = "GENERER_DOC"
-            state["type_doc"] = "BF"
-            # FIX : récupérer l'OF source + pré-remplir article/qté (cohérent avec preclass)
-            m_of_src = re.search(r"\b(OF[A-Z0-9]{3,})\b", db, re.IGNORECASE)
-            if m_of_src and not state.get("num_piece"):
-                state["num_piece"] = m_of_src.group(1).upper()
-                if state.get("ref_article", "").upper() == state["num_piece"].upper():
-                    state["ref_article"] = ""
-                if not state.get("ref_article") or state.get("quantite", 0.0) <= 0.0:
-                    try:
-                        import sqlite3 as _sq
-                        _conn = _sq.connect(str(_db_path))
-                        _row = _conn.execute(
-                            "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
-                            (state["num_piece"],)
-                        ).fetchone()
-                        _conn.close()
-                        if _row:
-                            if not state.get("ref_article"):
-                                state["ref_article"] = _row[0]
-                            if state.get("quantite", 0.0) <= 0.0:
-                                state["quantite"] = float(_row[1])
-                            print(f"   🔗 [BF] Pré-rempli depuis {state['num_piece']} : "
-                                  f"article={state['ref_article']} qte={state['quantite']}")
-                    except Exception as _e:
-                        print(f"   ⚠️  [BF] Pré-remplissage OF échoué : {_e}")
-        elif re.search(r"\bbl\b.{0,20}facture|\bbc\b.{0,20}\bbl\b", n):
-            raw_action = "TRANSFORMER_DOC"
-        else:
-            raw_action = "TRANSFORMER_DOC"
-        # FIX 3 appliquer aussi depuis le path LLM (pour les cas TRANSFORMER_DOC restants)
-        if raw_action == "TRANSFORMER_DOC":
-            m_piece = re.search(r"\b((?:OF|BL|BC|FA|BF)[A-Z0-9]{3,})\b", db, re.IGNORECASE)
-            if m_piece and not state.get("num_piece"):
-                state["num_piece"] = m_piece.group(1).upper()
+    if re.search(r"transform", n) and re.search(r"\bof\b.{0,20}\bbf\b|\bbl\b.{0,20}facture|\bbc\b.{0,20}\bbl\b", n):
+        raw_action = "TRANSFORMER_DOC"
+        m_piece = re.search(r"\b((?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,})\b", db, re.IGNORECASE)
+        if m_piece and not state.get("num_piece"):
+            state["num_piece"] = m_piece.group(1).upper()
+    # PATCH D/E : "client X est-il bloqué/actif" → STATUT_CLIENT, priorité
+    # sur toute autre heuristique (y compris RFM ci-dessous)
+    elif re.search(r"\bclient\b.{0,25}\best[\s-]il\s+(?:bloqu[eé]|actif|valide|suspect)", n):
+        raw_action = "STATUT_CLIENT"
     elif re.search(r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur", n):
         raw_action = "GENERER_DOC"; state["type_doc"] = "BL_ACHAT"
     elif re.search(r"\bbl\b", n) or "bon de livraison" in n:
@@ -3031,16 +3593,21 @@ date_fin:VALEUR_OU_INCONNU"""
         raw_action = "GENERER_DOC"; state["type_doc"] = "BF"
     elif re.search(r"\bof\b", n) or "ordre de fabrication" in n:
         raw_action = "GENERER_DOC"; state["type_doc"] = "OF"
+    elif any(w in n for w in ("factur","facturer")) and any(w in n for w in ("créer","créez","crée","générer","générez","génère","faire","fais","établir","émettre")):
+        raw_action = "GENERER_DOC"
+        if not state["type_doc"]:
+            state["type_doc"] = "FACTURE"
     elif any(w in n for w in ("facture","factures")) and any(w in n for w in ("impayé","impayés","non réglé","non reglé","non payé","en attente","souffrance")):
         raw_action = "FACTURES_NON_REGLEES"
     elif any(w in n for w in ("facture","factures")) and any(w in n for w in ("client","tiers","pour","de","ses","son","sa","leur")):
         raw_action = "TOUTES_FACTURES_CLIENT"
-    elif any(w in n for w in ("facture","factures","bl")) and any(w in n for w in ("période","periode","mois","année","annee","entre","du","au")):
+    elif (
+        any(w in n for w in ("facture", "factures")) or re.search(r"\bbl\b", n)
+    ) and (
+        any(w in n for w in ("période", "periode", "mois", "année", "annee", "entre"))
+        or re.search(r"\bdu\b", n) or re.search(r"\bau\b", n)
+    ):
         raw_action = "DOCS_PERIODE"
-    elif any(w in n for w in ("factur","facturer")) and any(w in n for w in ("créer","générer","faire","établir","émettre")):
-        raw_action = "GENERER_DOC"
-        if not state["type_doc"]:
-            state["type_doc"] = "FACTURE"
     elif "top" in n and "client" in n:
         raw_action = "TOP_CLIENTS"
     elif any(w in n for w in ("information","informations","info","renseign","fiche","détail","detail","profil","qui est","présente","dis moi","connais","connaître","tout sur","données sur","données du")) and any(w in n for w in ("client","tiers","société","entreprise")):
@@ -3053,7 +3620,11 @@ date_fin:VALEUR_OU_INCONNU"""
         raw_action = "RFM"
     elif any(w in n for w in ("liste","tous","toutes","affiche","montre","donne")) and "client" in n and "facture" not in n and "bl" not in n and "livraison" not in n:
         raw_action = "LISTE_CLIENTS"
-    elif any(w in n for w in ("produit","article","référence","réf")) and any(w in n for w in ("moins","plus","palmares","mieux","vendu")):
+    # PATCH #4 : filtre de prix numérique sur "article(s)" → NL2SQL_LIBRE
+    # AVANT le test PALMARES générique basé sur "plus"/"moins"
+    elif any(w in n for w in ("produit","article","référence","réf")) and re.search(r"\b\d+\s*(?:dt|€|eur|euros?)?\b", n) and re.search(r"co[uû]tent|prix|tarif", n):
+        raw_action = "NL2SQL_LIBRE"
+    elif any(w in n for w in ("produit","article","référence","réf")) and re.search(r"\b(mieux\s+vendus?|meilleures?\s+ventes?|palmar[eè]s|le\s+plus\s+vendu|les\s+plus\s+vendus)\b", n):
         raw_action = "PALMARES_ARTICLES"
     elif any(w in n for w in ("liste","tous","toutes","affiche","montre","donne")) and any(w in n for w in ("produit","article","référence","réf","catalogue")):
         raw_action = "LISTE_ARTICLES"
@@ -3075,6 +3646,10 @@ date_fin:VALEUR_OU_INCONNU"""
         raw_action = "DSO"
     elif any(w in n for w in ("rentabilit","marge","profit")):
         raw_action = "RENTABILITE"
+    # PATCH H : "classe/classer les clients selon leur CA" → NL2SQL_LIBRE
+    # (placé avant SAISONNALITE pour ne pas être masqué)
+    elif re.search(r"clas(?:se|ser|s[eé]s?)\s+les\s+clients?", n):
+        raw_action = "NL2SQL_LIBRE"
     elif any(w in n for w in ("saison","mensuel","tendance","évolution","evolution")):
         raw_action = "SAISONNALITE"
 
@@ -3090,6 +3665,7 @@ date_fin:VALEUR_OU_INCONNU"""
     if not raw_action or raw_action not in toutes:
         print(f"   ⚠️  [Classifier] '{raw_action}' invalide → NL2SQL_LIBRE")
         raw_action = "NL2SQL_LIBRE"
+        state["_origine_classification"] = "FALLBACK"
 
     state["action"] = raw_action
 
@@ -3105,13 +3681,9 @@ date_fin:VALEUR_OU_INCONNU"""
         if not quantite_explicite and state["dernier_quantite"] > 0:
             state["quantite"] = state["dernier_quantite"]
         if state["type_doc"] == "BF" and not state["num_piece"]:
-            m_of = re.search(
-                r"(?:ordre de fabrication|\bof\b)\s*(?:n[°o]?\s*)?0*(\d{3,})|(?<!\w)OF\s*0*(\d+)(?!\w)",
-                n, re.IGNORECASE
-            )
+            m_of = re.search(r"(?:ordre de fabrication|\bof\b)\s*(?:n[°o]?\s*)?0*(\d{3,})", n)
             if m_of:
-                num = m_of.group(1) or m_of.group(2)
-                state["num_piece"] = f"OF{int(num):05d}"
+                state["num_piece"] = f"OF{int(m_of.group(1)):05d}"
             elif re.match(r"^OF\d+$", state.get("dernier_num_piece", ""), re.IGNORECASE):
                 state["num_piece"] = state["dernier_num_piece"]
                 print(f"   🔗 [BF] Lié au dernier OF : {state['num_piece']}")
@@ -3143,20 +3715,17 @@ date_fin:VALEUR_OU_INCONNU"""
         state["ambigue"] = True
     if state["action"] == "GENERER_DOC":
         type_d = (state["type_doc"] or "").upper()
-        if type_d == "BF":
-            # Un BF n'a besoin que de la référence à l'OF source ;
-            # article/quantité sont pré-remplis ou seront demandés
-            # par le cycle draft (collecte_draft) s'ils manquent encore.
-            if not state["num_piece"]:
-                state["ambigue"] = True
-        else:
-            if type_d != "OF" and not _a_client:
-                state["ambigue"] = True
-            if not state["ref_article"]:
-                state["ambigue"] = True
-            if state["quantite"] <= 0.0:
-                state["ambigue"] = True
+        if type_d not in TYPES_DOC_FABRICATION and not _a_client:
+            state["ambigue"] = True
+        if not state["ref_article"]:
+            state["ambigue"] = True
+        if state["quantite"] <= 0.0:
+            state["ambigue"] = True
     if state["action"] in ("TRANSFORMER_DOC","CREER_AVOIR","REGLEMENT") and not state["num_piece"]:
+        state["ambigue"] = True
+    # PATCH K : CREER_CLIENT via le chemin LLM aussi soumis à l'exigence
+    # d'un nom_client_brut valide
+    if state["action"] == "CREER_CLIENT" and not (state.get("nom_client_brut") and state.get("code_client")):
         state["ambigue"] = True
     if state["score_confiance"] < SEUIL_CONFIANCE and not state["ambigue"]:
         state["ambigue"] = True
@@ -3219,23 +3788,35 @@ async def noeud_aide(state: CopilotState) -> CopilotState:
 
 
 async def noeud_clarification(state: CopilotState) -> CopilotState:
-    state["reponse_finale"] = await _invoke_llm(
-        f'Assistant ERP Sage 100.\nDemande ambiguë : "{state["demande_brute"]}"\n'
-        f'Pose UNE question courte pour clarifier. Donne 2-3 exemples.',
-        use_smart=False,
-    )
+    options = state.get("_clarif_options")
+    if options:
+        state["reponse_finale"] = await _invoke_llm(
+            f'Assistant ERP Sage 100.\nDemande : "{state["demande_brute"]}"\n'
+            f'Deux interprétations possibles ont été détectées avec une confiance '
+            f'proche : "{options[0]}" ou "{options[1]}". '
+            f'Pose UNE question courte demandant à l\'utilisateur de choisir entre '
+            f'ces deux interprétations, reformulées en langage naturel (pas de noms '
+            f'de code techniques).',
+            use_smart=False,
+        )
+    else:
+        state["reponse_finale"] = await _invoke_llm(
+            f'Assistant ERP Sage 100.\nDemande ambiguë : "{state["demande_brute"]}"\n'
+            f'RÈGLES STRICTES :\n'
+            f'1. Pose UNE seule question, en une seule phrase.\n'
+            f'2. Maximum 2 exemples de réponse, très courts (un mot ou un code).\n'
+            f'3. Si la demande contient déjà un opérateur numérique explicite '
+            f'(<, >, "inférieur à", "supérieur à"), NE PAS demander de clarifier '
+            f'ce point : il n\'est pas ambigu.\n'
+            f'4. Pas de listes à puces, pas de reformulations multiples du même point.',
+            use_smart=False,
+        )
     return state
 
 
 
 
 def _generer_code_client(nom: str) -> str:
-    """
-    PATCH B-1 : Génère le prochain code client incrémental disponible dans F_COMPTET :
-      CLI001 → CLI002 → CLI003 …
-    Consulte la DB pour trouver le dernier numéro CLI existant.
-    Le nom n'est utilisé que comme fallback si la DB est inaccessible.
-    """
     import sqlite3 as _sqlite3
     import re as _re
     try:
@@ -3261,11 +3842,6 @@ def _generer_code_client(nom: str) -> str:
 
 
 def _generer_code_fournisseur(nom: str) -> str:
-    """
-    Génère le prochain code fournisseur incrémental disponible dans F_COMPTET :
-      FOUR001 → FOUR002 → FOUR003 …
-    Consulte la DB pour trouver le dernier numéro FOUR existant.
-    """
     import sqlite3 as _sqlite3
     import re as _re
     try:
@@ -3293,7 +3869,73 @@ def _generer_code_fournisseur(nom: str) -> str:
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD CONFIRMATION
 # ─────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# DÉTAIL DE CONFIRMATION — champs affichés selon l'action
+# ─────────────────────────────────────────────────────────────────────
+_CHAMPS_CONFIRMATION: dict[str, list[str]] = {
+    "GENERER_DOC":       ["client", "article", "quantite"],
+    "CREER_CLIENT":      ["client_nom", "statut_encours"],
+    "CREER_FOURNISSEUR": ["client_nom"],
+    "MODIFIER_STATUT":   ["client"],
+    "TRANSFORMER_DOC":   ["piece", "type_doc"],
+    "CREER_AVOIR":       ["piece"],
+    "REGLEMENT":         ["piece", "mode_paiement"],
+    "MOUVEMENT_STOCK":   ["article", "quantite"],
+    "PROPOSITION_ACHAT": ["article", "quantite"],
+}
+
+
+def _construire_detail_confirmation(state: "CopilotState") -> str:
+    act    = state.get("action", "")
+    champs = _CHAMPS_CONFIRMATION.get(act, ["client", "article", "quantite"])
+    parts: list[str] = []
+
+    if "client" in champs or "client_nom" in champs:
+        code = state.get("code_client", "")
+        nom  = state.get("nom_client_brut", "")
+        txt  = f"Client: {code}" if code else "Client: —"
+        if nom:
+            txt += f" ({nom})"
+        parts.append(txt)
+
+    if "article" in champs:
+        parts.append(f"Article: {state.get('ref_article') or '—'}")
+
+    if "quantite" in champs:
+        qte = state.get("quantite")
+        parts.append(f"Qté: {qte if qte else '—'}")
+
+    if "piece" in champs:
+        parts.append(f"Pièce: {state.get('num_piece') or '—'}")
+
+    if "type_doc" in champs:
+        parts.append(f"Type: {state.get('type_doc') or '—'}")
+
+    if "mode_paiement" in champs:
+        mode = state.get("mode_paiement") or "—"
+        parts.append(f"Mode: {mode}")
+        if state.get("numero_piece_paiement"):
+            parts.append(f"N° pièce: {state['numero_piece_paiement']}")
+
+    detail = (" | " + " | ".join(parts)) if parts else ""
+
+    if act == "CREER_CLIENT" and "statut_encours" in champs:
+        detail += (
+            f" | Statut: {state.get('ct_validite', 'VALIDE')}"
+            f" | Encours max: {state.get('ct_encours_max', 0)}"
+        )
+
+    return detail
+
+
+# ─────────────────────────────────────────────────────────────────────
+# NŒUD CONFIRMATION
+# ─────────────────────────────────────────────────────────────────────
 async def noeud_confirmation(state: CopilotState) -> CopilotState:
+    if state.get("statut_confirmation") == "CONFIRME":
+        state["validation_ok"] = True
+        return state   # → suite normale vers ecriture/workflow
+
     act = state["action"]
     print("\n🔧 [Hub] Validation...")
 
@@ -3307,8 +3949,8 @@ async def noeud_confirmation(state: CopilotState) -> CopilotState:
         champs_requis = ["ref_article"]
     else:
         champs_requis_map = {
-            "CREER_CLIENT":      ["code_client"],
-            "CREER_FOURNISSEUR": [],
+            "CREER_CLIENT":      ["code_client", "nom_client_brut"],
+            "CREER_FOURNISSEUR": ["code_client", "nom_client_brut"],
             "MODIFIER_STATUT":   ["code_client"],
             "GENERER_DOC":       ["ref_article"],
             "TRANSFORMER_DOC":   ["num_piece", "type_doc"],
@@ -3319,14 +3961,13 @@ async def noeud_confirmation(state: CopilotState) -> CopilotState:
         }
         champs_requis = champs_requis_map.get(act, [])
 
-    # Pour BL_ACHAT et REGLEMENT, le code_client serait un fournisseur/n°pièce
-    # → ne pas l'envoyer au Hub qui ne vérifie que les clients de vente
     _code_pour_hub = state["code_client"]
-    if type_d == "BL_ACHAT" or act in ("REGLEMENT", "CREER_FOURNISSEUR"):
-        _code_pour_hub = ""  # skip validation client/fournisseur inexistant
+    if type_d == "BL_ACHAT" or act == "REGLEMENT":
+        _code_pour_hub = ""
 
     hub_result = await _hub_valider_demande("ECRITURE", {
         "action": act, "code_client": _code_pour_hub,
+        "nom_client_brut": state.get("nom_client_brut", ""),
         "ref_article": state["ref_article"], "quantite": state["quantite"],
         "num_piece": state["num_piece"], "type_doc": state["type_doc"],
         "champs_requis": champs_requis,
@@ -3338,25 +3979,29 @@ async def noeud_confirmation(state: CopilotState) -> CopilotState:
         state["reponse_brute"] = f"🚫 Validation refusée : {hub_result.get('message')}"
         return state
 
-    detail = ""
-    if state["code_client"]: detail += f" | Client: {state['code_client']}"
-    if state["ref_article"]: detail += f" | Article: {state['ref_article']}"
-    if state["quantite"]:    detail += f" | Qté: {state['quantite']}"
-    if state["num_piece"]:   detail += f" | Pièce: {state['num_piece']}"
-    if state["type_doc"]:    detail += f" | Type: {state['type_doc']}"
+    # ── Détail affiché : uniquement les champs pertinents pour l'action ──
+    detail = _construire_detail_confirmation(state)
 
-    print(f"\n⚠️  [Sécurité] [{act}]{detail}")
-    if _est_mode_api():
-        state["validation_ok"] = True
-        state["reponse_brute"] = "✅ Validation automatique en mode API ; attente de confirmation métier via le cycle draft/preview."
-        return state
-
-    rep = await _input("❓ Confirmez-vous ? [Y/n] : ")
-    state["validation_ok"] = rep.strip().lower() not in ("n", "no", "non")
-    if not state["validation_ok"]:
-        state["reponse_brute"] = "🛑 Action annulée."
+    # PATCH J : sauvegarde de tout le contexte nécessaire pour réhydrater
+    # l'action au tour suivant (y compris nom_client_brut, indispensable
+    # pour CREER_CLIENT/CREER_FOURNISSEUR)
+    state["pending_action"] = {
+        "action":                state["action"],
+        "code_client":           state["code_client"],
+        "nom_client_brut":       state.get("nom_client_brut", ""),
+        "ref_article":           state["ref_article"],
+        "quantite":              state["quantite"],
+        "num_piece":             state["num_piece"],
+        "type_doc":              state["type_doc"],
+        "mode_paiement":         state["mode_paiement"],
+        "ct_validite":           state.get("ct_validite", "VALIDE"),
+        "ct_encours_max":        state.get("ct_encours_max", 0.0),
+        "numero_piece_paiement": state.get("numero_piece_paiement", ""),
+    }
+    state["statut_confirmation"] = "ATTENTE"
+    state["validation_ok"]       = False
+    state["reponse_finale"]      = f"⚠️  Confirmez-vous [{state['action']}]{detail} ? (Y/n)"
     return state
-
 
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD LECTURE
@@ -3365,21 +4010,9 @@ async def noeud_lecture(state: CopilotState) -> CopilotState:
     print("📊 [Agent Lecture] Interrogation Sage...")
     act = state["action"]
 
-    _actions_client_requis = {
-        "FICHE_CLIENT",
-        "STATUT_CLIENT",
-        "TOUTES_FACTURES_CLIENT",
-        "FACTURES_NON_REGLEES",
-        "FACTURES_NON_REGLEES_FOURN",
-    }
-
+    _actions_client_requis = {"FICHE_CLIENT","STATUT_CLIENT","TOUTES_FACTURES_CLIENT","FACTURES_NON_REGLEES","FACTURES_NON_REGLEES_FOURN"}
     if act in _actions_client_requis and not state.get("code_client"):
-        nom_candidat = (
-            state.get("nom_client_brut")
-            or state.get("dernier_code_client")
-            or ""
-        )
-
+        nom_candidat = state.get("nom_client_brut") or state.get("dernier_code_client") or ""
         if nom_candidat:
             code = await _rechercher_client_par_nom(nom_candidat)
             if code:
@@ -3389,229 +4022,96 @@ async def noeud_lecture(state: CopilotState) -> CopilotState:
 
     try:
         tool_map = {
-            "TOP_CLIENTS": ("nl2sql", "analyser_top_clients_ca", {}),
-            "LISTE_CLIENTS": ("nl2sql", "lister_clients_actifs", {}),
-            "LISTE_ARTICLES": ("nl2sql", "lister_articles_catalogue", {}),
-            "PALMARES_ARTICLES": ("nl2sql", "analyser_palmares_articles", {}),
-            "CA_GLOBAL": ("nl2sql", "calculer_ca_global_periode", {}),
-            "CLIENTS_BAISSE": ("nl2sql", "detecter_clients_baisse_ca", {}),
-
-            "FACTURES_NON_REGLEES": (
-                "nl2sql",
-                "lister_factures_impayees",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "TOUTES_FACTURES_CLIENT": (
-                "nl2sql",
-                "lister_toutes_factures_client",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "VERIFIER_STOCK": (
-                "nl2sql",
-                "verifier_stock_article",
-                {
-                    "ref_article": state.get("ref_article", "")
-                },
-            ),
-
-            "FICHE_CLIENT": (
-                "nl2sql",
-                "rechercher_fiche_client",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "STATUT_CLIENT": (
-                "nl2sql",
-                "verifier_statut_client",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "DOCS_PERIODE": (
-                "nl2sql",
-                "lister_documents_par_periode",
-                {
-                    "date_debut": state.get("date_debut", ""),
-                    "date_fin": state.get("date_fin", ""),
-                },
-            ),
-
-            "RENTABILITE": (
-                "nl2sql",
-                "analyser_rentabilite_clients",
-                {},
-            ),
-
-            "SAISONNALITE": (
-                "nl2sql",
-                "analyser_saisonnalite_ventes",
-                {},
-            ),
-
-            "DSO": (
-                "nl2sql",
-                "calculer_dso_clients",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "RFM": (
-                "nl2sql",
-                "analyser_rfm_clients",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "OFFRE_PRIX_EXCEL": (
-                "nl2sql",
-                "exporter_offre_prix_excel",
-                {
-                    "code_client": state.get("code_client", "")
-                },
-            ),
-
-            "DECLARATION_EXCEL": (
-                "nl2sql",
-                "generer_declaration_mensuelle_excel",
-                {
-                    "periode": state["demande_brute"]
-                },
-            ),
-
-            "BALANCE_AGEE_EXCEL": (
-                "nl2sql",
-                "exporter_balance_agee_excel",
-                {},
-            ),
-
-            "DASHBOARD_EXCEL": (
-                "nl2sql",
-                "exporter_dashboard_kpi_excel",
-                {},
-            ),
-
-            "LISTE_FOURNISSEURS": (
-                "nl2sql",
-                "executer_sql_vanna",
-                {
-                    "sql": """
-                        SELECT
-                            CT_Num,
-                            CT_Intitule,
-                            CT_Encours,
-                            CT_EncoursMax,
-                            CT_Validite
-                        FROM F_COMPTET
-                        WHERE CT_Type = 1
-                        ORDER BY CT_Intitule
-                    """,
-                    "description": "Liste des fournisseurs",
-                },
-            ),
-
-            "TOP_FOURNISSEURS": (
-                "nl2sql",
-                "executer_sql_vanna",
-                {
-                    "sql": """
-                        SELECT
-                            c.CT_Num,
-                            c.CT_Intitule,
-                            COUNT(DISTINCT e.DO_Piece) AS nb_commandes,
-                            COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire),0) AS volume_achat
-                        FROM F_COMPTET c
-                        LEFT JOIN F_DOCENTETE e
-                            ON c.CT_Num = e.CT_Num
-                            AND e.DO_Type = 6
-                            AND e.DO_Domaine = 1
-                        LEFT JOIN F_DOCLIGNE l
-                            ON e.DO_Piece = l.DO_Piece
-                        WHERE c.CT_Type = 1
-                        GROUP BY c.CT_Num, c.CT_Intitule
-                        ORDER BY volume_achat DESC
-                        LIMIT 10
-                    """,
-                    "description": "Top fournisseurs par volume d'achat",
-                },
-            ),
-
-            "FICHE_FOURNISSEUR": (
-                "nl2sql",
-                "executer_sql_vanna",
-                {
-                    "sql": (
-                        f"SELECT CT_Num, CT_Intitule, CT_Encours, "
-                        f"CT_EncoursMax, CT_Validite "
-                        f"FROM F_COMPTET "
-                        f"WHERE CT_Type=1 AND "
-                        f"(CT_Num='{state.get('code_client','')}' "
-                        f"OR UPPER(CT_Intitule) LIKE "
-                        f"UPPER('%{state.get('code_client','')}%')) "
-                        f"LIMIT 1"
-                    ),
-                    "description": f"Fiche fournisseur {state.get('code_client','')}",
-                },
-            ),
-
-            "FACTURES_NON_REGLEES_FOURN": (
-                "nl2sql",
-                "lister_factures_fournisseurs_non_reglees",
-                {
-                    "code_fournisseur": state.get("code_client", "")
-                },
-            ),
+            "TOP_CLIENTS":             ("nl2sql", "analyser_top_clients_ca",       {}),
+            "LISTE_CLIENTS":           ("nl2sql", "lister_clients_actifs",          {}),
+            "LISTE_ARTICLES":          ("nl2sql", "lister_articles_catalogue",      {}),
+            "PALMARES_ARTICLES":       ("nl2sql", "analyser_palmares_articles",     {}),
+            "CA_GLOBAL":               ("nl2sql", "calculer_ca_global_periode",     {}),
+            "CLIENTS_BAISSE":          ("nl2sql", "detecter_clients_baisse_ca",     {}),
+            "FACTURES_NON_REGLEES":    ("nl2sql", "lister_factures_impayees",       {"code_client": state.get("code_client", "")}),
+            "TOUTES_FACTURES_CLIENT":  ("nl2sql", "lister_toutes_factures_client",  {"code_client": state.get("code_client", "")}),
+            "VERIFIER_STOCK":          ("nl2sql", "verifier_stock_article",         {"ref_article": state.get("ref_article", "")}),
+            "FICHE_CLIENT":            ("nl2sql", "rechercher_fiche_client",        {"code_client": state.get("code_client", "")}),
+            "STATUT_CLIENT":           ("nl2sql", "verifier_statut_client",         {"code_client": state.get("code_client", "")}),
+            "DOCS_PERIODE":            ("nl2sql", "lister_documents_par_periode",   {"date_debut": state.get("date_debut",""), "date_fin": state.get("date_fin","")}),
+            "RENTABILITE":             ("nl2sql", "analyser_rentabilite_clients",   {}),
+            "SAISONNALITE":            ("nl2sql", "analyser_saisonnalite_ventes",   {}),
+            "DSO":                     ("nl2sql", "calculer_dso_clients",           {"code_client": state.get("code_client","")}),
+            "RFM":                     ("nl2sql", "analyser_rfm_clients",           {"code_client": state.get("code_client","")}),
+            "OFFRE_PRIX_EXCEL":        ("nl2sql", "exporter_offre_prix_excel",      {"code_client": state.get("code_client","")}),
+"DECLARATION_EXCEL": ("nl2sql", "generer_declaration_mensuelle_excel",
+                       {"periode": state.get("demande_brute", "")}),
+            "BALANCE_AGEE_EXCEL":      ("nl2sql", "exporter_balance_agee_excel",    {}),
+            "DASHBOARD_EXCEL":         ("nl2sql", "exporter_dashboard_kpi_excel",   {}),
+            "LISTE_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
+                "sql": "SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite FROM F_COMPTET WHERE CT_Type=1 ORDER BY CT_Intitule",
+                "description": "Liste des fournisseurs",
+            }),
+            "TOP_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
+                "sql": (
+                    "SELECT c.CT_Num, c.CT_Intitule, "
+                    "COUNT(DISTINCT e.DO_Piece) AS nb_commandes, "
+                    "COALESCE(SUM(l.DL_Qte*l.DL_PrixUnitaire),0) AS volume_achat "
+                    "FROM F_COMPTET c "
+                    "LEFT JOIN F_DOCENTETE e ON c.CT_Num=e.CT_Num AND e.DO_Type=6 AND e.DO_Domaine=1 "
+                    "LEFT JOIN F_DOCLIGNE l ON e.DO_Piece=l.DO_Piece "
+                    "WHERE c.CT_Type=1 "
+                    "GROUP BY c.CT_Num ORDER BY volume_achat DESC LIMIT 10"
+                ),
+                "description": "Top fournisseurs par volume d'achat",
+            }),
+            "FICHE_FOURNISSEUR": ("nl2sql", "executer_sql_vanna", {
+                "sql": (
+                    f"SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite "
+                    f"FROM F_COMPTET "
+                    f"WHERE CT_Type=1 AND (CT_Num='{state.get('code_client','')}' "
+                    f"OR UPPER(CT_Intitule) LIKE UPPER('%{state.get('code_client','')}%')) LIMIT 1"
+                ),
+                "description": f"Fiche fournisseur {state.get('code_client','')}",
+            }),
+            "FACTURES_NON_REGLEES_FOURN": ("nl2sql", "lister_factures_fournisseurs_non_reglees", {
+                "code_fournisseur": state.get("code_client", ""),
+            }),
         }
-
         if act in tool_map:
             server, tool, args = tool_map[act]
             state["reponse_brute"] = await mcp_pool.call(server, tool, args)
         else:
             state["reponse_brute"] = f"__INCONNU__:{act}"
-
-        # Récupère le chemin du fichier généré (Excel, PDF, etc.)
-        if act in ACTIONS_EXPORT:
-            try:
-                data_export = json.loads(state["reponse_brute"])
-
-                if (
-                    isinstance(data_export, dict)
-                    and data_export.get("fichier")
-                ):
-                    state["pdf_path"] = data_export["fichier"]
-
-            except json.JSONDecodeError:
-                pass
-
     except Exception as e:
-        print(f"❌ Erreur dans noeud_lecture : {e}")
-        state["reponse_brute"] = str(e)
-
+        state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
     return state
+
+
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD NL2SQL
 # ─────────────────────────────────────────────────────────────────────
+_MARQUEURS_FALLBACK_GENERIQUE = (
+    "aucun pattern sql trouvé", "résumé général", "resume general",
+)
+
+def _est_fallback_generique(rb: str) -> bool:
+    if not rb:
+        return False
+    return any(m in rb.lower() for m in _MARQUEURS_FALLBACK_GENERIQUE)
 async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
     print("🤖 [Agent NL2SQL]...")
 
     if ENABLE_VANNA and _vanna_client is not None:
-        sql, score = await asyncio.to_thread(_vanna_generer_sql, state["demande_brute"])
+        # ── Anonymisation avant envoi à Vanna/Groq ──────────────────────────
+        _demande_safe, _restore_map = anonymise_sync(state["demande_brute"])
+
+        sql, score = await asyncio.to_thread(_vanna_generer_sql, _demande_safe)
+
+        # ── Désanonymisation du SQL généré avant exécution ──────────────────
+        if sql and _restore_map:
+            sql_original = sql
+            sql = deanonymise_with_map(sql, _restore_map)
+            if sql != sql_original:
+                print(f"   🔓 [Anonymiseur Vanna] SQL restauré : tokens → valeurs réelles")
+
         if sql and score >= 0.5:
             code = state.get("code_client", "")
-            # FIX A : ne pas injecter le filtre CT_Num si :
-            #   - code fournisseur (FOUR*, F0*) : Vanna gère déjà DO_Domaine=1
-            #   - SQL contient déjà DO_Domaine=1 (requête achat)
-            #   - SQL contient déjà ce code
             _est_fournisseur = bool(re.match(r"^F(OUR|0)\w*", code, re.IGNORECASE)) if code else False
             _sql_est_achat   = "DO_DOMAINE=1" in sql.upper().replace(" ", "") or "DO_DOMAINE = 1" in sql.upper()
             if (sql and code
@@ -3627,8 +4127,6 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
                 print(f"   🔧 [NL2SQL Fix] Filtre CT_Num='{code}' injecté dans le SQL")
             elif _est_fournisseur:
                 print(f"   🔧 [NL2SQL Fix] Code fournisseur '{code}' → injection filtre ignorée (Vanna gère)")
-                # FIX TIERS : Vanna peut recycler un exemple avec un code différent
-                # → remplacer le code tiers dans le SQL par le code réel détecté
                 if code:
                     import re as _re2
                     _code_upper = code.upper()
@@ -3648,6 +4146,14 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
                     {"sql": sql, "description": state["demande_brute"]},
                 )
                 state["reponse_brute"] = reponse
+                if _est_fallback_generique(state["reponse_brute"]):
+                    print("   ⚠️  [NL2SQL] Fallback générique détecté → message explicite")
+                    state["reponse_brute"] = (
+                "⚠️  Je n'ai pas trouvé cette information dans la base de données Sage 100.\n"
+                "Cette notion n'existe peut-être pas dans le schéma SQL "
+                "(elle est peut-être disponible dans la base documentaire)."
+            )
+                    return state
                 if reponse and "__ERREUR__" not in reponse:
                     asyncio.create_task(
                         asyncio.to_thread(_vanna_entrainer, state["demande_brute"], sql)
@@ -3661,12 +4167,8 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
     elif ENABLE_VANNA and _vanna_client is None:
         print("   ⚠️  [Vanna] Non initialisé → fallback patterns")
 
-    # FIX BUGB : enrichir la question avec le code client/fournisseur
-    # pour que le fallback MCP génère un SQL filtré
     _question_enrichie = state["demande_brute"]
     _code_injecte = state.get("code_client", "")
-    # PATCH A-3 : n'injecter le code client QUE si la demande mentionne explicitement
-    # un client/fournisseur précis — ne pas injecter pour des requêtes globales
     _demande_lower = state["demande_brute"].lower()
     _est_requete_globale = not any(w in _demande_lower for w in (
         "client", "fournisseur", "tiers", "pour", "de", "du",
@@ -3675,7 +4177,6 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
         "toutes", "tous", "liste", "global", "général",
         "factures fournisseur", "factures fournisseurs",
     ))
-    # FIX C : ne pas injecter si code fournisseur (FOUR*, F0*)
     _est_code_fournisseur = bool(re.match(r"^F(OUR|0)\w*", _code_injecte, re.IGNORECASE)) if _code_injecte else False
 
     if (_code_injecte
@@ -3764,7 +4265,6 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
 
             if type_d == "BL_ACHAT":
                 doc = state.get("pending_document", {})
-                # FIX BUG2: utiliser _mcp_workflow_bl_achat au lieu de generer_document_sage
                 data = await _mcp_workflow_bl_achat(
                     code_fournisseur = doc.get("code_fournisseur", code_client_final),
                     ref_article      = doc.get("ref_article",   state["ref_article"]),
@@ -3820,11 +4320,11 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                 if sugg_fa:
                     num_bl = sugg_fa.get("num_bl", "")
                     state["suggestion_en_attente"] = {
-                        "type": "DRAFT_FACTURE_DEPUIS_BL",
-                        "description": f"Préparer le brouillon de facture pour BL {num_bl}",
+                        "type": "CREER_FACTURE",
+                        "description": f"Créer la facture pour BL {num_bl}",
                         "params": sugg_fa,
                     }
-                    rapport.append("💡 Tapez **ok** pour préparer le brouillon de la facture correspondante.")
+                    rapport.append("💡 Tapez **ok** pour créer la Facture.")
                 state["reponse_finale"] = "\n\n".join(rapport)
                 return state
             elif type_d == "OF":
@@ -3903,16 +4403,16 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                 state["reponse_brute"] = json.dumps(data, ensure_ascii=False)
 
         elif act == "CREER_CLIENT":
-            # FIX 3 : intitulé = nom_client_brut si disponible
             _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Client"
             raw  = await mcp_pool.call("actions", "creer_nouveau_client", {
-                "code_client": state["code_client"],
-                "intitule":    _intitule,
-            })
+        "code_client":     state["code_client"],
+        "intitule":        _intitule,
+        "ct_validite":     state.get("ct_validite", "VALIDE"),        # ← AJOUT
+        "ct_encours_max":  state.get("ct_encours_max", 0.0),          # ← AJOUT
+    })
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
             state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
-
         elif act == "CREER_FOURNISSEUR":
             _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Fournisseur"
             raw  = await mcp_pool.call("actions", "creer_nouveau_fournisseur", {
@@ -3934,19 +4434,25 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
             data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
             state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
-
+        elif act == "REGLEMENT":
+            raw = await mcp_pool.call("actions", "enregistrer_reglement_facture", {
+        "num_piece":             state["num_piece"],
+        "mode_paiement":         state["mode_paiement"],
+        "numero_piece_paiement": state.get("numero_piece_paiement", ""),
+            })
+            data = _parse_mcp_response(raw)
+            err  = _traiter_erreur_mcp(data)
+            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
         elif act == "TRANSFORMER_DOC":
             num_piece_src = state["num_piece"]
             type_dest     = state["type_doc"] or "FACTURE"
 
-            # ── Vérification : document source déjà transformé ? ──────────
             try:
                 import sqlite3
                 _db  = sqlite3.connect(str(_db_path))
                 _cur = _db.cursor()
 
                 if type_dest == "FACTURE":
-                    # Cherche si une facture (DO_Type=3) est déjà liée à ce BL via DO_Ref
                     _cur.execute("""
                         SELECT COUNT(*) FROM F_DOCENTETE
                         WHERE DO_Ref = ? AND DO_Type = 3 AND DO_Domaine = 0
@@ -3963,7 +4469,6 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
                         return state
 
                 elif type_dest == "BF":
-                    # Cherche si un BF (DO_Type=4) est déjà lié à cet OF via DO_Ref
                     _cur.execute("""
                         SELECT COUNT(*) FROM F_DOCENTETE
                         WHERE DO_Ref = ? AND DO_Type = 4 AND DO_Domaine = 2
@@ -3983,9 +4488,7 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
 
             except Exception as e_verif:
                 print(f"   ⚠️  [Vérif doublon] {_safe_str(e_verif)}")
-                # On continue même si la vérification échoue
 
-            # ── Transformation effective ───────────────────────────────────
             raw  = await mcp_pool.call("actions", "transformer_document", {
                 "num_piece_source": num_piece_src,
                 "type_destination": type_dest,
@@ -4002,15 +4505,7 @@ async def noeud_ecriture(state: CopilotState) -> CopilotState:
             err  = _traiter_erreur_mcp(data)
             state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
 
-        elif act == "REGLEMENT":
-            raw  = await mcp_pool.call("actions", "enregistrer_reglement_facture", {
-                "num_piece":     state["num_piece"],
-                "mode_paiement": state["mode_paiement"],
-            })
-            data = _parse_mcp_response(raw)
-            err  = _traiter_erreur_mcp(data)
-            state["reponse_brute"] = err or json.dumps(data, ensure_ascii=False)
-
+        
         elif act == "MOUVEMENT_STOCK":
             raw  = await mcp_pool.call("actions", "ajuster_mouvement_stock", {
                 "ref_article":    state["ref_article"],
@@ -4123,24 +4618,17 @@ async def noeud_workflow(state: CopilotState) -> CopilotState:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# NŒUD SYNTHÈSE — v9.3 FIX 7
+# NŒUD SYNTHÈSE — v9.4
 # ─────────────────────────────────────────────────────────────────────
 
 
 def _formater_nl2sql_brut(rb: str, question: str) -> str:
-    """
-    PATCH C-3 : Formate une réponse NL2SQL brute de manière lisible
-    sans passer par le LLM (utilisé en cas de timeout synthèse).
-    Gère : texte tabulaire déjà formaté, JSON, erreur.
-    """
     if not rb:
         return "⚠️  Aucun résultat trouvé."
 
-    # Déjà bien formaté (commence par emoji ou tirets)
     if rb.startswith(("📊", "✅", "❌", "⚠️", "─", "👥", "📦", "🏆", "⏳", "Question :")):
         return rb
 
-    # Tenter parsing JSON
     try:
         data = json.loads(rb)
         if isinstance(data, dict):
@@ -4155,7 +4643,6 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
                             return r
                     except Exception:
                         continue
-                # Fallback générique : chercher une liste de données dans le JSON
                 for key in ("clients", "factures", "articles", "resultats", "rows", "data", "lignes"):
                     items = data.get(key)
                     if items and isinstance(items, list) and items:
@@ -4168,7 +4655,6 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
                             lignes.append(f"  ... et {len(items) - 30} ligne(s) supplémentaire(s)")
                         lignes.append("─" * 60)
                         return "\n".join(lignes)
-                # Dernier recours : afficher les clés/valeurs scalaires du dict
                 parts = [f"{k}: {v}" for k, v in data.items()
                          if v is not None and not isinstance(v, (dict, list))]
                 if parts:
@@ -4192,14 +4678,10 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
     except (json.JSONDecodeError, ValueError):
         pass
 
-    # Texte brut tabulaire déjà lisible → retourner tel quel
     if "│" in rb or "─" in rb or ":" in rb:
         return rb
 
-    # Dernier recours
     return f"📊 Résultat de « {question} » :\n{rb}"
-
-# ── Helpers anti-hallucination (coller AVANT noeud_synthese) ──────────────
 
 _HALLUCINATION_MARKERS = (
     "par exemple", "supposons", "imaginons", "à titre d'exemple",
@@ -4209,11 +4691,12 @@ _HALLUCINATION_MARKERS = (
 )
 
 def _rb_est_vide(rb: str) -> bool:
-    """True si rb ne contient aucune donnée exploitable."""
     if not rb or not rb.strip():
         return True
     rb_strip = rb.strip()
     if rb_strip in ("{}", "[]", '{"statut": "OK"}', '{"statut":"OK"}'):
+        return True
+    if rb_strip.startswith(("🔍 Aucune", "ℹ️  Aucune")):
         return True
     try:
         data = json.loads(rb_strip)
@@ -4226,22 +4709,17 @@ def _rb_est_vide(rb: str) -> bool:
     except Exception:
         pass
     return len(rb_strip) < 10
-
 def _detecter_hallucination(synthese: str, rb: str) -> bool:
-    """Détecte si le LLM a probablement inventé des données."""
     if not synthese:
         return False
     s_lower = synthese.lower()
-    # 1. Marqueurs linguistiques d'invention
     for marker in _HALLUCINATION_MARKERS:
         if marker in s_lower:
             print(f"   🚨 [Anti-hallucination] Marqueur détecté : '{marker}'")
             return True
-    # 2. Données vides mais synthèse longue → invention quasi-certaine
     if _rb_est_vide(rb) and len(synthese.strip()) > 200:
         print(f"   🚨 [Anti-hallucination] Données vides + synthèse longue ({len(synthese)} chars)")
         return True
-    # 3. Nombres absents des données source (heuristique légère)
     import re
     nb_synthese = set(re.findall(r'\b\d{4,}\b', synthese))
     nb_rb       = set(re.findall(r'\b\d{4,}\b', rb))
@@ -4254,7 +4732,6 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
     rb  = state.get("reponse_brute", "") or ""
     act = state.get("action", "")
 
-    # Réponse finale déjà construite (workflow BL stock insuffisant, etc.)
     if state.get("reponse_finale"):
         return state
 
@@ -4267,12 +4744,8 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
         state["reponse_finale"] = f"⚠️  Action non reconnue : {rb}"
         return state
 
-    # ══════════════════════════════════════════════════════════════
-    # FIX 7 : NL2SQL_LIBRE → LLM systématique pour interpréter les résultats
-    # ══════════════════════════════════════════════════════════════
     if act == "NL2SQL_LIBRE" and rb and not rb.startswith("__"):
 
-        # COURT-CIRCUIT : réponse déjà formatée
         _deja_formate = rb.startswith((
             "📊", "✅", "❌", "⚠️", "─", "👥", "📦", "🏆", "⏳", "Question :"
         ))
@@ -4281,7 +4754,6 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
             state["reponse_finale"] = rb
             return state
 
-        # ── NOUVEAU : données vides → pas de LLM du tout ──────────
         if _rb_est_vide(rb):
             print("   ⚠️  [Synthèse NL2SQL] Données vides → pas de LLM (anti-hallucination)")
             state["reponse_finale"] = (
@@ -4289,10 +4761,8 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                 "Les données demandées ne sont pas disponibles dans la base."
             )
             return state
-        # ──────────────────────────────────────────────────────────
 
         if ENABLE_LLM_SYNTHESE:
-            # ── PROMPT RENFORCÉ anti-hallucination ────────────────
             prompt = (
                 f'Tu es un assistant ERP Sage 100 expert et rigoureux.\n'
                 f'QUESTION UTILISATEUR : "{state["demande_brute"]}"\n\n'
@@ -4310,10 +4780,10 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                 f'Utilise des tableaux ASCII, emojis et formatage pour la lisibilité.\n'
                 f'Commence directement par la réponse en français.'
             )
-            # ──────────────────────────────────────────────────────
             try:
                 synthese = await asyncio.wait_for(
-                    _invoke_llm(prompt, use_smart=True), timeout=SYNTHESE_TIMEOUT
+                    invoke_llm_anonymise(prompt, _invoke_llm, use_smart=True),
+                    timeout=SYNTHESE_TIMEOUT,
                 )
                 _s = synthese.strip()
                 _est_json_llm = (
@@ -4326,14 +4796,12 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                 if _est_json_llm:
                     print("   ⚠️  [Synthèse NL2SQL] LLM a répondu en JSON → fallback formateur")
                     state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
-                # ── NOUVEAU : garde anti-hallucination ────────────
                 elif _detecter_hallucination(_s, rb):
                     print("   🚨 [Synthèse NL2SQL] Hallucination détectée → fallback formateur")
                     state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
                 elif not _s:
                     print("   ⚠️  [Synthèse NL2SQL] Synthèse vide → fallback formateur")
                     state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
-                # ──────────────────────────────────────────────────
                 else:
                     state["reponse_finale"] = synthese
                 if ENABLE_MEM0:
@@ -4345,14 +4813,61 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                 print(f"   ⚠️  [Synthèse NL2SQL] Timeout {SYNTHESE_TIMEOUT}s → réponse brute")
             except Exception as e:
                 print(f"   ⚠️  [Synthèse NL2SQL] {_safe_str(e)}")
-        # PATCH C-2 : formateur fallback lisible si LLM désactivé ou timeout
         state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"])
         return state
-    # ══════════════════════════════════════════════════════════════
+    if act in ACTIONS_KB and rb and not rb.startswith("__"):
+        if _rb_est_vide(rb):
+            print("   ⚠️  [Synthèse KB] Aucun résultat KB → réponse canée (anti-hallucination)")
+            state["reponse_finale"] = (
+                "🔍 Je n'ai trouvé aucune information sur ce sujet dans la base de "
+                "connaissance (procédures, fiches techniques, réclamations...).\n"
+                "💡 Suggestion : contactez le service concerné ou reformulez votre demande."
+            )
+            return state
 
-    # Formateurs directs JSON pour actions LECTURE classiques
+        if ENABLE_LLM_SYNTHESE:
+            prompt = (
+                f'Tu es un assistant ERP Sage 100 expert et rigoureux.\n'
+                f'QUESTION UTILISATEUR : "{state["demande_brute"]}"\n\n'
+                f'RÉSULTATS DE LA BASE DE CONNAISSANCE (KB) :\n'
+                f'```\n{rb[:3000]}\n```\n\n'
+                f'RÈGLES ABSOLUES :\n'
+                f'1. Base-toi UNIQUEMENT sur les résultats ci-dessus (texte + score + fichier).\n'
+                f'2. N\'invente AUCUNE information absente de ces résultats.\n'
+                f'3. Si le texte ne répond pas clairement à la question, écris '
+                f'"Information non disponible dans la base".\n'
+                f'4. N\'utilise JAMAIS : "par exemple", "supposons", "typiquement", '
+                f'"généralement", "il est probable", "je suppose".\n'
+                f'5. Cite la source (doc_type / fichier) à la fin de ta réponse.\n'
+            )
+            try:
+                synthese = await asyncio.wait_for(
+                    invoke_llm_anonymise(prompt, _invoke_llm, use_smart=True),
+                    timeout=SYNTHESE_TIMEOUT,
+                )
+                _s3 = synthese.strip()
+                if _detecter_hallucination(_s3, rb) or not _s3:
+                    print("   🚨 [Synthèse KB] Hallucination détectée → réponse brute KB")
+                    state["reponse_finale"] = rb
+                else:
+                    state["reponse_finale"] = synthese
+                return state
+            except asyncio.TimeoutError:
+                print(f"   ⚠️  [Synthèse KB] Timeout {SYNTHESE_TIMEOUT}s → réponse brute")
+            except Exception as e:
+                print(f"   ⚠️  [Synthèse KB] {_safe_str(e)}")
+        state["reponse_finale"] = rb
+        return state
     formatted = _formater_reponse_directe(act, rb)
     if formatted:
+        if act in ACTIONS_EXPORT and rb and not rb.startswith("__"):
+            try:
+                _data_export = json.loads(rb)
+                _fichier = _data_export.get("fichier", "")
+                if _fichier:
+                    state["pdf_path"] = _fichier
+            except (json.JSONDecodeError, ValueError):
+                pass
         state["reponse_finale"] = formatted
         if ENABLE_MEM0 and state.get("mem0_contexte") is not None:
             asyncio.create_task(
@@ -4360,7 +4875,6 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
             )
         return state
 
-    # Fallback : si JSON parseable avec statut OK et formateur connu → retry avec données
     if not formatted and rb and not rb.startswith("__"):
         try:
             data = json.loads(rb)
@@ -4384,25 +4898,20 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
         except Exception:
             pass
 
-    # Bypass LLM si c'est déjà un message d'exécution (Fix C)
     if rb.startswith("✅") or rb.startswith("❌") or rb.startswith("⚠️"):
         state["reponse_finale"] = rb
         return state
 
-    # Synthèse LLM générale (actions LECTURE classiques sans formateur)
     if ENABLE_LLM_SYNTHESE and rb and not rb.startswith("__"):
 
-        # ── NOUVEAU : données vides → pas de LLM du tout ──────────
         if _rb_est_vide(rb):
             print("   ⚠️  [Synthèse] Données vides → pas de LLM (anti-hallucination)")
             state["reponse_finale"] = "⚠️  Aucune donnée disponible pour cette demande."
             return state
-        # ──────────────────────────────────────────────────────────
 
         mem_ctx = state.get("mem0_contexte", "")
         rag_ctx = state.get("rag_complement", "")
 
-        # ── PROMPT RENFORCÉ anti-hallucination ────────────────────
         prompt = (
             f'Tu es un assistant ERP Sage 100 expert et rigoureux.\n'
             f'DEMANDE UTILISATEUR : "{state["demande_brute"]}"\n'
@@ -4423,10 +4932,10 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
             f'Rédige une réponse claire, concise et structurée. '
             f'Utilise des emojis et du formatage pour la lisibilité.'
         )
-        # ──────────────────────────────────────────────────────────
         try:
             synthese = await asyncio.wait_for(
-                _invoke_llm(prompt, use_smart=True), timeout=SYNTHESE_TIMEOUT
+                invoke_llm_anonymise(prompt, _invoke_llm, use_smart=True),
+                timeout=SYNTHESE_TIMEOUT,
             )
             _s2 = synthese.strip()
             if ((_s2.startswith("{") and _s2.endswith("}"))
@@ -4434,11 +4943,9 @@ async def noeud_synthese(state: CopilotState) -> CopilotState:
                     or _s2.startswith("```json")):
                 print("   ⚠️  [Synthèse] LLM a répondu en JSON → réponse brute")
                 state["reponse_finale"] = rb
-            # ── NOUVEAU : garde anti-hallucination ────────────────
             elif _detecter_hallucination(_s2, rb):
                 print("   🚨 [Synthèse] Hallucination détectée → réponse brute")
                 state["reponse_finale"] = rb
-            # ──────────────────────────────────────────────────────
             else:
                 state["reponse_finale"] = synthese
             if ENABLE_MEM0:
@@ -4492,30 +4999,8 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
     elif type_sugg == "CREER_FACTURE":
         num_bl      = params.get("num_bl", "")
         code_client = params.get("code_client", "")
-        ref_article = params.get("ref_article", "")
-        quantite    = float(params.get("quantite", 0.0))
-        prix_unitaire = float(params.get("prix_unitaire", 0.0))
         nom_client  = params.get("nom_client", code_client)
         montant     = float(params.get("montant", 0.0))
-
-        if num_bl and code_client and ref_article and quantite > 0:
-            draft = {
-                "type_doc":        "FACTURE",
-                "code_client":     code_client,
-                "ref_article":     ref_article,
-                "quantite":        quantite,
-                "prix_unitaire":   prix_unitaire,
-                "date_str":        datetime.now().strftime("%d/%m/%Y"),
-                "num_piece_source": num_bl,
-            }
-            draft = await _enrichir_draft_client_article(draft)
-            contexte_session["document_draft"] = draft
-            contexte_session["statut_draft"]   = "PREVIEW"
-            contexte_session["suggestion_en_attente"] = {}
-            texte, pdf_path = await generer_preview(draft)
-            contexte_session["pdf_path"] = pdf_path
-            return texte
-
         try:
             raw  = await mcp_pool.call("actions", "transformer_document", {
                 "num_piece_source": num_bl,
@@ -4574,24 +5059,14 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
         quantite    = float(params.get("quantite", 0.0))
         num_of      = params.get("num_of", "")
         code_client = params.get("code_client", "PROD-INT")
-        if not ref_article or quantite <= 0 or not num_of:
-            return "❌ Impossible de préparer le BF : informations manquantes."
-
-        draft = {
-            "type_doc":      "BF",
-            "ref_article":   ref_article,
-            "quantite":      quantite,
-            "num_of":        num_of,
-            "code_client":   code_client,
-            "date_str":      datetime.now().strftime("%d/%m/%Y"),
-        }
-        draft = await _enrichir_draft_client_article(draft)
-        contexte_session["document_draft"] = draft
-        contexte_session["statut_draft"] = "PREVIEW"
-        contexte_session["suggestion_en_attente"] = {}
-        texte, pdf_path = await generer_preview(draft)
-        contexte_session["pdf_path"] = pdf_path
-        return texte
+        try:
+            result = await _mcp_workflow_bf(ref_article, quantite, num_of, code_client)
+            if result.get("statut") in _STATUTS_ERREUR_MCP:
+                return result.get("message", "❌ Erreur BF.")
+            contexte_session["suggestion_en_attente"] = {}
+            return result.get("message", "✅ BF créé.")
+        except Exception as e:
+            return f"❌ Erreur BF : {_safe_str(e)}"
 
     elif type_sugg == "CREER_OF":
         ref_article = params.get("ref_article", "")
@@ -4639,8 +5114,8 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
                     if sugg_fa:
                         num_bl = sugg_fa.get("num_bl", "")
                         contexte_session["suggestion_en_attente"] = {
-                            "type": "DRAFT_FACTURE_DEPUIS_BL",
-                            "description": f"Préparer le brouillon de facture pour BL {num_bl}",
+                            "type": "CREER_FACTURE",
+                            "description": f"Créer la facture pour BL {num_bl}",
                             "params": sugg_fa,
                         }
                     else:
@@ -4681,7 +5156,7 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict) -> str:
         "quantite":      params.get("quantite", 0.0),
         "prix_unitaire": params.get("prix_unitaire", 0.0),
         "date_str":      datetime.now().strftime("%d/%m/%Y"),
-        "num_piece_source": params.get("num_bl", ""),  # traçabilité
+        "num_piece_source": params.get("num_bl", ""),
     }
         contexte_session["document_draft"] = draft
         contexte_session["statut_draft"]   = "PREVIEW"
@@ -4701,7 +5176,7 @@ async def noeud_kb(state: CopilotState) -> CopilotState:
     try:
         if act == "RECHERCHE_PROCEDURE":
             raw = await mcp_pool.call("kb", "rechercher_procedure", {
-                "contexte": state["demande_brute"],
+                "requete": state["demande_brute"],
             })
         elif act == "RECOMMANDATION":
             raw = await mcp_pool.call("kb", "generer_recommandation", {
@@ -4756,20 +5231,28 @@ def _construire_graphe() -> object:
             return "hors_sujet"
         if intention == "AIDE":
             return "aide"
+        # PRIORITÉ ABSOLUE : une question de complément est en attente
+        # (ex: CREER_CLIENT sans nom, BL_ACHAT incomplet) → il faut
+        # d'abord poser la question, pas valider un dossier vide.
+        if state.get("attente_complements"):
+            return "complements"
+        act = state.get("action", "")
+        if act == "GENERER_DOC":
+            return "collecte_draft"
         if state.get("ambigue"):
             return "clarification"
-        act = state.get("action", "")
         if act in ACTIONS_LECTURE | ACTIONS_EXPORT:
             return "lecture"
         if act in ACTIONS_NL2SQL:
             return "nl2sql"
-        if act == "GENERER_DOC":
+        if act == "TRANSFORMER_DOC":
             return "collecte_draft"
         if act in ACTIONS_ECRITURE | ACTIONS_WORKFLOW:
             return "confirmation"
         if act in ACTIONS_KB:
             return "kb"
         return "nl2sql"
+        
 
     g.add_conditional_edges("classifier", _router, {
         "hors_sujet":    "hors_sujet",
@@ -4780,12 +5263,12 @@ def _construire_graphe() -> object:
          "collecte_draft": "collecte_draft",
         "confirmation":  "confirmation",
         "kb":            "kb",
+        "complements":   "complements",
     })
-    # ── Routage interne du cycle draft ──
     def _router_collecte(state: CopilotState) -> str:
         statut = state.get("statut_draft", "")
         if statut == "COLLECTE":
-            return "synthese"          # question posée → fin du tour
+            return "synthese"
         if statut == "ANNULE":
             return "synthese"
         if statut == "PREVIEW":
@@ -4816,7 +5299,6 @@ def _construire_graphe() -> object:
         "ecriture":  "ecriture",
     })
 
-    # ── Routeur ecriture → complements (si champs manquants) ou synthese ──
     def _router_ecriture(state: CopilotState) -> str:
         if state.get("attente_complements"):
             return "complements"
@@ -4826,7 +5308,6 @@ def _construire_graphe() -> object:
         "complements": "complements",
         "synthese":    "synthese",
     })
-    # noeud_complements pose la question → synthese l'affiche → fin du tour
     g.add_edge("complements", "synthese")
 
     for noeud in ("hors_sujet", "aide", "clarification", "lecture",
@@ -4849,24 +5330,21 @@ async def main():
 
     print(f"""
 ═════════════════════════════════════════════════════════════════
-🤖  COPILOT ERP SAGE 100 — v9.3
+🤖  COPILOT ERP SAGE 100 — v9.4 (patchée)
     Fast : {MODELE_FAST}  (timeout {OLLAMA_TIMEOUT_FAST}s)
     Smart: {MODELE_SMART} (timeout {OLLAMA_TIMEOUT_SMART}s)
     Fallback : {fallback_status}
     GLiNER: {gliner_status} | Vanna: {vanna_status} | Mem0: {mem0_status}
-    ✅ FIX1 Article insensible casse
-    ✅ FIX2 TRANSFORMER_DOC prioritaire
-    ✅ FIX3 Extraction num_piece TRANSFORMER_DOC
-    ✅ FIX4 NL2SQL BL/BC/OF/BF par client + filtres analytiques
-    ✅ FIX5 _est_nom_valide rejette chiffres
-    ✅ FIX6 _rechercher_client len>3 + sortie rapide
-    ✅ FIX7 Synthèse NL2SQL LLM + timeout 120s
+    ✅ FIX1-7 (v9.3) + PATCH D/E/F/G/H/H2/#4/J/K (v9.4)
     (tapez 'aide', 'cache', 'warmup', 'reset', 'quitter')
 ═════════════════════════════════════════════════════════════════
 """)
 
     print("⏳ [Init] Chargement parallèle des composants...")
     init_tasks = [mcp_pool.init(), _warmup_ollama()]
+    if ENABLE_SEMANTIC_CLASSIFIER: init_tasks.append(sc.warmup_semantic_classifier())
+    # Précharger les entités DB dans l'anonymiseur (synchrone mais rapide)
+    init_tasks.append(asyncio.to_thread(lambda: __import__("llm_anonymizer").preload()))
     if ENABLE_VANNA:  init_tasks.append(_get_vanna_async())
     if ENABLE_GLINER: init_tasks.append(_get_gliner_async())
     if ENABLE_MEM0:   init_tasks.append(_get_mem0_async())
@@ -4876,6 +5354,11 @@ async def main():
 
     graphe = _construire_graphe()
 
+    # PATCH J : ajout de pending_action / statut_confirmation à l'état
+    # de session persistant, indispensable pour que la confirmation
+    # d'une action d'écriture (CREER_CLIENT, MODIFIER_STATUT, REGLEMENT,
+    # CREER_AVOIR, MOUVEMENT_STOCK, PROPOSITION_ACHAT, WORKFLOW_COMMANDE)
+    # survive au tour suivant ("y"/"non").
     contexte_session: dict = {
         "dernier_code_client":   "",
         "dernier_ref_article":   "",
@@ -4885,8 +5368,9 @@ async def main():
         "dernier_num_piece":     "",
         "dernier_type_doc":      "",
         "suggestion_en_attente": {},
-         "document_draft": {}, "statut_draft": "",
-    "alertes_persistantes": [],
+        "document_draft": {}, "statut_draft": "",
+        "alertes_persistantes": [],
+        "pending_action": {}, "statut_confirmation": "",
     }
     demande_precedente = ""
 
@@ -4906,6 +5390,9 @@ async def main():
                     "dernier_quantite": 0.0,   "dernier_nom_client": "",
                     "dernier_document": {},     "suggestion_en_attente": {},
                     "dernier_num_piece": "",    "dernier_type_doc": "",
+                    "document_draft": {}, "statut_draft": "",
+                    "alertes_persistantes": [],
+                    "pending_action": {}, "statut_confirmation": "",
                 }
                 demande_precedente = ""
                 print("🔄 Session réinitialisée.")
@@ -4923,34 +5410,139 @@ async def main():
             if demande.lower() == "aide":
                 print(f"\n{CAPACITES_SYSTEME}\n")
                 continue
-
-            sugg = contexte_session.get("suggestion_en_attente", {})
-            if sugg and (_est_oui(demande) or _est_non(demande)):
-                if _est_oui(demande):
-                    reponse_sugg = await _executer_suggestion(sugg, contexte_session)
-                    print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
-                    print(reponse_sugg)
-                    print(f"{'─'*65}\n")
-                else:
-                    contexte_session["suggestion_en_attente"] = {}
-                    print("🛑 Suggestion annulée.")
+            if demande.lower() == "vanna_retrain":
+                if _vanna_client is not None:
+                    try:
+                        for item in _vanna_client.get_training_data().to_dict("records"):
+                            _vanna_client.remove_training_data(item.get("id"))
+                    except Exception as e:
+                        print(f"⚠️  {e}")
+                    _vanna_entrainer_schema(_vanna_client)
+                    print("✅ Vanna ré-entraîné proprement.")
                 continue
+            statut_conf_session = contexte_session.get("statut_confirmation")
+            statut_draft_session = contexte_session.get("statut_draft")
+
+            # ══════════════════════════════════════════════════════════
+            # CONFIRMATION D'ÉCRITURE EN ATTENTE (CREER_CLIENT, REGLEMENT,
+            # MODIFIER_STATUT, GENERER_DOC, etc.) — "y"/"n" traité en
+            # dehors du graphe pour ne JAMAIS repasser par le classifieur.
+            # ══════════════════════════════════════════════════════════
+            if statut_conf_session == "ATTENTE" and (_est_oui(demande) or _est_non(demande)):
+                pending = contexte_session.get("pending_action", {})
+
+                if _est_non(demande):
+                    contexte_session["pending_action"]      = {}
+                    contexte_session["statut_confirmation"] = ""
+                    print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
+                    print("🛑 Action annulée.")
+                    print(f"{'─'*65}\n")
+                    continue
+
+                # _est_oui(demande) → exécution directe de l'action en
+                # attente, sans passer par noeud_classifier.
+                etat = _etat_initial("", contexte_session)
+                etat.update(pending)
+                etat["action"]               = pending.get("action", "")
+                etat["intention"]            = "ERP"
+                etat["statut_confirmation"]  = "CONFIRME"
+                etat["validation_ok"]        = True
+
+                try:
+                    if etat["action"] in ACTIONS_WORKFLOW:
+                        final_state = await noeud_workflow(etat)
+                    else:
+                        final_state = await noeud_ecriture(etat)
+                    if final_state.get("attente_complements"):
+                        final_state = await noeud_complements(final_state)
+                    final_state = await noeud_synthese(final_state)
+                except Exception as e:
+                    final_state = {**etat, "reponse_finale": f"❌ Erreur système : {_safe_str(e)}"}
+
+                contexte_session["pending_action"]      = {}
+                contexte_session["statut_confirmation"] = ""
+
+                if final_state.get("code_client"):
+                    contexte_session["dernier_code_client"] = final_state["code_client"]
+                if final_state.get("ref_article"):
+                    contexte_session["dernier_ref_article"] = final_state["ref_article"]
+                if final_state.get("quantite", 0) > 0:
+                    contexte_session["dernier_quantite"] = final_state["quantite"]
+                if final_state.get("nom_client_brut"):
+                    contexte_session["dernier_nom_client"] = final_state["nom_client_brut"]
+
+                doc_extrait = _extraire_dernier_document(final_state)
+                if doc_extrait and doc_extrait.get("type_doc", "") not in ("OF", "BF"):
+                    contexte_session["dernier_document"] = doc_extrait
+                    if doc_extrait.get("num_piece"):
+                        contexte_session["dernier_num_piece"] = doc_extrait["num_piece"]
+                        contexte_session["dernier_type_doc"]  = doc_extrait.get("type_doc", "")
+
+                sugg_nouvelle = final_state.get("suggestion_en_attente", {})
+                contexte_session["suggestion_en_attente"] = sugg_nouvelle
+
+                if final_state.get("attente_complements"):
+                    contexte_session["attente_complements"] = True
+                    contexte_session["pending_document"]    = final_state.get("pending_document", {})
+                else:
+                    contexte_session["attente_complements"] = False
+                    contexte_session["pending_document"]    = {}
+
+                reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
+                print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
+                print(reponse)
+                if sugg_nouvelle:
+                    desc = sugg_nouvelle.get("description", "")
+                    print(f"\n💡 Suggestion : {desc}\n   Tapez **ok** pour confirmer ou **non** pour annuler.")
+                alertes_txt = formater_alertes_persistantes(contexte_session)
+                if alertes_txt:
+                    print(alertes_txt)
+                print(f"{'─'*65}\n")
+                continue
+
+            elif statut_draft_session in ("PREVIEW", "COLLECTE"):
+                sugg = {}   # laisser le graphe traiter via document_draft
+
+            else:
+                sugg = contexte_session.get("suggestion_en_attente", {})
+                if sugg and (_est_oui(demande) or _est_non(demande)):
+                    if _est_oui(demande):
+                        reponse_sugg = await _executer_suggestion(sugg, contexte_session)
+                        print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
+                        print(reponse_sugg)
+                        print(f"{'─'*65}\n")
+                    else:
+                        contexte_session["suggestion_en_attente"] = {}
+                        print("🛑 Suggestion annulée.")
+                    continue
 
             demande_resolue = _resoudre_references(
                 demande, contexte_session.get("dernier_document", {})
             )
-
-            sous_demandes = await decouper_demande_composite(demande_resolue)
+            if demande_precedente and (_est_oui(demande_resolue) or _est_non(demande_resolue)):
+                demande_precedente = ""
+                print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
+                if _est_non(demande_resolue):
+                    print("🛑 D'accord, dites-moi si vous avez besoin d'autre chose.")
+                else:
+                    print("👍 Très bien, comment puis-je vous aider ensuite ?")
+                print(f"{'─'*65}\n")
+                continue
+            sous_pieces = _decouper_reglement_multiple(demande_resolue)
+            if sous_pieces:
+                sous_demandes = [
+                    {"demande": d, "sequentiel": False, "index": i}
+                    for i, d in enumerate(sous_pieces)
+                ]
+            else:
+                sous_demandes = await decouper_demande_composite(demande_resolue)
             reponses_multi = []
 
             for sous_d in sous_demandes:
                 demande_courante = sous_d["demande"]
 
-                if (demande_precedente
-                        and demande_courante.lower() in ("oui","o","ok","yes","y")
-                        and not sugg):
+                if demande_precedente and not sugg:
                     demande_courante = _fusionner_demandes(demande_precedente, demande_courante)
-
                 etat = _etat_initial(demande_courante, contexte_session)
                 # Héritage des champs multi-tours depuis la session
                 if contexte_session.get("attente_complements"):
@@ -4959,19 +5551,26 @@ async def main():
                 if contexte_session.get("document_draft"):
                     etat["document_draft"] = contexte_session["document_draft"]
                     etat["statut_draft"]   = contexte_session.get("statut_draft", "")
+                # PATCH J : réhydratation de pending_action/statut_confirmation
+                if (contexte_session.get("pending_action")
+                        and contexte_session.get("statut_confirmation") == "ATTENTE"):
+                    etat["pending_action"] = contexte_session["pending_action"]
+                    etat["statut_confirmation"] = "ATTENTE"
                 try:
                     final_state = await graphe.ainvoke(etat)
                     reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
 
-                # ──────────────────────────────────────────────────────
-                # Persistance du cycle draft/preview/confirm
-                # (INDISPENSABLE — sans ce bloc, "CONFIRM" ne sera jamais
-                #  rattaché au brouillon créé au tour précédent)
-                # ──────────────────────────────────────────────────────
                     contexte_session["document_draft"] = final_state.get("document_draft", {})
                     contexte_session["statut_draft"]   = final_state.get("statut_draft", "")
 
-                # Gestion des alertes persistantes (OF → BF)
+                    # PATCH J : persistance de pending_action/statut_confirmation
+                    if final_state.get("statut_confirmation") == "ATTENTE":
+                        contexte_session["pending_action"]      = final_state.get("pending_action", {})
+                        contexte_session["statut_confirmation"] = "ATTENTE"
+                    else:
+                        contexte_session["pending_action"]      = {}
+                        contexte_session["statut_confirmation"] = ""
+
                     if final_state.get("action") == "GENERER_DOC" and final_state.get("statut_draft") == "":
                         type_doc_genere = (final_state.get("type_doc") or "").upper()
 
@@ -4990,12 +5589,15 @@ async def main():
                         )
                             if num_of_lie:
                                 resoudre_alerte_bf(contexte_session, num_of_lie)
-                # ──────────────────────────────────────────────────────
 
                     if final_state.get("code_client"):
                         contexte_session["dernier_code_client"] = final_state["code_client"]
                 except Exception as e:
                     final_state = {**etat, "reponse_finale": f"❌ Erreur système : {_safe_str(e)}"}
+                    # PATCH J : en cas d'exception, ne pas laisser une
+                    # confirmation fantôme bloquer les tours suivants
+                    contexte_session["pending_action"]      = {}
+                    contexte_session["statut_confirmation"] = ""
 
                 reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
 
@@ -5026,10 +5628,8 @@ async def main():
                     contexte_session["dernier_quantite"] = 0.0
 
                 sugg_nouvelle = final_state.get("suggestion_en_attente", {})
-                if sugg_nouvelle:
-                    contexte_session["suggestion_en_attente"] = sugg_nouvelle
+                contexte_session["suggestion_en_attente"] = sugg_nouvelle
 
-                # Persistance état multi-tours dans la session
                 if final_state.get("attente_complements"):
                     contexte_session["attente_complements"] = True
                     contexte_session["pending_document"]    = final_state.get("pending_document", {})

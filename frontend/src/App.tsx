@@ -14,6 +14,8 @@ interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   pdfUrl?: string | null;
+  scoreConfiance?: number;
+  origineClassification?: string;
 }
 
 interface ChatResponse {
@@ -23,6 +25,38 @@ interface ChatResponse {
   pdf_url: string | null;
   alerts: string[];
   attente_complements: boolean;
+  score_confiance: number;
+  origine_classification: string;
+}
+
+// Amélioration #7 : badge de confiance visible par l'utilisateur, pour
+// qu'il sache quand l'action a été devinée avec une confiance moyenne
+// et puisse la corriger facilement plutôt que de laisser l'agent
+// trancher en silence.
+function badgeConfiance(score?: number, origine?: string) {
+  if (!origine || score === undefined) return null;
+  const pct = Math.round(score * 100);
+  const couleur =
+    score >= 0.85
+      ? "text-green-400 border-green-700"
+      : score >= 0.6
+      ? "text-yellow-400 border-yellow-700"
+      : "text-orange-400 border-orange-700";
+  const libelleOrigine: Record<string, string> = {
+    REGEX: "règle exacte",
+    SEMANTIQUE: "sémantique",
+    ARBITRAGE_LLM: "LLM confirmé",
+    LLM: "LLM",
+    FALLBACK: "repli générique",
+  };
+  return (
+    <span
+      className={`inline-block mt-2 text-xs border rounded-full px-2 py-0.5 ${couleur}`}
+      title="Confiance de classification de la demande"
+    >
+      {libelleOrigine[origine] ?? origine} · {pct}%
+    </span>
+  );
 }
 
 function App() {
@@ -84,6 +118,8 @@ function App() {
         pdf_url,
         alerts: newAlerts,
         attente_complements,
+        score_confiance,
+        origine_classification,
       } = response.data;
 
       const assistantMessages: Message[] = responses.map((msg, index) => ({
@@ -91,6 +127,8 @@ function App() {
         role: "assistant",
         content: msg,
         pdfUrl: index === responses.length - 1 ? pdf_url : null,
+        scoreConfiance: index === responses.length - 1 ? score_confiance : undefined,
+        origineClassification: index === responses.length - 1 ? origine_classification : undefined,
       }));
 
       setMessages((prev) => [...prev, ...assistantMessages]);
@@ -187,6 +225,8 @@ function App() {
 
                 <div className="bg-gray-800 rounded-xl p-4">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  {msg.role === "assistant" &&
+                    badgeConfiance(msg.scoreConfiance, msg.origineClassification)}
                 </div>
 
                 {msg.pdfUrl && (() => {

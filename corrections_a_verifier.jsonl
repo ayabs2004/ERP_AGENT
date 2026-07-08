@@ -1,0 +1,4 @@
+{"ts": 1783161811.1708312, "question": "stok de ECRAN4K", "action_predite": "LISTE_CLIENTS", "correction_supposee": "CREER_CLIENT", "message_correction": "Non , je veux dire le stock de ECRAN4K pas liste des clients"}
+{"ts": 1783162095.6844666, "question": "Le client CLI001 est-il bloqué ?", "action_predite": "RFM", "correction_supposee": "BL", "message_correction": "non , je veux savoir Le client CLI123 est-il bloqué ?"}
+{"ts": 1783162280.434312, "question": "Facture.", "action_predite": "LISTE_CLIENTS", "correction_supposee": "FACTURE", "message_correction": "NON , pas client facture"}
+{"ts": 1783162449.5220685, "question": "Classe les clients selon leur chiffre d'affaires.", "action_predite": "LISTE_CLIENTS", "correction_supposee": "CREER_CLIENT", "message_correction": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires.  👥 Clients actifs — 5 client(s) :"}

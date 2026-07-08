@@ -105,15 +105,21 @@ def _get_conn():
             date_mouvement TEXT
         )
     """)
+    # ✅ CORRIGÉ
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS reglements (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            DO_Piece       TEXT,
-            mode_paiement  TEXT,
-            montant        REAL,
-            date_reglement TEXT
-        )
-    """)
+    CREATE TABLE IF NOT EXISTS reglements (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        DO_Piece       TEXT,
+        mode_paiement  TEXT,
+        montant        REAL,
+        date_reglement TEXT,
+        numero_piece_paiement TEXT
+    )
+""")
+    try:
+        conn.execute("ALTER TABLE reglements ADD COLUMN numero_piece_paiement TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
@@ -426,8 +432,9 @@ def _workflow_bl(
         stock_dispo = _get_stock(conn, ref_reelle)
         montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        encours_max = float(client.get("CT_EncoursMax") or 0.0)
-        encours_actuel = conn.execute(
+        # ── APRÈS ──
+        encours_max = _to_decimal(client.get("CT_EncoursMax") or 0.0)
+        encours_actuel = _to_decimal(conn.execute(
             """
             SELECT COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0.0) AS encours
             FROM F_DOCENTETE e
@@ -436,16 +443,15 @@ def _workflow_bl(
               AND e.DO_Piece NOT IN (SELECT DO_Piece FROM reglements)
             """,
             (code_reel,),
-        ).fetchone()[0]
+        ).fetchone()[0])
         if encours_max > 0 and encours_actuel + montant > encours_max:
             return {
                 "statut": "ENCORS_MAX_ATTEINT",
                 "message": (
                     f"⚠️  Encours dépassé pour {code_reel} : "
-                    f"{encours_actuel + montant:.2f} > {encours_max:.2f}"
+                    f"{_money_text(encours_actuel + montant)} > {_money_text(encours_max)}"
                 ),
             }
-
         # ── Contrôle stock ────────────────────────────────────────────
         if stock_dispo < quantite:
             manque = quantite - stock_dispo
@@ -1005,11 +1011,16 @@ def _workflow_bl_achat(
 # HELPER MCP
 # ─────────────────────────────────────────────────────────────────────
 
+def _json_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
 def _to_text(data: dict) -> list[types.TextContent]:
     return [
         types.TextContent(
             type="text",
-            text=json.dumps(data, ensure_ascii=False, indent=2)
+            text=json.dumps(data, ensure_ascii=False, indent=2, default=_json_default)
         )
     ]
 
@@ -1124,10 +1135,16 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "code_client": {"type": "string",
-                                    "description": "Code unique du client (ex: CLI001)"},
-                    "intitule":    {"type": "string",
-                                    "description": "Nom / raison sociale du client"},
+                    "code_client":     {"type": "string",
+                                        "description": "Code unique du client (ex: CLI001)"},
+                    "intitule":        {"type": "string",
+                                        "description": "Nom / raison sociale du client"},
+                    "ct_validite":     {"type": "string",
+                                        "description": "VALIDE | BLOQUE | SUSPECT (défaut VALIDE)",
+                                        "default": "VALIDE"},
+                    "ct_encours_max":  {"type": "number",
+                                        "description": "Encours maximum autorisé (défaut 0)",
+                                        "default": 0},
                 },
                 "required": ["code_client", "intitule"],
             },
@@ -1216,6 +1233,9 @@ async def list_tools() -> list[types.Tool]:
                     "mode_paiement": {"type": "string",
                                       "description": "Mode de paiement (défaut : Virement)",
                                       "default": "Virement"},
+                    "numero_piece_paiement": {"type": "string",
+                                      "description": "N° du chèque ou de la traite (si applicable)",
+                                      "default": ""},
                 },
                 "required": ["num_piece"],
             },
@@ -1358,8 +1378,12 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     elif name == "creer_nouveau_client":
         conn = _get_conn()
         try:
-            code_client = arguments["code_client"]
-            intitule    = arguments["intitule"]
+            code_client    = arguments["code_client"]
+            intitule       = arguments["intitule"]
+            ct_validite    = (arguments.get("ct_validite") or "VALIDE").upper()
+            if ct_validite not in ("VALIDE", "BLOQUE", "SUSPECT"):
+                ct_validite = "VALIDE"
+            ct_encours_max = float(arguments.get("ct_encours_max") or 0.0)
             existing = conn.execute(
                 "SELECT CT_Num FROM F_COMPTET WHERE CT_Num = ?",
                 (code_client,)
@@ -1373,8 +1397,8 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 conn.execute(
                     """INSERT INTO F_COMPTET
                        (CT_Num, CT_Intitule, CT_Type, CT_Validite, CT_EncoursMax, CT_Encours)
-                       VALUES (?, ?, 0, 'VALIDE', 0.0, 0.0)""",
-                    (code_client, intitule)
+                       VALUES (?, ?, 0, ?, ?, 0.0)""",
+                    (code_client, intitule, ct_validite, ct_encours_max)
                 )
                 conn.commit()
                 result = {
@@ -1609,7 +1633,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         try:
             num_piece     = arguments["num_piece"]
             mode_paiement = arguments.get("mode_paiement", "Virement")
-
+            numero_piece_paiement = arguments.get("numero_piece_paiement", "")
             entete = conn.execute(
                 "SELECT * FROM F_DOCENTETE WHERE DO_Piece = ?",
                 (num_piece,)
@@ -1647,10 +1671,11 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 )
                 conn.execute(
                     """INSERT INTO reglements
-                       (DO_Piece, mode_paiement, montant, date_reglement)
-                       VALUES (?, ?, ?, ?)""",
+                       (DO_Piece, mode_paiement, montant, date_reglement, numero_piece_paiement)
+                       VALUES (?, ?, ?, ?, ?)""",
                     (num_piece, mode_paiement,
-                     montant_total, datetime.now().isoformat())
+                     montant_total, datetime.now().isoformat(), numero_piece_paiement)
+                 
                 )
                 conn.commit()
                 result = {
@@ -1660,6 +1685,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                         f"   • Document : {num_piece}\n"
                         f"   • Montant  : {_money_text(montant_total)}\n"
                         f"   • Mode     : {mode_paiement}"
+                        +(f"\n   • N° pièce : {numero_piece_paiement}" if numero_piece_paiement else "")
                     ),
                 }
         finally:

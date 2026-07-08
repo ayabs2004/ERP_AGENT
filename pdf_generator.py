@@ -279,12 +279,12 @@ def generer_pdf(entete: EnteteDocument) -> str:
             else:
                 data.append([l.reference, l.description, f"{l.qte_commandee:g}", f"{qte_l:g}", l.observation])
         elif avec_totaux:
-            tot = l.qte_commandee * l.prix_unitaire
+            tot = _to_decimal(Decimal(str(l.qte_commandee)) * Decimal(str(l.prix_unitaire)))
             total_ht += tot
             data.append([l.reference, l.description, f"{l.qte_commandee:g}",
                          f"{l.prix_unitaire:.3f}", f"{tot:.3f}"])
         elif avec_prix:
-            tot = l.qte_commandee * l.prix_unitaire
+            tot = _to_decimal(Decimal(str(l.qte_commandee)) * Decimal(str(l.prix_unitaire)))
             total_ht += tot
             data.append([l.reference, l.description, f"{l.qte_commandee:g}",
                          f"{l.prix_unitaire:.3f}", l.observation])
@@ -348,7 +348,7 @@ def generer_pdf(entete: EnteteDocument) -> str:
     # ── Totaux ─────────────────────────────────────────────────────
     if avec_totaux:
         story.append(Spacer(1, 6))
-        timbre = TIMBRE_FISCAL
+        timbre = _to_decimal(TIMBRE_FISCAL)
         total_ttc = total_ht + timbre
         data_tot = [
             ["", "Total HT (TND)", f"{total_ht:.3f}"],

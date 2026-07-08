@@ -53,9 +53,14 @@ def _connect() -> sqlite3.Connection:
             DO_Piece       TEXT,
             mode_paiement  TEXT,
             montant        REAL,
-            date_reglement TEXT
+            date_reglement TEXT,
+            numero_piece_paiement TEXT
         )
     """)
+    try:
+        conn.execute("ALTER TABLE reglements ADD COLUMN numero_piece_paiement TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
@@ -132,16 +137,14 @@ def _executer_sql(
     limite: int = 100,
 ) -> list[dict]:
     sql_clean = sql.strip()
+    # FIX : coupe tout au premier ';' pour éviter "one statement at a time"
+    # si le générateur (Vanna/LLM) a laissé un point-virgule final ou
+    # produit plusieurs instructions.
+    sql_clean = sql_clean.split(";")[0].strip()
     if not re.match(r"^\s*SELECT\b", sql_clean, re.IGNORECASE):
         return [{"erreur": "Seules les requêtes SELECT sont autorisées."}]
     if not re.search(r"\bLIMIT\b", sql_clean, re.IGNORECASE):
         sql_clean = f"{sql_clean} LIMIT {limite}"
-    try:
-        rows = conn.execute(sql_clean, params).fetchall()
-        return [dict(r) for r in rows]
-    except sqlite3.Error as e:
-        return [{"erreur": f"SQL invalide : {e}", "sql": sql_clean}]
-
 
 # ─────────────────────────────────────────────────────────────────────
 # HELPER : FORMATAGE RÉSULTATS
@@ -373,7 +376,42 @@ _NL_PATTERNS: list[tuple] = [
             "description": "Clients classés par nombre de commandes (décroissant)",
         }
     ),
-
+    # ── Alias : "moyenne des factures par client" → panier moyen ──
+    (
+        r"moyenne\s+des?\s+factures?\s+par\s+client",
+        lambda m, conn: {
+            "sql": """
+                SELECT e.CT_Num, c.CT_Intitule,
+                       COUNT(DISTINCT e.DO_Piece) AS nb_factures,
+                       ROUND(SUM(l.DL_Qte * l.DL_PrixUnitaire)
+                             / COUNT(DISTINCT e.DO_Piece), 2) AS moyenne_facture,
+                       SUM(l.DL_Qte * l.DL_PrixUnitaire) AS ca_total
+                FROM F_DOCENTETE e
+                JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
+                JOIN F_COMPTET c ON e.CT_Num = c.CT_Num
+                WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
+                GROUP BY e.CT_Num
+                ORDER BY moyenne_facture DESC
+            """,
+            "description": "Moyenne des factures par client",
+        }
+    ),
+    # ── Alias : détail complet de tous les clients ──
+    (
+        r"(?:tous\s+les\s+)?d[eé]tails?\s+des?\s+clients?"
+        r"|informations?\s+de\s+contact\s+des?\s+clients?"
+        r"|coordonn[eé]es?\s+des?\s+clients?",
+        lambda m, conn: {
+            "sql": """
+                SELECT CT_Num, CT_Intitule, CT_Type, CT_Validite,
+                       CT_Encours, CT_EncoursMax
+                FROM F_COMPTET
+                WHERE CT_Type = 0
+                ORDER BY CT_Intitule
+            """,
+            "description": "Détail de tous les clients",
+        }
+    ),
     # ── Articles sous seuil de stock ET commandés ce mois ────────
     (
         r"articles?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique).{0,40}command[eé]s?"
@@ -398,6 +436,33 @@ _NL_PATTERNS: list[tuple] = [
                 ORDER BY stock_dispo ASC
             """,
             "description": "Articles dont le stock est insuffisant ET qui ont été commandés ce mois",
+        }
+    ),(
+        r"articles?.{0,30}stock.{0,20}inf[eé]r(?:ieur)?\s*(?:à|a)?\s*(\d+)",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT a.AR_Ref, a.AR_Design,
+                       COALESCE(s.AS_QteSto, 0) AS stock
+                FROM F_ARTICLE a
+                LEFT JOIN F_ARTSTOCK s ON a.AR_Ref = s.AR_Ref
+                WHERE COALESCE(s.AS_QteSto, 0) < {int(m.group(1))}
+                ORDER BY stock ASC
+            """,
+            "description": f"Articles avec stock inférieur à {m.group(1)}",
+        }
+    ),
+    (
+        r"articles?.{0,30}stock.{0,20}sup[eé]rieur\s*(?:à|a)?\s*(\d+)",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT a.AR_Ref, a.AR_Design,
+                       COALESCE(s.AS_QteSto, 0) AS stock
+                FROM F_ARTICLE a
+                LEFT JOIN F_ARTSTOCK s ON a.AR_Ref = s.AR_Ref
+                WHERE COALESCE(s.AS_QteSto, 0) > {int(m.group(1))}
+                ORDER BY stock DESC
+            """,
+            "description": f"Articles avec stock supérieur à {m.group(1)}",
         }
     ),
 
@@ -989,8 +1054,8 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Articles les plus vendus ──────────────────────────────────────
-    (
-        r"articles?\s+les?\s+plus?\s+vendu[se]?s?(?:\s+en\s+(\d{4}))?",
+   (
+        r"articles?\s+les?\s+plus?\s+vendu[se]?s?(?:\s+(ce\s+mois|cette\s+semaine|en\s+(\d{4})))?",
         lambda m, conn: {
             "sql": """
                 SELECT l.AR_Ref, a.AR_Design,
@@ -1000,20 +1065,23 @@ _NL_PATTERNS: list[tuple] = [
                 JOIN F_DOCENTETE e ON l.DO_Piece = e.DO_Piece
                 LEFT JOIN F_ARTICLE a ON l.AR_Ref = a.AR_Ref
                 WHERE e.DO_Type = 3 AND e.DO_Domaine = 0
-                  {filtre_an}
+                  {filtre}
                 GROUP BY l.AR_Ref
                 ORDER BY qte_vendue DESC
                 LIMIT 10
             """.format(
-                filtre_an=(
-                    f"AND STRFTIME('%Y', e.DO_Date) = '{m.group(1)}'"
-                    if m.group(1) else ""
+                filtre=(
+                    "AND STRFTIME('%Y-%m', e.DO_Date) = STRFTIME('%Y-%m','now')"
+                    if m.group(1) and "mois" in m.group(1) else
+                    "AND e.DO_Date >= DATE('now','-7 days')"
+                    if m.group(1) and "semaine" in m.group(1) else
+                    f"AND STRFTIME('%Y', e.DO_Date) = '{m.group(2)}'"
+                    if m.group(2) else ""
                 )
             ),
-            "description": "Articles les plus vendus",
+            "description": "Articles les plus vendus" + (f" ({m.group(1)})" if m.group(1) else ""),
         }
     ),
-
     # ── Marge brute par article ───────────────────────────────────────
     (
         r"marge\s+(?:brute\s+)?(?:sur\s+|de\s+|par\s+)?article",
@@ -1292,6 +1360,7 @@ def _generer_sql_generique(
 def executer_sql_vanna(sql: str, description: str = "") -> str:
     """Exécute un SQL généré par Vanna et retourne le résultat formaté."""
     try:
+        sql = sql.strip().split(";")[0].strip()  # FIX multi-statements
         conn = _connect()
         rows = _executer_sql(conn, sql)
         conn.close()
@@ -1342,6 +1411,8 @@ def interpreter_et_analyser_via_sql(question_metier: str) -> str:
                 code_client_ctx = code_injecte
 
         # Matching patterns
+        # Matching patterns
+        import traceback as _tb
         for pattern, generateur in _NL_PATTERNS:
             m = re.search(pattern, q, re.IGNORECASE)
             if m:
@@ -1353,7 +1424,11 @@ def interpreter_et_analyser_via_sql(question_metier: str) -> str:
                         rows = _executer_sql(conn, sql)
                         conn.close()
                         return _formater_resultats(rows, desc)
-                except Exception:
+                except Exception as e:
+                    # FIX : log au lieu d'avaler silencieusement — sinon
+                    # on retombe sur le fallback générique sans savoir pourquoi.
+                    print(f"⚠️  [NL2SQL] Pattern '{pattern[:40]}...' a échoué : {e}")
+                    print(_tb.format_exc()[-400:])
                     continue
 
         # SQL générique

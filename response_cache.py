@@ -6,6 +6,179 @@ Corrections v2 :
                     en plus du cache RAM → plus de données périmées après écriture.
   AMÉLIORATION #8 : support multi-utilisateur via user_id optionnel dans la clé
                     → chaque utilisateur a son propre espace de cache.
+
+                    🧠 1. Intelligence = compréhension du métier ERP
+
+Ton cache ne met pas tout en cache.
+
+ACTIONS_CACHABLES = {...}
+
+👉 Il sait que :
+
+LISTE_CLIENTS → OK cache
+CA_GLOBAL → OK cache
+CREER_CLIENT → ❌ jamais cache
+
+💡 Donc il distingue :
+
+lecture (safe) vs écriture (dangereux)
+
+👉 C’est déjà une forme d’intelligence métier.
+
+👤 2. Intelligence = multi-utilisateur
+user_id
+
+Chaque clé devient :
+
+LISTE_CLIENTS:u=123
+LISTE_CLIENTS:u=456
+
+👉 Donc le cache comprend :
+
+“les données ne sont pas globales, elles dépendent de l’utilisateur”
+
+💡 Sans ça :
+
+mélange de données
+fuites d’information
+⏱️ 3. Intelligence = TTL adaptatif
+
+Tu as 2 niveaux :
+
+RAM : 120s
+disque : 600s
+
+👉 donc le cache sait :
+
+“certaines données doivent vivre peu longtemps”
+
+Ex :
+
+stats → peuvent changer vite
+donc expiration rapide
+🔄 4. Intelligence critique = invalidation métier
+
+C’est LA vraie intelligence principale.
+
+invalidate_writes()
+
+Après une écriture ERP :
+
+ajout client
+facture
+stock
+
+👉 tu fais :
+
+“tout ce qui dépend de ces données devient faux”
+
+Donc tu purges :
+
+LISTE_CLIENTS
+TOP_CLIENTS
+CA_GLOBAL
+
+💡 Ça, c’est pas un cache classique.
+
+C’est un cache qui comprend :
+
+“les dépendances métier entre données”
+
+⚠️ 5. Intelligence = prévention des données périmées
+
+Sans ça :
+
+user ajoute client
+cache dit encore ancien résultat ❌
+
+Avec ton système :
+
+écriture détectée
+cache vidé automatiquement
+prochaine requête recalculée ✔
+
+👉 donc ton cache est cohérent avec l’état réel de l’ERP
+
+💾 6. Intelligence RAM + disque
+
+Tu as 2 niveaux :
+
+RAM (rapide)
+disque (persistant)
+
+👉 le cache choisit implicitement :
+
+RAM → ultra rapide
+disque → fallback persistant
+
+💡 C’est une hiérarchie intelligente de stockage.
+
+🔑 7. Intelligence des clés (contexte riche)
+action + user_id + paramètres
+
+👉 le cache comprend :
+
+“une même action peut produire des résultats différents selon le contexte”
+
+Ex :
+
+LISTE_CLIENTS page=1
+LISTE_CLIENTS page=2
+
+➡️ pas la même réponse
+
+🧹 8. Intelligence de nettoyage automatique
+TTL RAM
+TTL disque
+suppression des entrées expirées à la lecture
+
+👉 donc il sait :
+
+“je dois m’auto-nettoyer sans intervention”
+
+🧠 9. Résumé simple
+
+Ton cache est intelligent parce qu’il combine :
+
+✔ intelligence métier
+
+→ actions ERP cachables / non cachables
+
+✔ intelligence contextuelle
+
+→ user_id + paramètres
+
+✔ intelligence temporelle
+
+→ TTL RAM / disque
+
+✔ intelligence de cohérence
+
+→ invalidation après écriture
+
+✔ intelligence hiérarchique
+
+→ RAM + disque
+
+🚀 Phrase simple
+
+👉 Ton cache n’est pas “IA”, mais :
+
+un cache context-aware + métier-aware + coherence-aware
+
+⚠️ comparaison rapide
+Cache classique :
+clé → valeur
+Ton cache :
+clé + user + action + contexte
++ TTL
++ invalidation métier
++ stockage RAM + disque
+🧠 conclusion
+
+👉 Il est “intelligent” parce qu’il ne fait pas que stocker :
+
+il comprend quand une donnée est valide, pour qui, et jusqu’à quand
 """
 
 import asyncio

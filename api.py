@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import time
+import traceback
 import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -13,12 +14,14 @@ from typing import Dict, Any, List, Optional
 
 from orchestrateur_general import (
     mcp_pool, _warmup_ollama, ENABLE_VANNA, ENABLE_GLINER, ENABLE_MEM0,
+    ENABLE_SEMANTIC_CLASSIFIER,
     _get_vanna_async, _get_gliner_async, _get_mem0_async,
     _construire_graphe, _est_oui, _est_non, _executer_suggestion,
     _resoudre_references, decouper_demande_composite, _fusionner_demandes,
     _etat_initial, _extraire_dernier_document, _safe_str,
     formater_alertes_persistantes,
 )
+from semantic_classifier import warmup_semantic_classifier
 
 logger = logging.getLogger("sage.erp.api")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -48,6 +51,7 @@ async def lifespan(app: FastAPI):
     global graphe
     logger.info("Chargement parallèle des composants")
     init_tasks = [mcp_pool.init(), _warmup_ollama()]
+    if ENABLE_SEMANTIC_CLASSIFIER: init_tasks.append(warmup_semantic_classifier())
     if ENABLE_VANNA:  init_tasks.append(_get_vanna_async())
     if ENABLE_GLINER: init_tasks.append(_get_gliner_async())
     if ENABLE_MEM0:   init_tasks.append(_get_mem0_async())
@@ -111,6 +115,10 @@ def _get_or_create_session(session_id: str) -> tuple[str, Dict[str, Any]]:
             "document_draft":        {},
             "statut_draft":          "",
             "alertes_persistantes":  [],
+            "dernier_action_classifiee":    "",
+            "derniere_question_classifiee": "",
+            "_last_access":         time.time(),
+            "statut_confirmation":   "",   # ★ AJOUT
             "_last_access":         time.time(),
         }
         sessions[normalized] = state
@@ -131,6 +139,11 @@ class ChatResponse(BaseModel):
     pdf_url: Optional[str] = None
     alerts: List[str] = []
     attente_complements: bool = False
+    # Amélioration #7 : confiance de classification exposée à l'UI, pour
+    # que l'utilisateur voie quand l'action a été devinée avec une
+    # confiance moyenne et puisse la corriger facilement.
+    score_confiance: float = 0.0
+    origine_classification: str = ""
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -196,11 +209,22 @@ async def chat_endpoint(req: ChatRequest):
             # ── Persistance du cycle draft/preview/confirm ──
             contexte_session["document_draft"] = final_state.get("document_draft", {})
             contexte_session["statut_draft"] = final_state.get("statut_draft", "")
+            if final_state.get("statut_confirmation") == "ATTENTE":
+                contexte_session["pending_action"]      = final_state.get("pending_action", {})
+                contexte_session["statut_confirmation"] = "ATTENTE"
+            else:
+                contexte_session["pending_action"]      = {}
+                contexte_session["statut_confirmation"] = ""
 
             # ── PDF généré pendant ce tour ──
             pdf_url = _exposer_pdf(final_state.get("pdf_path", ""))
             if pdf_url:
                 dernier_pdf_url = pdf_url
+
+            contexte_session["dernier_action_classifiee"] = final_state.get("dernier_action_classifiee", "")
+            contexte_session["derniere_question_classifiee"] = final_state.get("derniere_question_classifiee", "")
+            derniere_confiance = final_state.get("score_confiance", 0.0)
+            derniere_origine = final_state.get("_origine_classification", "")
 
             if final_state.get("code_client"):
                 contexte_session["dernier_code_client"] = final_state["code_client"]
@@ -267,6 +291,8 @@ async def chat_endpoint(req: ChatRequest):
             pdf_url=dernier_pdf_url,
             alerts=alerts,
             attente_complements=contexte_session.get("attente_complements", False),
+            score_confiance=derniere_confiance if sous_demandes else 0.0,
+            origine_classification=derniere_origine if sous_demandes else "",
         )
     except Exception as e:
         traceback.print_exc()

@@ -1,0 +1,1031 @@
+[
+  {
+    "question": "Liste tous les clients",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche tous les fournisseurs.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Montre-moi tous les articles.",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quel est le chiffre d'affaires global ?",
+    "action_attendue": "CA_GLOBAL",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Donne-moi les factures impayées.",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels sont nos clients ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je voudrais voir la clientèle.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Montre le portefeuille client.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Qui sont nos acheteurs ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Peux-tu afficher tous les comptes clients ?",
+    "action_attendue": "FICHE_CLIENT",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "tu peux afficher tous les comptes clients ?",
+    "action_attendue": "FICHE_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "liste les clints",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "facturs impayes",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "genere une factre",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux générer une facture pour un client",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux générer une facture pour le client CLI001",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Non , je veux dire le stock de ECRAN4K pas liste des clients",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "erreur",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "FALLBACK",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "erreur, je veux le stock de ECRAN4K",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "je veux le stock de ECRAN4K",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "crer un client",
+    "action_attendue": "CREER_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "créer un nouveau client qui n'existe pas encore dans notre base de données",
+    "action_attendue": "CREER_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "y",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "J'aimerais savoir quels sont les clients avec lesquels nous travaillons actuellement.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "J'aimerais connaître notre chiffre d'affaires.",
+    "action_attendue": "CA_GLOBAL",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Montre-moi les produits disponibles.",
+    "action_attendue": "DOCS_PERIODE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "non ,je veux la liste des produits",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Montre la fiche du client CLI001",
+    "action_attendue": "FICHE_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche le client CLI002.",
+    "action_attendue": "FICHE_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "non , je veux savoir Le client CLI123 est-il bloqué ?",
+    "action_attendue": "RFM",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Stock de ECRAN4K",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Crée une facture.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "pour CLI001",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "FALLBACK",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Prépare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "CONFIRM",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "INCONNUE",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Crée un ordre de fabrication de 2 IMPRIMANTE",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "crée le BF pour OF26070411503852731044D7AADF",
+    "action_attendue": "TRANSFORMER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "NON , pas client facture",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Document.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels sont les clients ayant plus de 5 commandes ?",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles coûtent plus de 50 DT ?",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles coûtent plus de 500 DT ?",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "non pas ca",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients sont inactifs depuis un an ?",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires.  👥 Clients actifs — 5 client(s) :",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Liste les factures du mois de juin.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Liste les BL du mois de janvier.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Bon de Livraison",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Liste les Bon de Livraison du mois de janvier.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Liste les BL du mois de juin.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Montre les clients et leurs factures.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "et les factures",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche le stock et le prix de ECRAN4K",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche le stock et le prix de IMPRIMANTE",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Liste les fournisseurs et leurs commandes.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Récupérer la liste des articles existants dans la base de données",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Créer un ordre de fabrication (OF) pour 2 pièces de type ECRAN4K",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients achètent beaucoup mais paient toujours en retard ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels fournisseurs nous rapportent le plus indirectement ?",
+    "action_attendue": "LISTE_FOURNISSEURS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "NON",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "INCONNUE",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Annuler",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "INCONNUE",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels produits devraient être réapprovisionnés ?",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients sont rentables mais commandent rarement ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux voir tous ceux qui nous achètent des produits.",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels partenaires commerciaux avons-nous ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Vérifier si la condition est vraie",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Récupérer la liste des clients",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Filtrer la liste des clients pour ne garder que ceux qui n'ont pas produit",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Qui nous passe le plus de commandes ?",
+    "action_attendue": "TOP_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Qui nous rapporte le plus d'argent ?",
+    "action_attendue": "TOP_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels acheteurs sont les meilleurs ?",
+    "action_attendue": "TOP_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "statut client",
+    "action_attendue": "STATUT_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "stock",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "rupture de stock",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "seuil de stock",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "le stock de l article IMPRIMANTE",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "le stock de l article LAPTOP",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Gestion client.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Document commercial.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Créer un document.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Historique.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "État client.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Combien ai-je de clients actifs ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels sont les clients créés ce mois-ci ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche tous les clients bloqués",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles ont un stock inférieur à 10 ?",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles ont un stock inférieur à 5 ?",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quelles factures sont en retard de paiement ?",
+    "action_attendue": "DSO",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Factures du client CLI003",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "CA par mois",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Marge par article",
+    "action_attendue": "RENTABILITE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients ayant plus de 3 factures impayées",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Articles les plus vendus ce mois-ci",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients dont le CA a baissé",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Fournisseurs avec factures non réglées",
+    "action_attendue": "FACTURES_NON_REGLEES_FOURN",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Encours total par client",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients et leurs factures non payées",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients + nombre de commandes + CA total",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Moyenne des factures par client",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "en fonction du nombre de factures",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Moyenne des factures par client en fonction du nombre de factures",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients classés par nombre de commandes",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Top fournisseurs par volume d’achat",
+    "action_attendue": "TOP_FOURNISSEURS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "top Clients par nombre de commandes",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels produits marchent le mieux ?",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients me posent problème ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Résumé des ventes",
+    "action_attendue": "DASHBOARD_EXCEL",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Stock + prix de l’article IMPRIMANTE",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Stock et prix de l’article REF444",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Factures impayées + encours élevé",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "liste les clients avec leurs factures impayées",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Donne-moi les factures impayÃ©es.",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je voudrais voir la clientÃ¨le.",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux gÃ©nÃ©rer une facture pour un client",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux gÃ©nÃ©rer une facture pour le client CLI001",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "crÃ©er un nouveau client qui n'existe pas encore dans notre base de donnÃ©es",
+    "action_attendue": "CREER_CLIENT",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "J'aimerais connaÃ®tre notre chiffre d'affaires.",
+    "action_attendue": "CA_GLOBAL",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Le client CLI001 est-il bloquÃ© ?",
+    "action_attendue": "RFM",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "non , je veux savoir Le client CLI123 est-il bloquÃ© ?",
+    "action_attendue": "RFM",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "CrÃ©e une facture.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "PrÃ©pare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "CrÃ©e un ordre de fabrication de 2 IMPRIMANTE",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "crÃ©e le BF pour OF26070411503852731044D7AADF",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles coÃ»tent plus de 50 DT ?",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles coÃ»tent plus de 500 DT ?",
+    "action_attendue": "PALMARES_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires. ðŸ‘¥ Clients actifs â€” 5 client(s) :",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Créer un ordre de fabrication (OF) pour 2 pièces de l'article ECRAN4K",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients achÃ¨tent beaucoup mais paient toujours en retard ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels produits devraient Ãªtre rÃ©approvisionnÃ©s ?",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Je veux voir tous ceux qui nous achÃ¨tent des produits.",
+    "action_attendue": "LISTE_ARTICLES",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "CrÃ©er un document.",
+    "action_attendue": "GENERER_DOC",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Ã‰tat client.",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels sont les clients crÃ©Ã©s ce mois-ci ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Affiche tous les clients bloquÃ©s",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels articles ont un stock infÃ©rieur Ã  5 ?",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients ayant plus de 3 factures impayÃ©es",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients dont le CA a baissÃ©",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Fournisseurs avec factures non rÃ©glÃ©es",
+    "action_attendue": "FACTURES_NON_REGLEES_FOURN",
+    "_origine_loggee": "ARBITRAGE_LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients et leurs factures non payees",
+    "action_attendue": "TOUTES_FACTURES_CLIENT",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Clients classÃ©s par nombre de commandes",
+    "action_attendue": "NL2SQL_LIBRE",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Top fournisseurs par volume dâ€™achat",
+    "action_attendue": "TOP_FOURNISSEURS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Quels clients me posent problÃ¨me ?",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "RÃ©sumÃ© des ventes",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 0.8,
+    "_a_verifier": false
+  },
+  {
+    "question": "Stock + prix de lâ€™article IMPRIMANTE",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Stock et prix de lâ€™article REF444",
+    "action_attendue": "VERIFIER_STOCK",
+    "_origine_loggee": "LLM",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "Factures impayÃ©es + encours Ã©levÃ©",
+    "action_attendue": "FACTURES_NON_REGLEES",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  },
+  {
+    "question": "liste les clients avec leurs factures impayÃ©es",
+    "action_attendue": "LISTE_CLIENTS",
+    "_origine_loggee": "REGEX",
+    "_confiance_loggee": 1.0,
+    "_a_verifier": false
+  }
+]

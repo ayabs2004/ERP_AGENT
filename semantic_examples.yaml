@@ -1,0 +1,1715 @@
+version: 2
+defaults:
+  threshold: 0.76
+  margin: 0.05
+  centroid_weight: 0.6
+  topk_weight: 0.4
+  family_threshold: 0.55
+families:
+  CLIENT:
+    actions:
+      LISTE_CLIENTS:
+        examples:
+        - affiche client
+        - affiche des clients de la base
+        - affiche la clientèle
+        - affiche les clients
+        - affiche tous les clients
+        - clients actifs
+        - clients enregistrés
+        - comptes clients
+        - consulter les comptes clients
+        - donne la liste
+        - donne la liste de client
+        - donne la liste de des clients de la base
+        - donne la liste de tous les clients
+        - est-ce possible de affiche la clientèle
+        - est-ce possible de affiche les clients
+        - est-ce possible de clients actifs
+        - est-ce possible de clients enregistrés
+        - est-ce possible de comptes clients
+        - est-ce possible de consulter les comptes clients
+        - est-ce possible de donne la liste
+        - est-ce possible de je veux consulter les clients
+        - est-ce possible de je veux voir mes clients
+        - est-ce possible de la liste client
+        - est-ce possible de les clients
+        - est-ce possible de liste client
+        - est-ce possible de liste des clients de la base
+        - est-ce possible de liste tous les clients
+        - est-ce possible de ma clientèle
+        - est-ce possible de nos clients
+        - est-ce possible de nos clients en compte
+        - est-ce possible de obtenir la liste des clients
+        - est-ce possible de quelles entreprises sont clientes
+        - est-ce possible de quels clients avons-nous
+        - est-ce possible de qui sont nos clients
+        - est-ce possible de tous les clients
+        - est-ce possible de voir nos clients
+        - extraire la liste de client
+        - extraire la liste de des clients de la base
+        - extraire la liste de tous les clients
+        - je veux consulter les clients
+        - peux-tu afficher tous les comptes clients ?
+        threshold: 0.86
+        margin: 0.04
+      FICHE_CLIENT:
+        examples:
+        - consulter la fiche de <client>
+        - donne-moi le profil de <client>
+        - donne-moi les infos du client <client>
+        - données du client <client>
+        - détail du client <client>
+        - détails de <client>
+        - détails du client <client>
+        - est-ce possible de consulter la fiche de <client>
+        - est-ce possible de donne-moi le profil de <client>
+        - est-ce possible de données du client <client>
+        - est-ce possible de détail du client <client>
+        - est-ce possible de détails de <client>
+        - est-ce possible de fiche complète pour <client>
+        - est-ce possible de fiche du client <client>
+        - est-ce possible de fiche signalétique du client <client>
+        - est-ce possible de fiche technique client <client>
+        - est-ce possible de informations sur le client <client>
+        - est-ce possible de infos du client <client>
+        - est-ce possible de montre-moi la fiche de <client>
+        - est-ce possible de ouvrir la fiche client <client>
+        - est-ce possible de profil du client <client>
+        - est-ce possible de présente le client <client>
+        - est-ce possible de quelles sont les infos de <client>
+        - est-ce possible de qui est le client <client>
+        - fiche complète pour <client>
+        - fiche du client <client>
+        - fiche signalétique du client <client>
+        - fiche technique client <client>
+        - informations sur le client <client>
+        - infos du client <client>
+        - je voudrais consulter la fiche de <client>
+        - je voudrais donne-moi le profil de <client>
+        - je voudrais données du client <client>
+        - je voudrais détail du client <client>
+        - je voudrais détails de <client>
+        - je voudrais fiche complète pour <client>
+        - je voudrais fiche du client <client>
+        - je voudrais fiche signalétique du client <client>
+        - je voudrais fiche technique client <client>
+        - je voudrais informations sur le client <client>
+        threshold: 0.9
+        margin: 0.04
+      STATUT_CLIENT:
+        examples:
+        - afficher l'état du compte du client <client>
+        - afficher le statut actuel du compte <client>
+        - afficher le statut du client <client>
+        - compte de <client> bloqué
+        - donne-moi l'état du compte du client <client>
+        - donne-moi le statut actuel du compte <client>
+        - donne-moi le statut du client <client>
+        - est-ce possible de compte de <client> bloqué
+        - est-ce possible de est-ce que <client> est actif
+        - est-ce possible de est-ce que le client <client> est autorisé
+        - est-ce possible de le client <client> est bloqué ou valide
+        - est-ce possible de le client <client> est-il bloqué
+        - est-ce possible de quel est l'état du compte du client <client>
+        - est-ce possible de quel est le statut actuel du compte <client>
+        - est-ce possible de quel est le statut du client <client>
+        - est-ce possible de statut du compte <client>
+        - est-ce possible de validité du client <client>
+        - est-ce possible de vérifie le statut de <client>
+        - est-ce possible de vérifier validité de <client>
+        - est-ce possible de état de blocage du client <client>
+        - est-ce que <client> est actif
+        - est-ce que le client <client> est autorisé
+        - est-ce que le compte <client> est valide
+        - je voudrais compte de <client> bloqué
+        - je voudrais est-ce que <client> est actif
+        - je voudrais est-ce que le client <client> est autorisé
+        - je voudrais le client <client> est bloqué ou valide
+        - je voudrais le client <client> est-il bloqué
+        - je voudrais quel est l'état du compte du client <client>
+        - je voudrais quel est le statut actuel du compte <client>
+        - je voudrais quel est le statut du client <client>
+        - je voudrais statut du compte <client>
+        - je voudrais validité du client <client>
+        - je voudrais vérifie le statut de <client>
+        - je voudrais vérifier validité de <client>
+        - je voudrais état de blocage du client <client>
+        - le client <client> est bloqué ou valide
+        - le client <client> est-il bloqué
+        - merci de compte de <client> bloqué
+        - merci de est-ce que <client> est actif
+        threshold: 0.9
+        margin: 0.04
+      TOP_CLIENTS:
+        examples:
+        - classement ca client
+        - classement des clients par ca
+        - clients leaders par chiffre d affaires
+        - clients les plus fidèles
+        - clients par chiffre d'affaires
+        - clients qui commandent le plus
+        - est-ce possible de classement ca client
+        - est-ce possible de classement des clients par ca
+        - est-ce possible de clients leaders par chiffre d affaires
+        - est-ce possible de clients les plus fidèles
+        - est-ce possible de clients par chiffre d'affaires
+        - est-ce possible de clients qui commandent le plus
+        - est-ce possible de meilleurs clients par chiffre d'affaires
+        - est-ce possible de palmarès des meilleurs clients
+        - est-ce possible de plus gros clients
+        - est-ce possible de qui a le plus gros ca
+        - est-ce possible de qui achète le plus
+        - est-ce possible de qui commande le plus chez nous
+        - est-ce possible de qui sont nos plus importants clients
+        - est-ce possible de top 5 clients
+        - est-ce possible de top acheteurs
+        - est-ce possible de top acheteurs de l'année
+        - est-ce possible de top clients
+        - je voudrais classement ca client
+        - je voudrais classement des clients par ca
+        - je voudrais clients leaders par chiffre d affaires
+        - je voudrais clients les plus fidèles
+        - je voudrais clients par chiffre d'affaires
+        - je voudrais clients qui commandent le plus
+        - je voudrais meilleurs clients par chiffre d'affaires
+        - je voudrais palmarès des meilleurs clients
+        - je voudrais plus gros clients
+        - je voudrais qui a le plus gros ca
+        - je voudrais qui achète le plus
+        - je voudrais qui commande le plus chez nous
+        - je voudrais qui sont nos plus importants clients
+        - je voudrais top 5 clients
+        - je voudrais top acheteurs
+        - je voudrais top acheteurs de l'année
+        - je voudrais top clients
+        threshold: 0.9
+        margin: 0.04
+      CREER_CLIENT:
+        examples:
+        - ajoute un client appelé <client>
+        - ajoute un nouveau client
+        - ajouter client <client>
+        - ajouter le client <client> dans la base
+        - création d'un client
+        - crée un nouveau client
+        - créer fiche client <client>
+        - créer un client
+        - enregistre le client <client>
+        - enregistre un nouveau client
+        - est-ce possible de ajoute un client appelé <client>
+        - est-ce possible de ajouter client <client>
+        - est-ce possible de ajouter le client <client> dans la base
+        - est-ce possible de création d'un client
+        - est-ce possible de crée un nouveau client
+        - est-ce possible de créer fiche client <client>
+        - est-ce possible de créer un client
+        - est-ce possible de enregistre le client <client>
+        - est-ce possible de enregistre un nouveau client
+        - est-ce possible de nouveau client <client>
+        - est-ce possible de saisir le nouveau client <client>
+        - est-ce possible de saisis un nouveau client
+        - faire la création de un nouveau client
+        - génère un nouveau client
+        - je voudrais ajoute un client appelé <client>
+        - je voudrais ajouter client <client>
+        - je voudrais ajouter le client <client> dans la base
+        - je voudrais création d'un client
+        - je voudrais crée un nouveau client
+        - je voudrais créer fiche client <client>
+        - je voudrais créer un client
+        - je voudrais enregistre le client <client>
+        - je voudrais enregistre un nouveau client
+        - je voudrais nouveau client <client>
+        - je voudrais saisir le nouveau client <client>
+        - je voudrais saisis un nouveau client
+        - merci de ajoute un client appelé <client>
+        - merci de ajouter client <client>
+        - merci de ajouter le client <client> dans la base
+        - merci de création d'un client
+        threshold: 0.92
+        margin: 0.04
+      MODIFIER_STATUT:
+        examples:
+        - activer le client <client>
+        - autoriser à nouveau le client <client>
+        - bloque le client <client>
+        - bloquer le compte de <client>
+        - changer la validité du client <client>
+        - changer le statut de <client> à bloqué
+        - débloque le client <client>
+        - débloquer le client <client> svp
+        - est-ce possible de activer le client <client>
+        - est-ce possible de autoriser à nouveau le client <client>
+        - est-ce possible de bloque le client <client>
+        - est-ce possible de bloquer le compte de <client>
+        - est-ce possible de changer la validité du client <client>
+        - est-ce possible de changer le statut de <client> à bloqué
+        - est-ce possible de débloque le client <client>
+        - est-ce possible de débloquer le client <client> svp
+        - est-ce possible de lever le blocage de <client>
+        - est-ce possible de modifie le statut du client <client>
+        - est-ce possible de passer le client <client> en actif
+        - est-ce possible de réactive le client <client>
+        - est-ce possible de suspendre le client <client>
+        - je voudrais activer le client <client>
+        - je voudrais autoriser à nouveau le client <client>
+        - je voudrais bloque le client <client>
+        - je voudrais bloquer le compte de <client>
+        - je voudrais changer la validité du client <client>
+        - je voudrais changer le statut de <client> à bloqué
+        - je voudrais débloque le client <client>
+        - je voudrais débloquer le client <client> svp
+        - je voudrais lever le blocage de <client>
+        - je voudrais modifie le statut du client <client>
+        - je voudrais passer le client <client> en actif
+        - je voudrais réactive le client <client>
+        - je voudrais suspendre le client <client>
+        - lever le blocage de <client>
+        - merci de activer le client <client>
+        - merci de autoriser à nouveau le client <client>
+        - merci de bloque le client <client>
+        - merci de bloquer le compte de <client>
+        - merci de changer la validité du client <client>
+        threshold: 0.94
+        margin: 0.04
+      RECOMMANDATION:
+        examples:
+        - conseils pour le client <client>
+        - donne-moi des recommandations pour le client <client>
+        - est-ce possible de conseils pour le client <client>
+        - est-ce possible de donne-moi des recommandations pour le client <client>
+        - est-ce possible de que devrions-nous proposer à <client>
+        - est-ce possible de que recommandes-tu pour ce client
+        - est-ce possible de que suggères-tu pour le client <client>
+        - est-ce possible de quelle action recommandes-tu
+        - est-ce possible de quelles actions mener pour le client <client>
+        - est-ce possible de quelles sont tes suggestions pour <client>
+        - est-ce possible de recommandation commerciale pour <client>
+        - je voudrais conseils pour le client <client>
+        - je voudrais donne-moi des recommandations pour le client <client>
+        - je voudrais que devrions-nous proposer à <client>
+        - je voudrais que recommandes-tu pour ce client
+        - je voudrais que suggères-tu pour le client <client>
+        - je voudrais quelle action recommandes-tu
+        - je voudrais quelles actions mener pour le client <client>
+        - je voudrais quelles sont tes suggestions pour <client>
+        - je voudrais recommandation commerciale pour <client>
+        - merci de conseils pour le client <client>
+        - merci de donne-moi des recommandations pour le client <client>
+        - merci de que devrions-nous proposer à <client>
+        - merci de que recommandes-tu pour ce client
+        - merci de que suggères-tu pour le client <client>
+        - merci de quelle action recommandes-tu
+        - merci de quelles actions mener pour le client <client>
+        - merci de quelles sont tes suggestions pour <client>
+        - merci de recommandation commerciale pour <client>
+        - peux-tu conseils pour le client <client>
+        - peux-tu donne-moi des recommandations pour le client <client>
+        - peux-tu que devrions-nous proposer à <client>
+        - peux-tu que recommandes-tu pour ce client
+        - peux-tu que suggères-tu pour le client <client>
+        - peux-tu quelle action recommandes-tu
+        - peux-tu quelles actions mener pour le client <client>
+        - peux-tu quelles sont tes suggestions pour <client>
+        - peux-tu recommandation commerciale pour <client>
+        - que devrions-nous proposer à <client>
+        - que recommandes-tu pour ce client
+        threshold: 0.84
+        margin: 0.05
+    family_threshold: 0.64
+  FOURNISSEUR:
+    actions:
+      LISTE_FOURNISSEURS:
+        examples:
+        - affiche fournisseur
+        - affiche les fournisseurs
+        - affiche tous les fournisseurs
+        - base des fournisseurs
+        - consulter la liste des fournisseurs
+        - donne la liste de fournisseur
+        - donne la liste de tous les fournisseurs
+        - donne-moi les fournisseurs
+        - est-ce possible de affiche les fournisseurs
+        - est-ce possible de base des fournisseurs
+        - est-ce possible de consulter la liste des fournisseurs
+        - est-ce possible de donne-moi les fournisseurs
+        - est-ce possible de fournisseurs enregistrés
+        - est-ce possible de liste fournisseur
+        - est-ce possible de liste tous les fournisseurs
+        - est-ce possible de montre-moi les fournisseurs
+        - est-ce possible de nos fournisseurs
+        - est-ce possible de obtenir les fournisseurs
+        - est-ce possible de quels sont nos fournisseurs actifs
+        - est-ce possible de qui nous approvisionne
+        - est-ce possible de tous les fournisseurs
+        - extraire la liste de fournisseur
+        - extraire la liste de tous les fournisseurs
+        - fournisseurs enregistrés
+        - je veux voir la liste de fournisseur
+        - je veux voir la liste de tous les fournisseurs
+        - je voudrais affiche les fournisseurs
+        - je voudrais base des fournisseurs
+        - je voudrais consulter la liste des fournisseurs
+        - je voudrais donne-moi les fournisseurs
+        - je voudrais fournisseurs enregistrés
+        - je voudrais liste fournisseur
+        - je voudrais liste tous les fournisseurs
+        - je voudrais montre-moi les fournisseurs
+        - je voudrais nos fournisseurs
+        - je voudrais obtenir les fournisseurs
+        - je voudrais quels sont nos fournisseurs actifs
+        - je voudrais qui nous approvisionne
+        - je voudrais tous les fournisseurs
+        - liste fournisseur
+        threshold: 0.9
+        margin: 0.04
+      FICHE_FOURNISSEUR:
+        examples:
+        - consulter la fiche de <fournisseur>
+        - donne-moi les infos de <fournisseur>
+        - donne-moi les infos du fournisseur <fournisseur>
+        - détails du fournisseur <fournisseur>
+        - détails sur <fournisseur>
+        - est-ce possible de consulter la fiche de <fournisseur>
+        - est-ce possible de donne-moi les infos de <fournisseur>
+        - est-ce possible de détails du fournisseur <fournisseur>
+        - est-ce possible de détails sur <fournisseur>
+        - est-ce possible de fiche complète du fournisseur <fournisseur>
+        - est-ce possible de fiche du fournisseur <fournisseur>
+        - est-ce possible de informations sur le fournisseur <fournisseur>
+        - est-ce possible de montre la fiche fournisseur <fournisseur>
+        - est-ce possible de profil du fournisseur <fournisseur>
+        - est-ce possible de qui est le fournisseur <fournisseur>
+        - fiche complète du fournisseur <fournisseur>
+        - fiche du fournisseur <fournisseur>
+        - informations sur le fournisseur <fournisseur>
+        - je voudrais consulter la fiche de <fournisseur>
+        - je voudrais donne-moi les infos de <fournisseur>
+        - je voudrais détails du fournisseur <fournisseur>
+        - je voudrais détails sur <fournisseur>
+        - je voudrais fiche complète du fournisseur <fournisseur>
+        - je voudrais fiche du fournisseur <fournisseur>
+        - je voudrais informations sur le fournisseur <fournisseur>
+        - je voudrais montre la fiche fournisseur <fournisseur>
+        - je voudrais profil du fournisseur <fournisseur>
+        - je voudrais qui est le fournisseur <fournisseur>
+        - merci de consulter la fiche de <fournisseur>
+        - merci de donne-moi les infos de <fournisseur>
+        - merci de détails du fournisseur <fournisseur>
+        - merci de détails sur <fournisseur>
+        - merci de fiche complète du fournisseur <fournisseur>
+        - merci de fiche du fournisseur <fournisseur>
+        - merci de informations sur le fournisseur <fournisseur>
+        - merci de montre la fiche fournisseur <fournisseur>
+        - merci de profil du fournisseur <fournisseur>
+        - merci de qui est le fournisseur <fournisseur>
+        - montre la fiche fournisseur <fournisseur>
+        - montre-moi la fiche du fournisseur <fournisseur>
+        threshold: 0.84
+        margin: 0.05
+      TOP_FOURNISSEURS:
+        examples:
+        - achats par fournisseur
+        - classement des fournisseurs par achats
+        - classement des fournisseurs par volume
+        - est-ce possible de achats par fournisseur
+        - est-ce possible de classement des fournisseurs par achats
+        - est-ce possible de classement des fournisseurs par volume
+        - est-ce possible de les plus gros fournisseurs
+        - est-ce possible de meilleurs fournisseurs par volume d'achat
+        - est-ce possible de nos fournisseurs principaux
+        - est-ce possible de qui nous vend le plus
+        - est-ce possible de qui sont nos plus grands fournisseurs
+        - est-ce possible de top des fournisseurs
+        - est-ce possible de top fournisseurs par montant
+        - je voudrais achats par fournisseur
+        - je voudrais classement des fournisseurs par achats
+        - je voudrais classement des fournisseurs par volume
+        - je voudrais les plus gros fournisseurs
+        - je voudrais meilleurs fournisseurs par volume d'achat
+        - je voudrais nos fournisseurs principaux
+        - je voudrais qui nous vend le plus
+        - je voudrais qui sont nos plus grands fournisseurs
+        - je voudrais top des fournisseurs
+        - je voudrais top fournisseurs par montant
+        - les plus gros fournisseurs
+        - meilleurs fournisseurs par volume d'achat
+        - merci de achats par fournisseur
+        - merci de classement des fournisseurs par achats
+        - merci de classement des fournisseurs par volume
+        - merci de les plus gros fournisseurs
+        - merci de meilleurs fournisseurs par volume d'achat
+        - merci de nos fournisseurs principaux
+        - merci de qui nous vend le plus
+        - merci de qui sont nos plus grands fournisseurs
+        - merci de top des fournisseurs
+        - merci de top fournisseurs par montant
+        - nos fournisseurs principaux
+        - peux-tu achats par fournisseur
+        - peux-tu classement des fournisseurs par achats
+        - peux-tu classement des fournisseurs par volume
+        - peux-tu les plus gros fournisseurs
+        threshold: 0.84
+        margin: 0.05
+      CREER_FOURNISSEUR:
+        examples:
+        - ajoute un fournisseur
+        - ajoute un nouveau fournisseur
+        - ajouter le fournisseur <fournisseur>
+        - création d'un fournisseur
+        - crée un nouveau fournisseur
+        - créer fiche fournisseur <fournisseur>
+        - enregistre un nouveau fournisseur
+        - est-ce possible de ajoute un fournisseur
+        - est-ce possible de ajouter le fournisseur <fournisseur>
+        - est-ce possible de création d'un fournisseur
+        - est-ce possible de crée un nouveau fournisseur
+        - est-ce possible de créer fiche fournisseur <fournisseur>
+        - est-ce possible de enregistre un nouveau fournisseur
+        - est-ce possible de nouveau fournisseur <fournisseur>
+        - est-ce possible de saisir un nouveau fournisseur
+        - faire la création de un nouveau fournisseur
+        - génère un nouveau fournisseur
+        - je voudrais ajoute un fournisseur
+        - je voudrais ajouter le fournisseur <fournisseur>
+        - je voudrais création d'un fournisseur
+        - je voudrais crée un nouveau fournisseur
+        - je voudrais créer fiche fournisseur <fournisseur>
+        - je voudrais enregistre un nouveau fournisseur
+        - je voudrais nouveau fournisseur <fournisseur>
+        - je voudrais saisir un nouveau fournisseur
+        - merci de ajoute un fournisseur
+        - merci de ajouter le fournisseur <fournisseur>
+        - merci de création d'un fournisseur
+        - merci de crée un nouveau fournisseur
+        - merci de créer fiche fournisseur <fournisseur>
+        - merci de enregistre un nouveau fournisseur
+        - merci de nouveau fournisseur <fournisseur>
+        - merci de saisir un nouveau fournisseur
+        - nouveau fournisseur <fournisseur>
+        - peux-tu ajoute un fournisseur
+        - peux-tu ajouter le fournisseur <fournisseur>
+        - peux-tu création d'un fournisseur
+        - peux-tu crée un nouveau fournisseur
+        - peux-tu créer fiche fournisseur <fournisseur>
+        - peux-tu créer un nouveau fournisseur
+        threshold: 0.92
+        margin: 0.04
+    family_threshold: 0.84
+  ARTICLE:
+    actions:
+      LISTE_ARTICLES:
+        examples:
+        - affiche des produits
+        - affiche le catalogue produits
+        - affiche tous les articles
+        - catalogue de vente
+        - catalogue des articles
+        - consulter le catalogue
+        - donne la liste de des produits
+        - donne la liste de tous les articles
+        - donne la liste des articles
+        - est-ce possible de affiche le catalogue produits
+        - est-ce possible de catalogue de vente
+        - est-ce possible de catalogue des articles
+        - est-ce possible de consulter le catalogue
+        - est-ce possible de donne la liste des articles
+        - est-ce possible de liste des produits
+        - est-ce possible de liste tous les articles
+        - est-ce possible de montre-moi les articles
+        - est-ce possible de nos articles
+        - est-ce possible de quelles sont nos références
+        - est-ce possible de tous les produits
+        - est-ce possible de toutes nos pièces
+        - est-ce possible de voir les articles en stock et vente
+        - extraire la liste de des produits
+        - extraire la liste de tous les articles
+        - je veux voir la liste de des produits
+        - je veux voir la liste de tous les articles
+        - je voudrais affiche le catalogue produits
+        - je voudrais catalogue de vente
+        - je voudrais catalogue des articles
+        - je voudrais consulter le catalogue
+        - je voudrais donne la liste des articles
+        - je voudrais liste des produits
+        - je voudrais liste tous les articles
+        - je voudrais montre-moi les articles
+        - je voudrais nos articles
+        - je voudrais quelles sont nos références
+        - je voudrais tous les produits
+        - je voudrais toutes nos pièces
+        - je voudrais voir les articles en stock et vente
+        - liste des produits
+        - récupérer la liste des articles existants dans la base de données
+        threshold: 0.82
+        margin: 0.04
+      VERIFIER_STOCK:
+        examples:
+        - afficher le stock de l'article <article>
+        - articles en rupture de stock
+        - combien de pièces de <article> en stock
+        - combien de stock reste-t-il
+        - disponibilité de l'article <article>
+        - donne-moi le stock de l'article <article>
+        - est-ce possible de articles en rupture de stock
+        - est-ce possible de combien de pièces de <article> en stock
+        - est-ce possible de combien de stock reste-t-il
+        - est-ce possible de disponibilité de l'article <article>
+        - est-ce possible de quantité restante pour <article>
+        - est-ce possible de quel est le stock de l'article <article>
+        - est-ce possible de stock actuel pour <article>
+        - est-ce possible de stock disponible de l'article
+        - est-ce possible de vérifie le stock de <article>
+        - est-ce possible de vérifier la disponibilité de <article>
+        - est-ce possible de y a-t-il du stock pour <article>
+        - est-ce possible de état du stock de <article>
+        - je voudrais articles en rupture de stock
+        - je voudrais combien de pièces de <article> en stock
+        - je voudrais combien de stock reste-t-il
+        - je voudrais disponibilité de l'article <article>
+        - je voudrais quantité restante pour <article>
+        - je voudrais quel est le stock de l'article <article>
+        - je voudrais stock actuel pour <article>
+        - je voudrais stock disponible de l'article
+        - je voudrais vérifie le stock de <article>
+        - je voudrais vérifier la disponibilité de <article>
+        - je voudrais y a-t-il du stock pour <article>
+        - je voudrais état du stock de <article>
+        - merci de articles en rupture de stock
+        - merci de combien de pièces de <article> en stock
+        - merci de combien de stock reste-t-il
+        - merci de disponibilité de l'article <article>
+        - merci de quantité restante pour <article>
+        - merci de quel est le stock de l'article <article>
+        - merci de stock actuel pour <article>
+        - merci de stock disponible de l'article
+        - merci de vérifie le stock de <article>
+        - merci de vérifier la disponibilité de <article>
+        - le stock de l article imprimante
+        threshold: 0.94
+        margin: 0.04
+      PALMARES_ARTICLES:
+        examples:
+        - classement des ventes par produit
+        - est-ce possible de classement des ventes par produit
+        - est-ce possible de les articles les plus achetés
+        - est-ce possible de meilleurs articles
+        - est-ce possible de palmarès articles
+        - est-ce possible de palmarès des articles les plus vendus
+        - est-ce possible de produits les plus populaires
+        - est-ce possible de quelles sont nos meilleures ventes
+        - est-ce possible de quels produits se vendent le mieux
+        - est-ce possible de top des produits vendus
+        - est-ce possible de top ventes articles
+        - je voudrais classement des ventes par produit
+        - je voudrais les articles les plus achetés
+        - je voudrais meilleurs articles
+        - je voudrais palmarès articles
+        - je voudrais palmarès des articles les plus vendus
+        - je voudrais produits les plus populaires
+        - je voudrais quelles sont nos meilleures ventes
+        - je voudrais quels produits se vendent le mieux
+        - je voudrais top des produits vendus
+        - je voudrais top ventes articles
+        - les articles les plus achetés
+        - meilleurs articles
+        - merci de classement des ventes par produit
+        - merci de les articles les plus achetés
+        - merci de meilleurs articles
+        - merci de palmarès articles
+        - merci de palmarès des articles les plus vendus
+        - merci de produits les plus populaires
+        - merci de quelles sont nos meilleures ventes
+        - merci de quels produits se vendent le mieux
+        - merci de top des produits vendus
+        - merci de top ventes articles
+        - palmarès articles
+        - palmarès des articles les plus vendus
+        - peux-tu classement des ventes par produit
+        - peux-tu les articles les plus achetés
+        - peux-tu meilleurs articles
+        - peux-tu palmarès articles
+        - peux-tu palmarès des articles les plus vendus
+      RENTABILITE:
+        examples:
+        - analyse de la rentabilité des articles
+        - calculer la marge des articles
+        - est-ce possible de analyse de la rentabilité des articles
+        - est-ce possible de calculer la marge des articles
+        - est-ce possible de marge brute par article
+        - est-ce possible de marge par produit
+        - est-ce possible de quelles pièces rapportent le plus de marge
+        - est-ce possible de quels articles sont les plus rentables
+        - est-ce possible de rentabilité des articles
+        - est-ce possible de rentabilité du catalogue
+        - est-ce possible de taux de marge
+        - est-ce possible de taux de marge brute par article
+        - je voudrais analyse de la rentabilité des articles
+        - je voudrais calculer la marge des articles
+        - je voudrais marge brute par article
+        - je voudrais marge par produit
+        - je voudrais quelles pièces rapportent le plus de marge
+        - je voudrais quels articles sont les plus rentables
+        - je voudrais rentabilité des articles
+        - je voudrais rentabilité du catalogue
+        - je voudrais taux de marge
+        - je voudrais taux de marge brute par article
+        - marge brute par article
+        - marge par produit
+        - merci de analyse de la rentabilité des articles
+        - merci de calculer la marge des articles
+        - merci de marge brute par article
+        - merci de marge par produit
+        - merci de quelles pièces rapportent le plus de marge
+        - merci de quels articles sont les plus rentables
+        - merci de rentabilité des articles
+        - merci de rentabilité du catalogue
+        - merci de taux de marge
+        - merci de taux de marge brute par article
+        - peux-tu analyse de la rentabilité des articles
+        - peux-tu calculer la marge des articles
+        - peux-tu marge brute par article
+        - peux-tu marge par produit
+        - peux-tu quelles pièces rapportent le plus de marge
+        - peux-tu quels articles sont les plus rentables
+      SEUIL_STOCK:
+        examples:
+        - afficher le seuil de stock de l'article <article>
+        - alerte de stock minimum pour <article>
+        - donne-moi le seuil de stock de l'article <article>
+        - est-ce possible de alerte de stock minimum pour <article>
+        - est-ce possible de limite de stock pour <article>
+        - est-ce possible de quel est le seuil de stock de l'article <article>
+        - est-ce possible de seuil critique de stock pour <article>
+        - est-ce possible de seuil de stock de <article>
+        - est-ce possible de à partir de combien de pièces commande-t-on <article>
+        - je voudrais alerte de stock minimum pour <article>
+        - je voudrais limite de stock pour <article>
+        - je voudrais quel est le seuil de stock de l'article <article>
+        - je voudrais seuil critique de stock pour <article>
+        - je voudrais seuil de stock de <article>
+        - je voudrais à partir de combien de pièces commande-t-on <article>
+        - limite de stock pour <article>
+        - merci de alerte de stock minimum pour <article>
+        - merci de limite de stock pour <article>
+        - merci de quel est le seuil de stock de l'article <article>
+        - merci de seuil critique de stock pour <article>
+        - merci de seuil de stock de <article>
+        - merci de à partir de combien de pièces commande-t-on <article>
+        - peux-tu alerte de stock minimum pour <article>
+        - peux-tu limite de stock pour <article>
+        - peux-tu quel est le seuil de stock de l'article <article>
+        - peux-tu seuil critique de stock pour <article>
+        - peux-tu seuil de stock de <article>
+        - peux-tu à partir de combien de pièces commande-t-on <article>
+        - quel est le seuil de stock de l'article <article>
+        - seuil critique de stock pour <article>
+        - seuil de stock de <article>
+        - vérifie le seuil de stock de l'article <article>
+        - à partir de combien de pièces commande-t-on <article>
+    family_threshold: 0.7
+  DOCUMENT:
+    actions:
+      GENERER_DOC:
+        examples:
+        - ajoute un bl achat pour le fournisseur <fournisseur>
+        - ajoute un bon de commande
+        - ajoute un bon de fabrication pour l'of
+        - ajoute un bon de livraison pour le client <client>
+        - ajoute un bon de réception fournisseur
+        - ajoute un ordre de fabrication
+        - ajoute un ordre de fabrication de 100 pièces
+        - création d'un bon de commande pour le client <client>
+        - crée un bl achat pour le fournisseur <fournisseur>
+        - crée un bon
+        - crée un bon de commande
+        - crée un bon de fabrication pour l'of
+        - crée un bon de livraison
+        - crée un bon de livraison pour le client <client>
+        - crée un bon de réception fournisseur
+        - crée un ordre de fabrication
+        - crée un ordre de fabrication de 100 pièces
+        - crée une facture pour <client>
+        - créer un document de vente pour <client>
+        - enregistre un bl achat pour le fournisseur <fournisseur>
+        - enregistre un bon de commande
+        - enregistre un bon de fabrication pour l'of
+        - enregistre un bon de livraison pour le client <client>
+        - enregistre un bon de réception fournisseur
+        - enregistre un ordre de fabrication
+        - enregistre un ordre de fabrication de 100 pièces
+        - est-ce possible de création d'un bon de commande pour le client <client>
+        - est-ce possible de crée un bl achat pour le fournisseur <fournisseur>
+        - est-ce possible de crée un bon de commande
+        - est-ce possible de crée un bon de fabrication pour l'of
+        - est-ce possible de crée un bon de livraison pour le client <client>
+        - est-ce possible de crée un bon de réception fournisseur
+        - est-ce possible de crée un ordre de fabrication
+        - est-ce possible de crée un ordre de fabrication de 100 pièces
+        - est-ce possible de créer un document de vente pour <client>
+        - est-ce possible de génère un bon
+        - est-ce possible de génère un bon de livraison
+        - est-ce possible de génère une facture pour <client>
+        - est-ce possible de générer bl pour le client <client>
+        - est-ce possible de générer une commande d'achat pour <fournisseur>
+        threshold: 0.82
+        margin: 0.04
+      TRANSFORMER_DOC:
+        examples:
+        - convertir le bl <bl> en facture
+        - convertis le bon de livraison en facture
+        - est-ce possible de convertir le bl <bl> en facture
+        - est-ce possible de convertis le bon de livraison en facture
+        - est-ce possible de facture le bl <bl>
+        - est-ce possible de générer la facture à partir du bl <bl>
+        - est-ce possible de passe l'of en bf
+        - est-ce possible de passe le bl en facture
+        - est-ce possible de passer la commande en bl
+        - est-ce possible de transforme cette commande en bon de livraison
+        - est-ce possible de transforme l'of en bf
+        - est-ce possible de transforme le bl en facture
+        - est-ce possible de transforme le bon de fabrication en ordre de fabrication
+        - est-ce possible de transformer la commande client en bon de livraison
+        - est-ce possible de transformer le bon de livraison <bl> en facture
+        - facture le bl <bl>
+        - générer la facture à partir du bl <bl>
+        - je voudrais convertir le bl <bl> en facture
+        - je voudrais convertis le bon de livraison en facture
+        - je voudrais facture le bl <bl>
+        - je voudrais générer la facture à partir du bl <bl>
+        - je voudrais passe l'of en bf
+        - je voudrais passe le bl en facture
+        - je voudrais passer la commande en bl
+        - je voudrais transforme cette commande en bon de livraison
+        - je voudrais transforme l'of en bf
+        - je voudrais transforme le bl en facture
+        - je voudrais transforme le bon de fabrication en ordre de fabrication
+        - je voudrais transformer la commande client en bon de livraison
+        - je voudrais transformer le bon de livraison <bl> en facture
+        - merci de convertir le bl <bl> en facture
+        - merci de convertis le bon de livraison en facture
+        - merci de facture le bl <bl>
+        - merci de générer la facture à partir du bl <bl>
+        - merci de passe l'of en bf
+        - merci de passe le bl en facture
+        - merci de passer la commande en bl
+        - merci de transforme cette commande en bon de livraison
+        - merci de transforme l'of en bf
+        - merci de transforme le bl en facture
+        threshold: 0.78
+        margin: 0.05
+      CREER_AVOIR:
+        examples:
+        - ajoute un avoir pour la facture <facture>
+        - avoir client pour <client>
+        - création d'un avoir pour la facture <facture>
+        - crée un avoir client
+        - crée un avoir pour la facture <facture>
+        - créer un avoir sur la facture <facture>
+        - enregistre un avoir pour la facture <facture>
+        - est-ce possible de avoir client pour <client>
+        - est-ce possible de création d'un avoir pour la facture <facture>
+        - est-ce possible de crée un avoir pour la facture <facture>
+        - est-ce possible de créer un avoir sur la facture <facture>
+        - est-ce possible de faire un avoir pour la facture <facture>
+        - est-ce possible de génère un avoir client
+        - est-ce possible de générer un avoir pour <client>
+        - faire la création de un avoir pour la facture <facture>
+        - faire un avoir pour la facture <facture>
+        - génère un avoir client
+        - génère un avoir pour la facture <facture>
+        - générer un avoir client
+        - générer un avoir pour <client>
+        - je voudrais avoir client pour <client>
+        - je voudrais création d'un avoir pour la facture <facture>
+        - je voudrais crée un avoir pour la facture <facture>
+        - je voudrais créer un avoir sur la facture <facture>
+        - je voudrais faire un avoir pour la facture <facture>
+        - je voudrais génère un avoir client
+        - je voudrais générer un avoir pour <client>
+        - merci de avoir client pour <client>
+        - merci de création d'un avoir pour la facture <facture>
+        - merci de crée un avoir pour la facture <facture>
+        - merci de créer un avoir sur la facture <facture>
+        - merci de faire un avoir pour la facture <facture>
+        - merci de génère un avoir client
+        - merci de générer un avoir pour <client>
+        - peux-tu avoir client pour <client>
+        - peux-tu création d'un avoir pour la facture <facture>
+        - peux-tu crée un avoir pour la facture <facture>
+        - peux-tu créer un avoir pour la facture <facture>
+        - peux-tu créer un avoir sur la facture <facture>
+        - peux-tu faire un avoir pour la facture <facture>
+        threshold: 0.88
+        margin: 0.05
+      REGLEMENT:
+        examples:
+        - change le statut de la facture en réglée
+        - enregistre le paiement de la facture <facture>
+        - enregistrer règlement de <facture>
+        - est-ce possible de change le statut de la facture en réglée
+        - est-ce possible de enregistre le paiement de la facture <facture>
+        - est-ce possible de enregistrer règlement de <facture>
+        - est-ce possible de marque la facture comme réglée
+        - est-ce possible de marquer la facture <facture> comme payée
+        - est-ce possible de paiement d'une facture
+        - est-ce possible de paye la facture par virement
+        - est-ce possible de payer la facture <facture> en chèque
+        - est-ce possible de règle la facture <facture>
+        - est-ce possible de règlement de la facture du client
+        - est-ce possible de règlement reçu pour la facture <facture>
+        - est-ce possible de valider paiement de la facture <facture>
+        - je voudrais change le statut de la facture en réglée
+        - je voudrais enregistre le paiement de la facture <facture>
+        - je voudrais enregistrer règlement de <facture>
+        - je voudrais marque la facture comme réglée
+        - je voudrais marquer la facture <facture> comme payée
+        - je voudrais paiement d'une facture
+        - je voudrais paye la facture par virement
+        - je voudrais payer la facture <facture> en chèque
+        - je voudrais règle la facture <facture>
+        - je voudrais règlement de la facture du client
+        - je voudrais règlement reçu pour la facture <facture>
+        - je voudrais valider paiement de la facture <facture>
+        - marque la facture comme réglée
+        - marquer la facture <facture> comme payée
+        - merci de change le statut de la facture en réglée
+        - merci de enregistre le paiement de la facture <facture>
+        - merci de enregistrer règlement de <facture>
+        - merci de marque la facture comme réglée
+        - merci de marquer la facture <facture> comme payée
+        - merci de paiement d'une facture
+        - merci de paye la facture par virement
+        - merci de payer la facture <facture> en chèque
+        - merci de règle la facture <facture>
+        - merci de règlement de la facture du client
+        - merci de règlement reçu pour la facture <facture>
+        threshold: 0.86
+        margin: 0.05
+      TOUTES_FACTURES_CLIENT:
+        examples:
+        - affiche des factures de <client>
+        - donne la liste de des factures de <client>
+        - est-ce possible de factures de l'entreprise <client>
+        - est-ce possible de factures du client <client>
+        - est-ce possible de historique des factures de <client>
+        - est-ce possible de les factures émises pour <client>
+        - est-ce possible de liste des factures de <client>
+        - est-ce possible de obtenir toutes les factures de <client>
+        - est-ce possible de quelles factures avons-nous pour le client <client>
+        - est-ce possible de toutes les factures du client <client>
+        - extraire la liste de des factures de <client>
+        - factures de l'entreprise <client>
+        - factures du client <client>
+        - historique des factures de <client>
+        - je veux voir la liste de des factures de <client>
+        - je voudrais factures de l'entreprise <client>
+        - je voudrais factures du client <client>
+        - je voudrais historique des factures de <client>
+        - je voudrais les factures émises pour <client>
+        - je voudrais liste des factures de <client>
+        - je voudrais obtenir toutes les factures de <client>
+        - je voudrais quelles factures avons-nous pour le client <client>
+        - je voudrais toutes les factures du client <client>
+        - les factures émises pour <client>
+        - liste des factures de <client>
+        - merci de factures de l'entreprise <client>
+        - merci de factures du client <client>
+        - merci de historique des factures de <client>
+        - merci de les factures émises pour <client>
+        - merci de liste des factures de <client>
+        - merci de obtenir toutes les factures de <client>
+        - merci de quelles factures avons-nous pour le client <client>
+        - merci de toutes les factures du client <client>
+        - montre des factures de <client>
+        - obtenir toutes les factures de <client>
+        - peux-tu factures de l'entreprise <client>
+        - peux-tu factures du client <client>
+        - peux-tu historique des factures de <client>
+        - peux-tu les factures émises pour <client>
+        - peux-tu liste des factures de <client>
+        threshold: 0.84
+        margin: 0.05
+      FACTURES_NON_REGLEES:
+        examples:
+        - affiche des impayés client
+        - donne la liste de des impayés client
+        - est-ce possible de factures clients en retard
+        - est-ce possible de factures en attente de paiement
+        - est-ce possible de factures en attente de règlement
+        - est-ce possible de factures impayées
+        - est-ce possible de factures non réglées
+        - est-ce possible de impayés des clients
+        - est-ce possible de liste des impayés client
+        - est-ce possible de quelles factures ne sont pas réglées
+        - est-ce possible de retard de paiement facture
+        - est-ce possible de toutes les factures non payées
+        - extraire la liste de des impayés client
+        - factures clients en retard
+        - factures en attente de paiement
+        - factures en attente de règlement
+        - factures impayées
+        - factures non réglées
+        - impayés des clients
+        - je veux voir la liste de des impayés client
+        - je voudrais factures clients en retard
+        - je voudrais factures en attente de paiement
+        - je voudrais factures en attente de règlement
+        - je voudrais factures impayées
+        - je voudrais factures non réglées
+        - je voudrais impayés des clients
+        - je voudrais liste des impayés client
+        - je voudrais quelles factures ne sont pas réglées
+        - je voudrais retard de paiement facture
+        - je voudrais toutes les factures non payées
+        - liste des impayés client
+        - merci de factures clients en retard
+        - merci de factures en attente de paiement
+        - merci de factures en attente de règlement
+        - merci de factures impayées
+        - merci de factures non réglées
+        - merci de impayés des clients
+        - merci de liste des impayés client
+        - merci de quelles factures ne sont pas réglées
+        - merci de retard de paiement facture
+        threshold: 0.84
+        margin: 0.05
+      FACTURES_NON_REGLEES_FOURN:
+        examples:
+        - achats non réglés
+        - affiche des factures d'achat non payées
+        - donne la liste de des factures d'achat non payées
+        - est-ce possible de achats non réglés
+        - est-ce possible de factures fournisseur impayées
+        - est-ce possible de factures fournisseur non réglées
+        - est-ce possible de factures à payer aux fournisseurs
+        - est-ce possible de impayés fournisseurs
+        - est-ce possible de liste des factures d'achat non payées
+        - est-ce possible de nos dettes fournisseurs
+        - est-ce possible de quelles factures fournisseurs devons-nous régler
+        - extraire la liste de des factures d'achat non payées
+        - factures fournisseur impayées
+        - factures fournisseur non réglées
+        - factures à payer aux fournisseurs
+        - impayés fournisseurs
+        - je veux voir la liste de des factures d'achat non payées
+        - je voudrais achats non réglés
+        - je voudrais factures fournisseur impayées
+        - je voudrais factures fournisseur non réglées
+        - je voudrais factures à payer aux fournisseurs
+        - je voudrais impayés fournisseurs
+        - je voudrais liste des factures d'achat non payées
+        - je voudrais nos dettes fournisseurs
+        - je voudrais quelles factures fournisseurs devons-nous régler
+        - liste des factures d'achat non payées
+        - merci de achats non réglés
+        - merci de factures fournisseur impayées
+        - merci de factures fournisseur non réglées
+        - merci de factures à payer aux fournisseurs
+        - merci de impayés fournisseurs
+        - merci de liste des factures d'achat non payées
+        - merci de nos dettes fournisseurs
+        - merci de quelles factures fournisseurs devons-nous régler
+        - montre des factures d'achat non payées
+        - nos dettes fournisseurs
+        - peux-tu achats non réglés
+        - peux-tu factures fournisseur impayées
+        - peux-tu factures fournisseur non réglées
+        - peux-tu factures à payer aux fournisseurs
+        threshold: 0.84
+        margin: 0.05
+      DOCS_PERIODE:
+        examples:
+        - affiche des documents de la période
+        - documents créés en 2024
+        - documents du mois
+        - documents entre deux dates
+        - donne la liste de des documents de la période
+        - est-ce possible de documents créés en 2024
+        - est-ce possible de documents du mois
+        - est-ce possible de documents entre deux dates
+        - est-ce possible de historique des documents sur la période
+        - est-ce possible de liste des documents de la période
+        - est-ce possible de quelles factures entre le 1er janvier et le 31 janvier
+        - est-ce possible de quelles pièces ont été créées le mois dernier
+        - extraire la liste de des documents de la période
+        - historique des documents sur la période
+        - je veux voir la liste de des documents de la période
+        - je voudrais documents créés en 2024
+        - je voudrais documents du mois
+        - je voudrais documents entre deux dates
+        - je voudrais historique des documents sur la période
+        - je voudrais liste des documents de la période
+        - je voudrais quelles factures entre le 1er janvier et le 31 janvier
+        - je voudrais quelles pièces ont été créées le mois dernier
+        - liste des documents de la période
+        - merci de documents créés en 2024
+        - merci de documents du mois
+        - merci de documents entre deux dates
+        - merci de historique des documents sur la période
+        - merci de liste des documents de la période
+        - merci de quelles factures entre le 1er janvier et le 31 janvier
+        - merci de quelles pièces ont été créées le mois dernier
+        - montre des documents de la période
+        - peux-tu documents créés en 2024
+        - peux-tu documents du mois
+        - peux-tu documents entre deux dates
+        - peux-tu historique des documents sur la période
+        - peux-tu liste des documents de la période
+        - peux-tu quelles factures entre le 1er janvier et le 31 janvier
+        - peux-tu quelles pièces ont été créées le mois dernier
+        - quelles factures entre le 1er janvier et le 31 janvier
+        - quelles pièces ont été créées le mois dernier
+        threshold: 0.82
+        margin: 0.05
+      WORKFLOW_COMMANDE:
+        examples:
+        - est-ce possible de exécuter le workflow commande pour <client>
+        - est-ce possible de lance le flux commande
+        - est-ce possible de lancer la commande du client <client>
+        - est-ce possible de processus complet commande client <client>
+        - est-ce possible de suivi du flux de commande pour le client <client>
+        - est-ce possible de traite la commande complète du client <client>
+        - exécuter le workflow commande pour <client>
+        - je voudrais exécuter le workflow commande pour <client>
+        - je voudrais lance le flux commande
+        - je voudrais lancer la commande du client <client>
+        - je voudrais processus complet commande client <client>
+        - je voudrais suivi du flux de commande pour le client <client>
+        - je voudrais traite la commande complète du client <client>
+        - lance le flux commande
+        - lancer la commande du client <client>
+        - merci de exécuter le workflow commande pour <client>
+        - merci de lance le flux commande
+        - merci de lancer la commande du client <client>
+        - merci de processus complet commande client <client>
+        - merci de suivi du flux de commande pour le client <client>
+        - merci de traite la commande complète du client <client>
+        - peux-tu exécuter le workflow commande pour <client>
+        - peux-tu lance le flux commande
+        - peux-tu lancer la commande du client <client>
+        - peux-tu processus complet commande client <client>
+        - peux-tu suivi du flux de commande pour le client <client>
+        - peux-tu traite la commande complète du client <client>
+        - processus complet commande client <client>
+        - suivi du flux de commande pour le client <client>
+        - traite la commande complète du client <client>
+        threshold: 0.85
+        margin: 0.05
+    family_threshold: 0.76
+  ANALYTIQUE:
+    actions:
+      CA_GLOBAL:
+        examples:
+        - afficher le ca de cette année
+        - ca global réalisé
+        - ca total de l'entreprise
+        - chiffre d'affaires annuel
+        - chiffre d'affaires global
+        - chiffre d'affaires global ht
+        - combien a-t-on vendu au total
+        - donne-moi le ca de cette année
+        - est-ce possible de ca global réalisé
+        - est-ce possible de ca total de l'entreprise
+        - est-ce possible de chiffre d'affaires annuel
+        - est-ce possible de chiffre d'affaires global
+        - est-ce possible de chiffre d'affaires global ht
+        - est-ce possible de combien a-t-on vendu au total
+        - est-ce possible de montant total des ventes
+        - est-ce possible de quel est le ca de cette année
+        - est-ce possible de somme totale facturée
+        - je voudrais ca global réalisé
+        - je voudrais ca total de l'entreprise
+        - je voudrais chiffre d'affaires annuel
+        - je voudrais chiffre d'affaires global
+        - je voudrais chiffre d'affaires global ht
+        - je voudrais combien a-t-on vendu au total
+        - je voudrais montant total des ventes
+        - je voudrais quel est le ca de cette année
+        - je voudrais somme totale facturée
+        - merci de ca global réalisé
+        - merci de ca total de l'entreprise
+        - merci de chiffre d'affaires annuel
+        - merci de chiffre d'affaires global
+        - merci de chiffre d'affaires global ht
+        - merci de combien a-t-on vendu au total
+        - merci de montant total des ventes
+        - merci de quel est le ca de cette année
+        - merci de somme totale facturée
+        - montant total des ventes
+        - peux-tu ca global réalisé
+        - peux-tu ca total de l'entreprise
+        - peux-tu chiffre d'affaires annuel
+        - peux-tu chiffre d'affaires global
+        - j'aimerais connaître notre chiffre d'affaires.
+        threshold: 0.84
+        margin: 0.05
+      SAISONNALITE:
+        examples:
+        - ca par mois
+        - ca réalisé mois après mois
+        - chiffre d'affaires mensuel
+        - comparatif mensuel du ca
+        - est-ce possible de ca par mois
+        - est-ce possible de ca réalisé mois après mois
+        - est-ce possible de chiffre d'affaires mensuel
+        - est-ce possible de comparatif mensuel du ca
+        - est-ce possible de graphique du ca mensuel
+        - est-ce possible de saisonnalité du chiffre d'affaires
+        - est-ce possible de ventes mensuelles de l'entreprise
+        - est-ce possible de évolution des ventes par mois
+        - est-ce possible de évolution du ca mois par mois
+        - graphique du ca mensuel
+        - je voudrais ca par mois
+        - je voudrais ca réalisé mois après mois
+        - je voudrais chiffre d'affaires mensuel
+        - je voudrais comparatif mensuel du ca
+        - je voudrais graphique du ca mensuel
+        - je voudrais saisonnalité du chiffre d'affaires
+        - je voudrais ventes mensuelles de l'entreprise
+        - je voudrais évolution des ventes par mois
+        - je voudrais évolution du ca mois par mois
+        - merci de ca par mois
+        - merci de ca réalisé mois après mois
+        - merci de chiffre d'affaires mensuel
+        - merci de comparatif mensuel du ca
+        - merci de graphique du ca mensuel
+        - merci de saisonnalité du chiffre d'affaires
+        - merci de ventes mensuelles de l'entreprise
+        - merci de évolution des ventes par mois
+        - merci de évolution du ca mois par mois
+        - peux-tu ca par mois
+        - peux-tu ca réalisé mois après mois
+        - peux-tu chiffre d'affaires mensuel
+        - peux-tu comparatif mensuel du ca
+        - peux-tu graphique du ca mensuel
+        - peux-tu saisonnalité du chiffre d'affaires
+        - peux-tu ventes mensuelles de l'entreprise
+        - peux-tu évolution des ventes par mois
+        threshold: 0.84
+        margin: 0.05
+      DSO:
+        examples:
+        - afficher le dso global
+        - days sales outstanding
+        - donne-moi le dso global
+        - dso des clients
+        - délai de paiement moyen
+        - délai de paiement moyen des clients
+        - délai moyen de règlement client
+        - est-ce possible de days sales outstanding
+        - est-ce possible de dso des clients
+        - est-ce possible de délai de paiement moyen
+        - est-ce possible de délai de paiement moyen des clients
+        - est-ce possible de délai moyen de règlement client
+        - est-ce possible de quel est le dso global
+        - est-ce possible de retard de paiement
+        - est-ce possible de temps moyen pour être payé par nos clients
+        - je voudrais days sales outstanding
+        - je voudrais dso des clients
+        - je voudrais délai de paiement moyen
+        - je voudrais délai de paiement moyen des clients
+        - je voudrais délai moyen de règlement client
+        - je voudrais quel est le dso global
+        - je voudrais retard de paiement
+        - je voudrais temps moyen pour être payé par nos clients
+        - merci de days sales outstanding
+        - merci de dso des clients
+        - merci de délai de paiement moyen
+        - merci de délai de paiement moyen des clients
+        - merci de délai moyen de règlement client
+        - merci de quel est le dso global
+        - merci de retard de paiement
+        - merci de temps moyen pour être payé par nos clients
+        - peux-tu days sales outstanding
+        - peux-tu dso des clients
+        - peux-tu délai de paiement moyen
+        - peux-tu délai de paiement moyen des clients
+        - peux-tu délai moyen de règlement client
+        - peux-tu quel est le dso global
+        - peux-tu retard de paiement
+        - peux-tu temps moyen pour être payé par nos clients
+        - quel est le dso global
+        threshold: 0.84
+        margin: 0.05
+      RFM:
+        examples:
+        - analyse de fidélité des clients
+        - analyse rfm des clients
+        - classer les clients par rfm
+        - est-ce possible de analyse de fidélité des clients
+        - est-ce possible de analyse rfm des clients
+        - est-ce possible de classer les clients par rfm
+        - est-ce possible de récence fréquence montant des clients
+        - est-ce possible de score rfm de la clientèle
+        - est-ce possible de segmentation des clients
+        - est-ce possible de segmentation rfm
+        - je voudrais analyse de fidélité des clients
+        - je voudrais analyse rfm des clients
+        - je voudrais classer les clients par rfm
+        - je voudrais récence fréquence montant des clients
+        - je voudrais score rfm de la clientèle
+        - je voudrais segmentation des clients
+        - je voudrais segmentation rfm
+        - merci de analyse de fidélité des clients
+        - merci de analyse rfm des clients
+        - merci de classer les clients par rfm
+        - merci de récence fréquence montant des clients
+        - merci de score rfm de la clientèle
+        - merci de segmentation des clients
+        - merci de segmentation rfm
+        - peux-tu analyse de fidélité des clients
+        - peux-tu analyse rfm des clients
+        - peux-tu classer les clients par rfm
+        - peux-tu récence fréquence montant des clients
+        - peux-tu score rfm de la clientèle
+        - peux-tu segmentation des clients
+        - peux-tu segmentation rfm
+        - récence fréquence montant des clients
+        - score rfm de la clientèle
+        - segmentation des clients
+        - segmentation rfm
+        threshold: 0.84
+        margin: 0.05
+      CLIENTS_BAISSE:
+        examples:
+        - baisse d'activité chez nos clients
+        - clients dont le ca diminue
+        - clients en baisse de chiffre d'affaires
+        - clients en déclin
+        - est-ce possible de baisse d'activité chez nos clients
+        - est-ce possible de clients dont le ca diminue
+        - est-ce possible de clients en baisse de chiffre d'affaires
+        - est-ce possible de clients en déclin
+        - est-ce possible de perte de chiffre d'affaires par client
+        - est-ce possible de quels clients achètent moins
+        - est-ce possible de qui commande moins par rapport à l'an dernier
+        - je voudrais baisse d'activité chez nos clients
+        - je voudrais clients dont le ca diminue
+        - je voudrais clients en baisse de chiffre d'affaires
+        - je voudrais clients en déclin
+        - je voudrais perte de chiffre d'affaires par client
+        - je voudrais quels clients achètent moins
+        - je voudrais qui commande moins par rapport à l'an dernier
+        - merci de baisse d'activité chez nos clients
+        - merci de clients dont le ca diminue
+        - merci de clients en baisse de chiffre d'affaires
+        - merci de clients en déclin
+        - merci de perte de chiffre d'affaires par client
+        - merci de quels clients achètent moins
+        - merci de qui commande moins par rapport à l'an dernier
+        - perte de chiffre d'affaires par client
+        - peux-tu baisse d'activité chez nos clients
+        - peux-tu clients dont le ca diminue
+        - peux-tu clients en baisse de chiffre d'affaires
+        - peux-tu clients en déclin
+        - peux-tu perte de chiffre d'affaires par client
+        - peux-tu quels clients achètent moins
+        - peux-tu qui commande moins par rapport à l'an dernier
+        - quels clients achètent moins
+        - qui commande moins par rapport à l'an dernier
+        threshold: 0.82
+        margin: 0.05
+    family_threshold: 0.84
+  PROCEDURE:
+    actions:
+      RECHERCHE_PROCEDURE:
+        examples:
+        - quelle est la matière de fabrication de <article>
+        - donne-moi la fiche technique de <article>
+        - quel est le procédé de fabrication de l'article <article>
+        - quelle tolérance dimensionnelle pour <article>
+        - quelles précautions d'usage pour <article>
+        - caractéristiques techniques de <article>
+        - quels articles ont eu des réclamations
+        - y a-t-il eu des réclamations sur <article>
+        - quel est le motif de réclamation pour <article>
+        - combien de clients ont signalé un défaut sur <article>
+        - quelles sont les réclamations sav en cours de traitement
+        - quel est le contexte de la remise accordée au client <client>
+        - quelles sont les conditions commerciales négociées avec <client>
+        - pourquoi le client <client> a-t-il des conditions particulières
+        - quel délai de paiement a été négocié avec <client>
+        - y a-t-il eu un email de commande pour <client> mentionnant une référence
+          incertaine
+        - quels articles ont été commandés par email récemment
+        - historique des commandes par email de <client>
+        - quelles sont les conditions commerciales du client <client>
+        - quelles sont les conditions du client
+        - conditions commerciales de <client>
+        - comment faire pour enregistrer un règlement
+        - comment fait-on pour
+        - comment fait-on pour bloquer un client
+        - comment fait-on pour débloquer un client
+        - comment fait-on pour transformer un document
+        - comment procéder pour régler une facture
+        - est-ce possible de comment faire pour enregistrer un règlement
+        - est-ce possible de comment fait-on pour
+        - est-ce possible de comment fait-on pour bloquer un client
+        - est-ce possible de comment fait-on pour débloquer un client
+        - est-ce possible de comment fait-on pour transformer un document
+        - est-ce possible de comment procéder pour régler une facture
+        - est-ce possible de guide pour valider un stock
+        - est-ce possible de procédures internes de l'entreprise
+        - est-ce possible de quelle est la démarche pour créer un avoir
+        - est-ce possible de quelle est la procédure de création d'une facture
+        - est-ce possible de quelle est la procédure pour
+        - guide pour valider un stock
+        - je voudrais comment faire pour enregistrer un règlement
+        - je voudrais comment fait-on pour
+        - je voudrais comment fait-on pour bloquer un client
+        - je voudrais comment fait-on pour débloquer un client
+        - je voudrais comment fait-on pour transformer un document
+        - je voudrais comment procéder pour régler une facture
+        - je voudrais guide pour valider un stock
+        - je voudrais procédures internes de l'entreprise
+        - je voudrais quelle est la démarche pour créer un avoir
+        - je voudrais quelle est la procédure de création d'une facture
+        - je voudrais quelle est la procédure pour
+        - merci de comment faire pour enregistrer un règlement
+        - merci de comment fait-on pour
+        - merci de comment fait-on pour bloquer un client
+        - merci de comment fait-on pour débloquer un client
+        - merci de comment fait-on pour transformer un document
+        - merci de comment procéder pour régler une facture
+        - merci de guide pour valider un stock
+        - merci de procédures internes de l'entreprise
+        - merci de quelle est la démarche pour créer un avoir
+        - merci de quelle est la procédure de création d'une facture
+        - merci de quelle est la procédure pour
+        threshold: 0.8
+        margin: 0.04
+      LISTE_PROCEDURES:
+        examples:
+        - affiche des guides internes
+        - affiche toutes les procédures
+        - donne la liste de des guides internes
+        - donne la liste de toutes les procédures
+        - donne la liste des procédures
+        - est-ce possible de donne la liste des procédures
+        - est-ce possible de liste des guides internes
+        - est-ce possible de liste toutes les procédures
+        - est-ce possible de quelles procédures sont disponibles
+        - est-ce possible de quelles sont les consignes
+        - est-ce possible de toutes les documentations de procédures
+        - extraire la liste de des guides internes
+        - extraire la liste de toutes les procédures
+        - je veux voir la liste de des guides internes
+        - je veux voir la liste de toutes les procédures
+        - je voudrais donne la liste des procédures
+        - je voudrais liste des guides internes
+        - je voudrais liste toutes les procédures
+        - je voudrais quelles procédures sont disponibles
+        - je voudrais quelles sont les consignes
+        - je voudrais toutes les documentations de procédures
+        - liste des guides internes
+        - liste toutes les procédures
+        - merci de donne la liste des procédures
+        - merci de liste des guides internes
+        - merci de liste toutes les procédures
+        - merci de quelles procédures sont disponibles
+        - merci de quelles sont les consignes
+        - merci de toutes les documentations de procédures
+        - montre des guides internes
+        - montre toutes les procédures
+        - peux-tu donne la liste des procédures
+        - peux-tu liste des guides internes
+        - peux-tu liste toutes les procédures
+        - peux-tu quelles procédures sont disponibles
+        - peux-tu quelles sont les consignes
+        - peux-tu toutes les documentations de procédures
+        - quelles procédures sont disponibles
+        - quelles sont les consignes
+        - toutes les documentations de procédures
+    family_threshold: 0.8
+  EXPORT:
+    actions:
+      OFFRE_PRIX_EXCEL:
+        examples:
+        - crée une offre de prix pour le client <client>
+        - créer offre de prix excel
+        - est-ce possible de créer offre de prix excel
+        - est-ce possible de exporte l'offre de prix en excel
+        - est-ce possible de exporter offre de prix en format excel
+        - est-ce possible de génère une offre de prix pour le client <client>
+        - est-ce possible de générer excel devis <client>
+        - est-ce possible de générer le devis en excel pour le client <client>
+        - exporte l'offre de prix en excel
+        - exporter offre de prix en format excel
+        - génère une offre de prix pour le client <client>
+        - générer excel devis <client>
+        - générer le devis en excel pour le client <client>
+        - générer une offre de prix pour le client <client>
+        - je voudrais créer offre de prix excel
+        - je voudrais exporte l'offre de prix en excel
+        - je voudrais exporter offre de prix en format excel
+        - je voudrais génère une offre de prix pour le client <client>
+        - je voudrais générer excel devis <client>
+        - je voudrais générer le devis en excel pour le client <client>
+        - merci de créer offre de prix excel
+        - merci de exporte l'offre de prix en excel
+        - merci de exporter offre de prix en format excel
+        - merci de génère une offre de prix pour le client <client>
+        - merci de générer excel devis <client>
+        - merci de générer le devis en excel pour le client <client>
+        - peux-tu créer offre de prix excel
+        - peux-tu exporte l'offre de prix en excel
+        - peux-tu exporter offre de prix en format excel
+        - peux-tu génère une offre de prix pour le client <client>
+        - peux-tu générer excel devis <client>
+        - peux-tu générer le devis en excel pour le client <client>
+        - peux-tu générer une offre de prix pour le client <client>
+        - édite une offre de prix pour le client <client>
+        threshold: 0.84
+        margin: 0.05
+      DECLARATION_EXCEL:
+        examples:
+        - ajoute une déclaration du mois de juin
+        - crée la déclaration fiscale de janvier
+        - crée une déclaration du mois de juin
+        - déclaration achats ventes excel
+        - déclaration de juillet
+        - déclaration fiscale excel
+        - déclaration mensuelle achat vente
+        - enregistre une déclaration du mois de juin
+        - est-ce possible de crée une déclaration du mois de juin
+        - est-ce possible de déclaration achats ventes excel
+        - est-ce possible de déclaration de juillet
+        - est-ce possible de déclaration fiscale excel
+        - est-ce possible de déclaration mensuelle achat vente
+        - est-ce possible de exporte la déclaration en excel
+        - est-ce possible de génère la déclaration fiscale de janvier
+        - est-ce possible de générer le fichier excel de déclaration de tva
+        - est-ce possible de prépare la déclaration tva du mois
+        - exporte la déclaration en excel
+        - faire la création de une déclaration du mois de juin
+        - génère la déclaration fiscale de janvier
+        - génère une déclaration du mois de juin
+        - générer la déclaration fiscale de janvier
+        - générer le fichier excel de déclaration de tva
+        - je voudrais crée une déclaration du mois de juin
+        - je voudrais déclaration achats ventes excel
+        - je voudrais déclaration de juillet
+        - je voudrais déclaration fiscale excel
+        - je voudrais déclaration mensuelle achat vente
+        - je voudrais exporte la déclaration en excel
+        - je voudrais génère la déclaration fiscale de janvier
+        - je voudrais générer le fichier excel de déclaration de tva
+        - je voudrais prépare la déclaration tva du mois
+        - merci de crée une déclaration du mois de juin
+        - merci de déclaration achats ventes excel
+        - merci de déclaration de juillet
+        - merci de déclaration fiscale excel
+        - merci de déclaration mensuelle achat vente
+        - merci de exporte la déclaration en excel
+        - merci de génère la déclaration fiscale de janvier
+        - merci de générer le fichier excel de déclaration de tva
+        threshold: 0.84
+        margin: 0.05
+      BALANCE_AGEE_EXCEL:
+        examples:
+        - balance âgée client excel
+        - crée la balance âgée en excel
+        - est-ce possible de balance âgée client excel
+        - est-ce possible de export excel balance âgée
+        - est-ce possible de exporte la balance âgée
+        - est-ce possible de génère la balance âgée en excel
+        - est-ce possible de générer le fichier excel de la balance âgée
+        - est-ce possible de obtenir la balance âgée en excel
+        - export excel balance âgée
+        - exporte la balance âgée
+        - génère la balance âgée en excel
+        - générer la balance âgée en excel
+        - générer le fichier excel de la balance âgée
+        - je voudrais balance âgée client excel
+        - je voudrais export excel balance âgée
+        - je voudrais exporte la balance âgée
+        - je voudrais génère la balance âgée en excel
+        - je voudrais générer le fichier excel de la balance âgée
+        - je voudrais obtenir la balance âgée en excel
+        - merci de balance âgée client excel
+        - merci de export excel balance âgée
+        - merci de exporte la balance âgée
+        - merci de génère la balance âgée en excel
+        - merci de générer le fichier excel de la balance âgée
+        - merci de obtenir la balance âgée en excel
+        - obtenir la balance âgée en excel
+        - peux-tu balance âgée client excel
+        - peux-tu export excel balance âgée
+        - peux-tu exporte la balance âgée
+        - peux-tu génère la balance âgée en excel
+        - peux-tu générer la balance âgée en excel
+        - peux-tu générer le fichier excel de la balance âgée
+        - peux-tu obtenir la balance âgée en excel
+        - édite la balance âgée en excel
+        threshold: 0.84
+        margin: 0.05
+      DASHBOARD_EXCEL:
+        examples:
+        - affiche le tableau de bord
+        - dashboard excel de l'activité
+        - donne-moi un résumé global
+        - est-ce possible de affiche le tableau de bord
+        - est-ce possible de dashboard excel de l'activité
+        - est-ce possible de donne-moi un résumé global
+        - est-ce possible de exporte le dashboard kpi en excel
+        - est-ce possible de générer le tableau de bord excel
+        - est-ce possible de montre le dashboard kpi
+        - est-ce possible de résumé général de l'activité
+        - exporte le dashboard kpi en excel
+        - générer le tableau de bord excel
+        - je voudrais affiche le tableau de bord
+        - je voudrais dashboard excel de l'activité
+        - je voudrais donne-moi un résumé global
+        - je voudrais exporte le dashboard kpi en excel
+        - je voudrais générer le tableau de bord excel
+        - je voudrais montre le dashboard kpi
+        - je voudrais résumé général de l'activité
+        - merci de affiche le tableau de bord
+        - merci de dashboard excel de l'activité
+        - merci de donne-moi un résumé global
+        - merci de exporte le dashboard kpi en excel
+        - merci de générer le tableau de bord excel
+        - merci de montre le dashboard kpi
+        - merci de résumé général de l'activité
+        - montre le dashboard kpi
+        - peux-tu affiche le tableau de bord
+        - peux-tu dashboard excel de l'activité
+        - peux-tu donne-moi un résumé global
+        - peux-tu exporte le dashboard kpi en excel
+        - peux-tu générer le tableau de bord excel
+        - peux-tu montre le dashboard kpi
+        - peux-tu résumé général de l'activité
+        - résumé général de l'activité
+        threshold: 0.84
+        margin: 0.05
+    family_threshold: 0.74
+  NL2SQL:
+    actions:
+      NL2SQL_LIBRE:
+        examples:
+        - affiche les bons de livraison du client <client>
+        - afficher le ratio de marge
+        - articles dont le prix dépasse 500
+        - articles en stock insuffisant qui sont commandés
+        - articles qui sont en rupture et commandés par des clients actifs
+        - clients ayant des commandes et un solde important
+        - clients ayant plus de 3 factures
+        - clients bloqués
+        - clients classés par nombre de commandes
+        - clients inactifs depuis 6 mois
+        - clients qui ont des factures impayées et un encours élevé
+        - donne la liste de les bons de livraison du client <client>
+        - donne-moi le ratio de marge
+        - encours du client <client>
+        - est-ce possible de articles dont le prix dépasse 500
+        - est-ce possible de articles en stock insuffisant qui sont commandés
+        - est-ce possible de articles qui sont en rupture et commandés par des clients
+          actifs
+        - est-ce possible de clients ayant des commandes et un solde important
+        - est-ce possible de clients ayant plus de 3 factures
+        - est-ce possible de clients bloqués
+        - est-ce possible de clients classés par nombre de commandes
+        - est-ce possible de clients inactifs depuis 6 mois
+        - est-ce possible de clients qui ont des factures impayées et un encours élevé
+        - est-ce possible de encours du client <client>
+        - est-ce possible de factures du mois de juin
+        - est-ce possible de factures supérieures à 1000 euros
+        - est-ce possible de liste les bons de livraison du client <client>
+        - est-ce possible de nombre de commandes par client
+        - est-ce possible de quel client a le meilleur panier moyen
+        - est-ce possible de quel est le ratio de marge
+        - est-ce possible de toutes les factures
+        - extraire la liste de les bons de livraison du client <client>
+        - factures du mois de juin
+        - factures supérieures à 1000 euros
+        - je veux voir la liste de les bons de livraison du client <client>
+        - je voudrais articles dont le prix dépasse 500
+        - je voudrais articles en stock insuffisant qui sont commandés
+        - je voudrais articles qui sont en rupture et commandés par des clients actifs
+        - je voudrais clients ayant des commandes et un solde important
+        - je voudrais clients ayant plus de 3 factures
+        threshold: 0.88
+        margin: 0.04
+    family_threshold: 0.84
+  STOCK_MVT:
+    actions:
+      MOUVEMENT_STOCK:
+        examples:
+        - ajouter du stock pour l'article <article>
+        - ajuste le stock de l'article <article>
+        - enregistre un mouvement de stock de 5 pièces
+        - entrée de stock pour l'article <article>
+        - est-ce possible de ajouter du stock pour l'article <article>
+        - est-ce possible de ajuste le stock de l'article <article>
+        - est-ce possible de enregistre un mouvement de stock de 5 pièces
+        - est-ce possible de entrée de stock pour l'article <article>
+        - est-ce possible de faire une sortie de stock pour <article>
+        - est-ce possible de mouvement de stock entrée
+        - est-ce possible de mouvementer le stock de l'article <article>
+        - est-ce possible de sortie de stock
+        - faire une sortie de stock pour <article>
+        - je voudrais ajouter du stock pour l'article <article>
+        - je voudrais ajuste le stock de l'article <article>
+        - je voudrais enregistre un mouvement de stock de 5 pièces
+        - je voudrais entrée de stock pour l'article <article>
+        - je voudrais faire une sortie de stock pour <article>
+        - je voudrais mouvement de stock entrée
+        - je voudrais mouvementer le stock de l'article <article>
+        - je voudrais sortie de stock
+        - merci de ajouter du stock pour l'article <article>
+        - merci de ajuste le stock de l'article <article>
+        - merci de enregistre un mouvement de stock de 5 pièces
+        - merci de entrée de stock pour l'article <article>
+        - merci de faire une sortie de stock pour <article>
+        - merci de mouvement de stock entrée
+        - merci de mouvementer le stock de l'article <article>
+        - merci de sortie de stock
+        - mouvement de stock entrée
+        - mouvementer le stock de l'article <article>
+        - peux-tu ajouter du stock pour l'article <article>
+        - peux-tu ajuste le stock de l'article <article>
+        - peux-tu enregistre un mouvement de stock de 5 pièces
+        - peux-tu entrée de stock pour l'article <article>
+        - peux-tu faire une sortie de stock pour <article>
+        - peux-tu mouvement de stock entrée
+        - peux-tu mouvementer le stock de l'article <article>
+        - peux-tu sortie de stock
+        - sortie de stock
+        threshold: 0.86
+        margin: 0.05
+      PROPOSITION_ACHAT:
+        examples:
+        - calculer les propositions d'achat d'articles
+        - crée une proposition d'achat
+        - est-ce possible de calculer les propositions d'achat d'articles
+        - est-ce possible de génère une proposition d'achat
+        - est-ce possible de générer une proposition de commande d'achat pour <article>
+        - est-ce possible de propose une commande d'achat pour cet article
+        - est-ce possible de suggestion d'achat pour <article>
+        - génère une proposition d'achat
+        - générer une proposition d'achat
+        - générer une proposition de commande d'achat pour <article>
+        - je voudrais calculer les propositions d'achat d'articles
+        - je voudrais génère une proposition d'achat
+        - je voudrais générer une proposition de commande d'achat pour <article>
+        - je voudrais propose une commande d'achat pour cet article
+        - je voudrais suggestion d'achat pour <article>
+        - merci de calculer les propositions d'achat d'articles
+        - merci de génère une proposition d'achat
+        - merci de générer une proposition de commande d'achat pour <article>
+        - merci de propose une commande d'achat pour cet article
+        - merci de suggestion d'achat pour <article>
+        - peux-tu calculer les propositions d'achat d'articles
+        - peux-tu génère une proposition d'achat
+        - peux-tu générer une proposition d'achat
+        - peux-tu générer une proposition de commande d'achat pour <article>
+        - peux-tu propose une commande d'achat pour cet article
+        - peux-tu suggestion d'achat pour <article>
+        - propose une commande d'achat pour cet article
+        - suggestion d'achat pour <article>
+        - édite une proposition d'achat
+        threshold: 0.84
+        margin: 0.05
+    family_threshold: 0.84

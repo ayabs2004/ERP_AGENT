@@ -1,4 +1,102 @@
-# Corrections appliquées sur le workflow de création de documents Sage
+En résumé
+Production : orchestrateur_general.py pilote le système, utilise semantic_classifier.py pour comprendre la requête, response_cache.py pour accélérer les réponses, puis interaction_logger.py pour enregistrer ce qui s'est passé.
+Logs : interaction_logger.py est le seul composant qui écrit dans logs_classification.jsonl et corrections_a_verifier.jsonl.
+Amélioration continue : extraire_cas_logs.py transforme ces logs en jeux de données, valider_classification.py mesure les performances, calibrate_thresholds.py ajuste les seuils, apprentissage_semi_auto.py propose de nouveaux exemples, et run_learning_cycle.py orchestre automatiquement toute cette chaîne. Le point essentiel est qu'aucune modification du classifieur n'est faite sans validation humaine.
+
+Ce que tu as construit n’est pas un modèle de machine learning “pur” au sens classique, mais plutôt un :
+
+🧠 système hybride de classification + apprentissage supervisé assisté + règles métier
+
+Je t’explique clairement les blocs.
+
+🧠 1. Est-ce un modèle de ML ?
+
+👉 Partiellement oui, mais pas un modèle entraîné “end-to-end” comme :
+
+scikit-learn
+neural network
+transformer fine-tuné
+⚙️ 2. Ce que tu as réellement
+
+Ton système est composé de 3 couches :
+
+🟦 A. Règles (Rule-based system)
+
+Ex :
+
+_regex → LISTE_CLIENTS
+
+👉 C’est du :
+
+pattern matching
+logique déterministe
+
+✔️ pas du ML
+
+🟩 B. Sémantique (embedding / centroid-based classifier)
+
+Tu as :
+
+1505 exemples chargés et centroïdes calculés
+
+👉 ça ressemble à :
+
+vectorisation de texte
+comparaison de similarité
+classification par distance
+
+💡 Ça, OUI → c’est du machine learning léger (non deep learning)
+
+Mais :
+
+pas entraînement de réseau
+pas backpropagation
+
+👉 plutôt :
+
+classification vectorielle type nearest centroid / cosine similarity
+
+🟨 C. Apprentissage semi-automatique (ton fichier apprentissage_semi_auto.py)
+
+👉 ça n’entraîne pas automatiquement le modèle
+
+ça fait :
+
+collecte de données
+filtrage
+validation humaine
+enrichissement dataset
+
+💡 donc c’est :
+
+supervised learning “assisté humain”
+
+🧠 3. Donc en résumé
+
+Ton système =
+
+🔴 Regex (rules)
+🟡 Similarité sémantique (ML léger)
+🟢 LLM fallback (si utilisé)
+🟣 boucle d’apprentissage humain (dataset evolution)
+🚫 4. Ce que tu n’as PAS
+
+Tu n’as pas :
+
+❌ modèle entraîné automatiquement (training loop)
+❌ gradient descent
+❌ fine-tuning de transformer
+❌ backpropagation
+❌ dataset qui s’auto-update directement dans le modèle
+🧠 5. Nom exact de ton système
+
+Ton architecture s’appelle :
+
+🔥 Hybrid Rule + Semantic Retrieval Classifier with Human-in-the-loop Learning
+
+ou plus simple :
+
+🧠 Système de classification intelligent basé sur règles + similarité + apprentissage supervisé assisté# Corrections appliquées sur le workflow de création de documents Sage
 
 ## 1. Numéros de pièce uniques et sans écrasement
 
