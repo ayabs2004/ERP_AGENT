@@ -1,697 +1,261 @@
-{"ts": 1783157320.3068318, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783159693.8326092, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161331.4416664, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161365.5725603, "question": "Affiche tous les fournisseurs.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161377.120997, "question": "Montre-moi tous les articles.", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161395.6436722, "question": "Quel est le chiffre d'affaires global ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161408.8463004, "question": "Donne-moi les factures impayées.", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161430.953218, "question": "Quels sont nos clients ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161472.5799332, "question": "Je voudrais voir la clientèle.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161499.175688, "question": "Montre le portefeuille client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161534.821699, "question": "Qui sont nos acheteurs ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161550.5990953, "question": "Peux-tu afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783161644.830575, "question": "tu peux afficher  tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161675.3607557, "question": "liste les clints", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161684.2720976, "question": "facturs impayes", "action": "FACTURES_NON_REGLEES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161700.0695882, "question": "genere une factre", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161725.8573318, "question": "Je veux générer une facture pour un client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161753.3699868, "question": "Je veux générer une facture pour le client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161774.9320161, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161811.176043, "question": "Non , je veux dire le stock de ECRAN4K pas liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161820.610034, "question": "erreur", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783161847.7159827, "question": "erreur, je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161861.884331, "question": "je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161876.641726, "question": "crer un client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161896.8984563, "question": "créer un nouveau client qui n'existe pas encore dans notre base de données", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783161905.7551017, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161925.3577647, "question": "J'aimerais savoir quels sont les clients avec lesquels nous travaillons actuellement.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161939.6862977, "question": "J'aimerais connaître notre chiffre d'affaires.", "action": "CA_GLOBAL", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783161955.2954102, "question": "Montre-moi les produits disponibles.", "action": "DOCS_PERIODE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783161978.9193175, "question": "non ,je veux la liste des produits", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783161993.2004647, "question": "Montre la fiche du client CLI001", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162009.037935, "question": "Affiche le client CLI002.", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783162033.3930886, "question": "Le client CLI001 est-il bloqué ?", "action": "RFM", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162097.089289, "question": "non , je veux savoir Le client CLI123 est-il bloqué ?", "action": "RFM", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783162120.0809736, "question": "Stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162139.3769095, "question": "Crée une facture.", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162153.465921, "question": "pour CLI001", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783162193.4300003, "question": "Prépare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162198.715693, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162233.985287, "question": "Crée un ordre de fabrication de 2 IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162238.5133057, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162248.4583743, "question": "crée le BF pour OF26070411503852731044D7AADF", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162252.5198355, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162266.2254739, "question": "Facture.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162282.8664489, "question": "NON , pas client facture", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162306.3207607, "question": "Document.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162321.6837955, "question": "Quels sont les clients ayant plus de 5 commandes ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162337.433383, "question": "Quels articles coûtent plus de 50 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162371.126879, "question": "Quels articles coûtent plus de 500 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162387.8981767, "question": "non pas ca", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162402.9671717, "question": "Quels clients sont inactifs depuis un an ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162414.6862676, "question": "Classe les clients selon leur chiffre d'affaires.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162449.5255992, "question": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires.  👥 Clients actifs — 5 client(s) :", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162464.3286097, "question": "Liste les factures du mois de juin.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162481.9862893, "question": "Liste les BL du mois de janvier.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162491.6946554, "question": "Bon de Livraison", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162507.4090002, "question": "Liste les Bon de Livraison du mois de janvier.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162517.4189262, "question": "Liste les BL du mois de juin.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162526.9237578, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162537.1592588, "question": "et les factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162595.4678802, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162621.2846777, "question": "Affiche le stock et le prix de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162638.490602, "question": "Affiche le stock et le prix de IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162652.9359982, "question": "Liste les fournisseurs et leurs commandes.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162684.8801806, "question": "Récupérer la liste des articles existants dans la base de données", "action": "LISTE_ARTICLES", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783162687.2910612, "question": "Créer un ordre de fabrication (OF) pour 2 pièces de type ECRAN4K", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162703.9563992, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162709.5707657, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162715.5417378, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162724.6658084, "question": "Quels fournisseurs nous rapportent le plus indirectement ?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162729.5187235, "question": "NON", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162738.6022818, "question": "Annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783162742.9522336, "question": "Quels fournisseurs nous rapportent le plus indirectement ?", "action": "LISTE_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162762.178758, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162766.732769, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162784.2850494, "question": "Quels produits devraient être réapprovisionnés ?", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162806.54739, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162809.2929738, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162824.7572343, "question": "Je veux voir tous ceux qui nous achètent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162838.4420173, "question": "Quels partenaires commerciaux avons-nous ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162862.0702612, "question": "Je veux voir tous ceux qui nous achètent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162875.820877, "question": "Vérifier si la condition est vraie", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162875.8704047, "question": "Récupérer la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162876.3893979, "question": "Filtrer la liste des clients pour ne garder que ceux qui n'ont pas produit", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162910.0875509, "question": "Qui nous passe le plus de commandes ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162921.3456526, "question": "Qui nous rapporte le plus d'argent ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783162932.8634424, "question": "Quels acheteurs sont les meilleurs ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162957.1358573, "question": "statut client", "action": "STATUT_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783162978.9368105, "question": "stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783162986.8986516, "question": "rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783163005.6076183, "question": "seuil de stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163023.1071427, "question": "le stock de l article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783163047.3345542, "question": "le stock de l article LAPTOP", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163068.320134, "question": "Gestion client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783163090.0956345, "question": "Document commercial.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163108.2251735, "question": "Créer un document.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163127.847762, "question": "Historique.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163137.945324, "question": "État client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783163797.435078, "question": "Combien ai-je de clients actifs ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783163809.993512, "question": "Quels sont les clients créés ce mois-ci ?", "action": "LISTE_CLIENTS", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783163821.9868765, "question": "Affiche tous les clients bloqués", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783163842.9026542, "question": "Quels articles ont un stock inférieur à 10 ?", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783163856.3663573, "question": "Quels articles ont un stock inférieur à 5 ?", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783163870.9282885, "question": "Quelles factures sont en retard de paiement ?", "action": "DSO", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164118.6108506, "question": "Factures du client CLI003", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164129.1463835, "question": "CA par mois", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164143.2943127, "question": "Marge par article", "action": "RENTABILITE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164155.6050293, "question": "Clients ayant plus de 3 factures impayées", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164167.3221247, "question": "Articles les plus vendus ce mois-ci", "action": "PALMARES_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164178.7212386, "question": "Clients dont le CA a baissé", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164197.8092124, "question": "Fournisseurs avec factures non réglées", "action": "FACTURES_NON_REGLEES_FOURN", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164211.341326, "question": "Encours total par client", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783164618.5610065, "question": "Clients et leurs factures non payées", "action": "FACTURES_NON_REGLEES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783164637.792153, "question": "Clients + nombre de commandes + CA total", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164657.2118785, "question": "Moyenne des factures par client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783164675.4371917, "question": "en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783164690.971279, "question": "Moyenne des factures par client en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783164701.2829947, "question": "Clients classés par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164712.679721, "question": "Top fournisseurs par volume d’achat", "action": "TOP_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164734.900747, "question": "top Clients  par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164756.0521886, "question": "Quels produits marchent le mieux ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783164767.119339, "question": "Quels clients me posent problème ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164776.2721016, "question": "Résumé des ventes", "action": "DASHBOARD_EXCEL", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164800.7305675, "question": "Stock + prix de l’article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783164816.288659, "question": "Stock et prix de l’article REF444", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783164827.4255831, "question": "Factures impayées + encours élevé", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783164852.3481724, "question": "liste les clients avec leurs factures impayées", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170625.0113847, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170625.2423773, "question": "Affiche tous les fournisseurs.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170625.29575, "question": "Montre-moi tous les articles.", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170625.3295758, "question": "Quel est le chiffre d'affaires global ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170625.3570375, "question": "Donne-moi les factures impayÃ©es.", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170636.7926702, "question": "Quels sont nos clients ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170637.7841403, "question": "Je voudrais voir la clientÃ¨le.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170638.8054705, "question": "Montre le portefeuille client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170640.2415662, "question": "Qui sont nos acheteurs ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783170641.1508827, "question": "Peux-tu afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783170641.9654813, "question": "tu peux afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783170643.0812497, "question": "liste les clints", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170644.0177286, "question": "facturs impayes", "action": "FACTURES_NON_REGLEES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783170646.5876086, "question": "genere une factre", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170659.6120498, "question": "Je veux gÃ©nÃ©rer une facture pour un client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170672.7441196, "question": "Je veux gÃ©nÃ©rer une facture pour le client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783170683.25291, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783170683.3348193, "question": "Non , je veux dire le stock de ECRAN4K pas liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783170690.557344, "question": "erreur", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783171278.3965485, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171278.6849718, "question": "Affiche tous les fournisseurs.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171278.7516384, "question": "Montre-moi tous les articles.", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171278.8001559, "question": "Quel est le chiffre d'affaires global ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171278.8441954, "question": "Donne-moi les factures impayÃ©es.", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171284.16315, "question": "Quels sont nos clients ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171285.8887014, "question": "Je voudrais voir la clientÃ¨le.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171287.13211, "question": "Montre le portefeuille client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171288.854094, "question": "Qui sont nos acheteurs ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171289.9778244, "question": "Peux-tu afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783171291.0007675, "question": "tu peux afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171292.1500385, "question": "liste les clints", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171293.0477061, "question": "facturs impayes", "action": "FACTURES_NON_REGLEES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171294.6408303, "question": "genere une factre", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171310.6288915, "question": "Je veux gÃ©nÃ©rer une facture pour un client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171320.7549098, "question": "Je veux gÃ©nÃ©rer une facture pour le client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171328.2872164, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171328.4641361, "question": "Non , je veux dire le stock de ECRAN4K pas liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171338.9636502, "question": "erreur", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783171353.5824826, "question": "erreur, je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171360.490592, "question": "je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171360.584941, "question": "crer un client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171360.6327648, "question": "crÃ©er un nouveau client qui n'existe pas encore dans notre base de donnÃ©es", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171369.8396587, "question": "J'aimerais savoir quels sont les clients avec lesquels nous travaillons actuellement.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171378.6467214, "question": "J'aimerais connaÃ®tre notre chiffre d'affaires.", "action": "CA_GLOBAL", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171388.9720678, "question": "Montre-moi les produits disponibles.", "action": "DOCS_PERIODE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171396.0314867, "question": "non ,je veux la liste des produits", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171396.1166196, "question": "Montre la fiche du client CLI001", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171406.501311, "question": "Affiche le client CLI002.", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171416.130319, "question": "Le client CLI001 est-il bloquÃ© ?", "action": "RFM", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171423.6020942, "question": "non , je veux savoir Le client CLI123 est-il bloquÃ© ?", "action": "RFM", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783171430.8730075, "question": "Stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171439.0217056, "question": "CrÃ©e une facture.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171452.5892432, "question": "pour CLI001", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783171452.7014108, "question": "PrÃ©pare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171453.0897577, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783171453.160281, "question": "CrÃ©e un ordre de fabrication de 2 IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171453.3373513, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783171464.263155, "question": "crÃ©e le BF pour OF26070411503852731044D7AADF", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171495.567764, "question": "Facture.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171503.5105834, "question": "NON , pas client facture", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171518.1988955, "question": "Document.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171518.3328326, "question": "Quels sont les clients ayant plus de 5 commandes ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171529.997946, "question": "Quels articles coÃ»tent plus de 50 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171543.100995, "question": "Quels articles coÃ»tent plus de 500 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171548.0171275, "question": "non pas ca", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171548.0937421, "question": "Quels clients sont inactifs depuis un an ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171559.4921129, "question": "Classe les clients selon leur chiffre d'affaires.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171559.577552, "question": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires. ðŸ‘¥ Clients actifs â€” 5 client(s) :", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171559.633762, "question": "Liste les factures du mois de juin.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171567.562948, "question": "Liste les BL du mois de janvier.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171570.2098243, "question": "Bon de Livraison", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171570.9954324, "question": "Liste les Bon de Livraison du mois de janvier.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171579.8946235, "question": "Liste les BL du mois de juin.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171580.4005766, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171590.157407, "question": "et les factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171590.2472763, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171590.3524806, "question": "Liste les fournisseurs et leurs commandes.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171597.2837563, "question": "Récupérer la liste des articles existants dans la base de données", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171597.369793, "question": "Créer un ordre de fabrication (OF) pour 2 pièces de l'article ECRAN4K", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171597.5961146, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783171597.6843314, "question": "Quels clients achÃ¨tent beaucoup mais paient toujours en retard ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171597.7578764, "question": "Quels fournisseurs nous rapportent le plus indirectement ?", "action": "LISTE_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171608.6434731, "question": "Quels produits devraient Ãªtre rÃ©approvisionnÃ©s ?", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171608.7295942, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171608.8201587, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171611.7320244, "question": "Je veux voir tous ceux qui nous achÃ¨tent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171624.8268714, "question": "Quels partenaires commerciaux avons-nous ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171636.9050229, "question": "Je veux voir tous ceux qui nous achÃ¨tent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171646.6340742, "question": "Vérifier si la condition est vraie", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171646.7366412, "question": "Récupérer la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171648.1727107, "question": "Filtrer la liste des clients pour ne garder que ceux qui n'ont pas produit", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171658.0890255, "question": "Qui nous passe le plus de commandes ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171661.7983665, "question": "Qui nous rapporte le plus d'argent ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171673.940187, "question": "Quels acheteurs sont les meilleurs ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171674.0670257, "question": "statut client", "action": "STATUT_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171686.2106364, "question": "stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171686.3323915, "question": "rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171694.5559936, "question": "seuil de stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171702.19596, "question": "le stock de l article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783171712.7837107, "question": "le stock de l article LAPTOP", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171721.5507834, "question": "Gestion client.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171738.1787682, "question": "Document commercial.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171741.9677603, "question": "CrÃ©er un document.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171754.9870033, "question": "Historique.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171760.5669656, "question": "Ã‰tat client.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171760.7838364, "question": "Combien ai-je de clients actifs ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171768.7163458, "question": "Quels sont les clients crÃ©Ã©s ce mois-ci ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171768.7786734, "question": "Affiche tous les clients bloquÃ©s", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171778.729339, "question": "Quels articles ont un stock infÃ©rieur Ã  5 ?", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783171778.8232322, "question": "Quelles factures sont en retard de paiement ?", "action": "DSO", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171778.9253607, "question": "Factures du client CLI003", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171778.9775438, "question": "CA par mois", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171779.5654728, "question": "Marge par article", "action": "RENTABILITE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171779.6331258, "question": "Clients ayant plus de 3 factures impayÃ©es", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171779.734384, "question": "Articles les plus vendus ce mois-ci", "action": "PALMARES_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171779.8432834, "question": "Clients dont le CA a baissÃ©", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171785.083917, "question": "Fournisseurs avec factures non rÃ©glÃ©es", "action": "FACTURES_NON_REGLEES_FOURN", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783171795.3332942, "question": "Encours total par client", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171802.0667484, "question": "Clients et leurs factures non payees", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171802.172265, "question": "Clients + nombre de commandes + CA total", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171810.9084978, "question": "Moyenne des factures par client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171820.0159929, "question": "en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171833.6082323, "question": "Moyenne des factures par client en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171833.6521735, "question": "Clients classÃ©s par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171833.6956656, "question": "Top fournisseurs par volume dâ€™achat", "action": "TOP_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171833.738564, "question": "top Clients par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171842.0396886, "question": "Quels produits marchent le mieux ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171842.1153226, "question": "Quels clients me posent problÃ¨me ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171854.7093673, "question": "RÃ©sumÃ© des ventes", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783171863.5490348, "question": "Stock + prix de lâ€™article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171873.450766, "question": "Stock et prix de lâ€™article REF444", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783171873.5337596, "question": "Factures impayÃ©es + encours Ã©levÃ©", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783171873.7306197, "question": "liste les clients avec leurs factures impayÃ©es", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172655.5916383, "question": "Liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172659.595496, "question": "Affiche tous les fournisseurs.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172662.8546557, "question": "Montre-moi tous les articles.", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172662.9159594, "question": "Quel est le chiffre d'affaires global ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172662.9726827, "question": "Donne-moi les factures impayÃ©es.", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172669.9673111, "question": "Quels sont nos clients ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172671.3574033, "question": "Je voudrais voir la clientÃ¨le.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172672.5812688, "question": "Montre le portefeuille client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172674.0302868, "question": "Qui sont nos acheteurs ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172675.18751, "question": "Peux-tu afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783172676.2670193, "question": "tu peux afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172677.165098, "question": "liste les clints", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172678.0395944, "question": "facturs impayes", "action": "FACTURES_NON_REGLEES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172683.7386956, "question": "genere une factre", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172695.6470656, "question": "Je veux gÃ©nÃ©rer une facture pour un client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172708.9808748, "question": "Je veux gÃ©nÃ©rer une facture pour le client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172716.5268695, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172716.7049546, "question": "Non , je veux dire le stock de ECRAN4K pas liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172725.0872414, "question": "erreur", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783172737.8095229, "question": "erreur, je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172745.3838766, "question": "je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172745.4428446, "question": "crer un client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172745.6037092, "question": "crÃ©er un nouveau client qui n'existe pas encore dans notre base de donnÃ©es", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172754.8202112, "question": "J'aimerais savoir quels sont les clients avec lesquels nous travaillons actuellement.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172763.8363154, "question": "J'aimerais connaÃ®tre notre chiffre d'affaires.", "action": "CA_GLOBAL", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172772.1506677, "question": "Montre-moi les produits disponibles.", "action": "DOCS_PERIODE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172783.7851024, "question": "non ,je veux la liste des produits", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172783.8664997, "question": "Montre la fiche du client CLI001", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172795.3177564, "question": "Affiche le client CLI002.", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172800.8972998, "question": "Le client CLI001 est-il bloquÃ© ?", "action": "RFM", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172809.7085276, "question": "non , je veux savoir Le client CLI123 est-il bloquÃ© ?", "action": "RFM", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783172816.932778, "question": "Stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172826.0034683, "question": "CrÃ©e une facture.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172839.3371904, "question": "pour CLI001", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783172844.4721825, "question": "PrÃ©pare un bon de livraison pour CLI001 de 2 pieces de IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172844.7585676, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783172844.9213057, "question": "CrÃ©e un ordre de fabrication de 2 IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172845.0436008, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783172849.7803738, "question": "crÃ©e le BF pour OF26070411503852731044D7AADF", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172882.1383598, "question": "Facture.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172890.2011318, "question": "NON , pas client facture", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172898.699166, "question": "Document.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172902.1856074, "question": "Quels sont les clients ayant plus de 5 commandes ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172910.8673246, "question": "Quels articles coÃ»tent plus de 50 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172922.4421513, "question": "Quels articles coÃ»tent plus de 500 DT ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172930.116419, "question": "non pas ca", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172934.0870464, "question": "Quels clients sont inactifs depuis un an ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172938.986058, "question": "Classe les clients selon leur chiffre d'affaires.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172939.1098742, "question": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires. ðŸ‘¥ Clients actifs â€” 5 client(s) :", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172939.2334826, "question": "Liste les factures du mois de juin.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172944.8114595, "question": "Liste les BL du mois de janvier.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172947.3045506, "question": "Bon de Livraison", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172950.84144, "question": "Liste les Bon de Livraison du mois de janvier.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172957.1753218, "question": "Liste les BL du mois de juin.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172961.796614, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172968.382182, "question": "et les factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172968.4493423, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172968.5023997, "question": "Liste les fournisseurs et leurs commandes.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172979.584983, "question": "Récupérer la liste des articles existants dans la base de données", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783172979.6768274, "question": "Créer un ordre de fabrication (OF) pour 2 pièces de l'article ECRAN4K", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172979.8846335, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783172979.9412699, "question": "Quels clients achÃ¨tent beaucoup mais paient toujours en retard ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172979.9919264, "question": "Quels fournisseurs nous rapportent le plus indirectement ?", "action": "LISTE_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172986.8561788, "question": "Quels produits devraient Ãªtre rÃ©approvisionnÃ©s ?", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783172986.921648, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172986.9971395, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783172995.728253, "question": "Je veux voir tous ceux qui nous achÃ¨tent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173004.7707474, "question": "Quels partenaires commerciaux avons-nous ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173016.658586, "question": "Je veux voir tous ceux qui nous achÃ¨tent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173029.3555448, "question": "Vérifier si la condition est vraie", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173029.4564714, "question": "Récupérer la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173030.4115658, "question": "Filtrer la liste des clients pour ne garder que ceux qui n'ont pas produit", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173035.302597, "question": "Qui nous passe le plus de commandes ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173044.5998836, "question": "Qui nous rapporte le plus d'argent ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173052.8184752, "question": "Quels acheteurs sont les meilleurs ?", "action": "TOP_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173052.882976, "question": "statut client", "action": "STATUT_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173065.8069363, "question": "stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173065.9133642, "question": "rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173077.5622997, "question": "seuil de stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173084.3520505, "question": "le stock de l article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783173092.7637515, "question": "le stock de l article LAPTOP", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173100.5190141, "question": "Gestion client.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173119.3651862, "question": "Document commercial.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173121.1825814, "question": "CrÃ©er un document.", "action": "GENERER_DOC", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173135.9503083, "question": "Historique.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173137.4490657, "question": "Ã‰tat client.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173140.881986, "question": "Combien ai-je de clients actifs ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173151.4037123, "question": "Quels sont les clients crÃ©Ã©s ce mois-ci ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173151.4741514, "question": "Affiche tous les clients bloquÃ©s", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173156.1004493, "question": "Quels articles ont un stock infÃ©rieur Ã  5 ?", "action": "VERIFIER_STOCK", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783173156.1783495, "question": "Quelles factures sont en retard de paiement ?", "action": "DSO", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173156.2498825, "question": "Factures du client CLI003", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173156.3070803, "question": "CA par mois", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173159.4063957, "question": "Marge par article", "action": "RENTABILITE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173159.4644525, "question": "Clients ayant plus de 3 factures impayÃ©es", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173162.7356095, "question": "Articles les plus vendus ce mois-ci", "action": "PALMARES_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173162.811455, "question": "Clients dont le CA a baissÃ©", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173168.336689, "question": "Fournisseurs avec factures non rÃ©glÃ©es", "action": "FACTURES_NON_REGLEES_FOURN", "origine": "ARBITRAGE_LLM", "confidence": 0.8}
-{"ts": 1783173171.3529413, "question": "Encours total par client", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173178.0476754, "question": "Clients et leurs factures non payees", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173178.1167517, "question": "Clients + nombre de commandes + CA total", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173187.1565876, "question": "Moyenne des factures par client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173196.8928275, "question": "en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173215.6548696, "question": "Moyenne des factures par client en fonction du nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173215.7011764, "question": "Clients classÃ©s par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173221.4769619, "question": "Top fournisseurs par volume dâ€™achat", "action": "TOP_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173221.6751263, "question": "top Clients par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173228.7284467, "question": "Quels produits marchent le mieux ?", "action": "PALMARES_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173228.8285115, "question": "Quels clients me posent problÃ¨me ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173239.2946126, "question": "RÃ©sumÃ© des ventes", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783173242.347643, "question": "Stock + prix de lâ€™article IMPRIMANTE", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173253.0992408, "question": "Stock et prix de lâ€™article REF444", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783173253.166566, "question": "Factures impayÃ©es + encours Ã©levÃ©", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783173253.2219017, "question": "liste les clients avec leurs factures impayÃ©es", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783177374.59464, "question": "Peux-tu afficher tous les comptes clients ?", "action": "FICHE_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 1.0}
-{"ts": 1783177457.3808348, "question": "tous les details des clients", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783177543.348561, "question": "Je veux générer une facture pour un client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783177571.871324, "question": "Je veux générer une facture pour le client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783177595.5270922, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783177609.811151, "question": "je veux le stock de ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783177639.296363, "question": "créer un nouveau client qui n'existe pas encore dans notre base de données", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783177645.0318463, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783177687.0250332, "question": "Montre-moi les produits disponibles", "action": "DOCS_PERIODE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783177700.0285594, "question": "Le client CLI001 est-il bloqué ?", "action": "RFM", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783177734.7598188, "question": "Crée une facture.", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183626.8504834, "question": "Peux-tu afficher tous les comptes clients", "action": "LISTE_CLIENTS", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783183646.674639, "question": "tous les details des clients", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783183666.3595715, "question": "les informations de contact des clients (adresse, téléphone, email, etc.)", "action": "FICHE_CLIENT", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783183688.6635795, "question": "obtenir l'historique des commandes des clients (dates, quantités, montants, etc.)", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783183710.6716685, "question": "Je veux générer une facture pour un client", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183720.598896, "question": "CLI001", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.5}
-{"ts": 1783183750.6949742, "question": "Je veux générer une facture pour le client CLI001", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183766.8063004, "question": "IMPRIMANTE", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783183791.9520335, "question": "stok de ECRAN4K", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783183807.5620062, "question": "créer un nouveau client qui n'existe pas encore dans notre base de données", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183825.9597604, "question": "AYA", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783183846.231563, "question": "Montre-moi les produits disponibles.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783183858.850032, "question": "Le client CLI001 est-il bloqué ?", "action": "STATUT_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183882.610798, "question": "Crée une facture.", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183915.802235, "question": "Quels articles coûtent plus de 50 DT ?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783183923.4883173, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783183927.076841, "question": "Quels articles coûtent plus de 50 DT ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183961.1720867, "question": "Classe les clients selon leur chiffre d'affaires.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783183992.029487, "question": "Liste les BL du mois de juin", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184027.5018547, "question": "Montre les clients et leurs factures.", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184054.3168466, "question": "Quels clients achètent beaucoup mais paient toujours en retard ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184066.5623589, "question": "Quels produits devraient être réapprovisionnés ?", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184086.040879, "question": "niveau de stock<2", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184102.2235484, "question": "afficher les articles dont le niveau de stock est inférieur à 2 unités", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184120.0854316, "question": "Quels clients sont rentables mais commandent rarement ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184132.3266163, "question": "Je veux voir tous ceux qui nous achètent des produits.", "action": "LISTE_ARTICLES", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184148.7643147, "question": "stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184163.5881593, "question": "seuil de stock", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184176.2900822, "question": "Historique.", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184196.6644704, "question": "État client.", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184236.3286583, "question": "Combien ai-je de clients actifs ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184264.250186, "question": "Quels sont les clients qui ont commandes  ce mois-ci ?", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184278.2353868, "question": "Quels articles ont un stock inférieur à 10 ?", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184290.6907709, "question": "Quels articles ont un stock inférieur à 2 ?", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783184299.843094, "question": "Articles les plus vendus ce mois-ci", "action": "PALMARES_ARTICLES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184312.457998, "question": "Clients dont le CA a baissé", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184331.5431025, "question": "Clients + nombre de commandes + CA total", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184368.1166205, "question": "Moyenne des factures par client", "action": "TOUTES_FACTURES_CLIENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184397.7841945, "question": "calculer la moyenne des factures par client en fonction de  nombre de factures", "action": "TOUTES_FACTURES_CLIENT", "origine": "ARBITRAGE_LLM", "confidence": 0.9}
-{"ts": 1783184426.001359, "question": "Clients classés par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184448.5606332, "question": "top Clients par nombre de commandes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184471.2652519, "question": "Quels clients me posent problème ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184494.0252492, "question": "Stock et prix de l’article ECRAN4K", "action": "VERIFIER_STOCK", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783184513.0704422, "question": "Factures impayées + encours élevé", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184581.629675, "question": "Cree bl pour le client CLI003 de 2 pieces de IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783184591.6016214, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783184614.2529738, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783187968.1321635, "question": "cree une facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783187975.1860378, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783187999.2407115, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188009.8783853, "question": "CREE BL", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188018.1764207, "question": "aanuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188025.7055001, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188034.258048, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783188043.237884, "question": "cree of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188058.4021835, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188080.8666956, "question": "cree bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188090.0968297, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188095.2980964, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783188102.7880607, "question": "CLI003", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188120.7965808, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188136.1993048, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188148.8919818, "question": "Cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783188155.277682, "question": "cli001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188162.9700878, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188173.472707, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188181.730592, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783188192.2889125, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188208.7749295, "question": "cree client", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188216.1597438, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188223.4978507, "question": "cree client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783188242.3079393, "question": "cree client aya", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783188277.1583755, "question": "nom:aya", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783190400.5254023, "question": "cree le client aya", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783190418.1115403, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783190446.6721177, "question": "cree facture pour le client CLI003", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783190459.6245944, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190476.5553412, "question": "08/04/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190495.7572143, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190525.9875686, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783190533.6664877, "question": "CLI003", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190541.7165735, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190551.1197896, "question": "07/04/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783190559.2881486, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783191075.0853431, "question": "Cree un of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783191083.5205412, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783191097.4920256, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783191239.154912, "question": "Cree bl de 1 pieces de IMPRIMANTE pour le client CLI003 pour demain", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783191271.4254029, "question": "05/07/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783191281.4410856, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783191287.8168924, "question": "Créer la facture pour le BL BL2607041954416613684A64C13E", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783191304.0596101, "question": "05/07/2026", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783242961.490557, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783242965.0923297, "question": "CLI002", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783242977.3528757, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783242983.3385203, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783242993.27652, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783242995.9209986, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243006.5115292, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243019.522571, "question": "CLI006", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243023.8022163, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243025.5943906, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243037.8317757, "question": "06/07/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243049.5997484, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243065.0277727, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243078.4744263, "question": "CREE BL", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243093.2488642, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243097.6430116, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243099.9970984, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243103.1349366, "question": "DEMAIN", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243117.7366562, "question": "le 6 juillet", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243145.3493707, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243153.486801, "question": "cree client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243186.0605943, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243204.097113, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243207.0216718, "question": "3", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243212.6157072, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783243253.826347, "question": "Cree le client aya", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243262.9493103, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783243366.9816554, "question": "cree le fournisseur", "action": "CREER_FOURNISSEUR", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783243373.9251764, "question": "nouuur", "action": "CREER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247159.9026694, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247163.8719878, "question": "CLI003", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247181.956348, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247184.3993409, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247189.464719, "question": "07/05/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247198.4054232, "question": "05/07/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247208.136782, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247241.488846, "question": "regle les factures du client CLI001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247271.7709103, "question": "reglement par virement", "action": "REGLEMENT", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783247284.8226275, "question": "VIR1", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 0.5}
-{"ts": 1783247296.9369636, "question": "100", "action": "NL2SQL_LIBRE", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783247341.3141818, "question": "cree bl pour CLI003 de 1 piece de IMPRIMANTE", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247352.2197397, "question": "06/07/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247355.7680657, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247362.2978933, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247626.128575, "question": "cree un client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247658.0710957, "question": "cree un fournisseur", "action": "CREER_FOURNISSEUR", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247664.9982564, "question": "nouur/mah", "action": "CREER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783247673.5335245, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783247865.3816304, "question": "toutes les factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247887.2141452, "question": "donne moi la liste des factures du client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247910.0586443, "question": "regle la facture FA260630175732", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783247916.5040355, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783284653.9091668, "question": "liste les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783285548.1002398, "question": "iste les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783285565.3663802, "question": "regle la facture FA260630175732", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783285592.9552248, "question": "123456789", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783285606.8320897, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783285673.599424, "question": "cree un client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783285701.4785228, "question": "15000", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783285717.5281084, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783287786.4366798, "question": "regle la facture FA260630175732", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783287799.5904691, "question": "12345", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783287811.3585815, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783287822.5292037, "question": "cree client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783287839.7350094, "question": "15000", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783287844.611765, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783289136.2309427, "question": "regle la facture FA260630175732", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783289144.9984093, "question": "1345", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783289159.239037, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783289178.9676094, "question": "cree fournisseur", "action": "CREER_FOURNISSEUR", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783289186.582718, "question": "aya, dggg", "action": "CREER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783289190.8052819, "question": "y", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 1.0}
-{"ts": 1783290181.611656, "question": "regle la facture FA260630175732", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783290185.1490955, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783290187.6672952, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783290198.5347977, "question": "cree client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783290214.4878764, "question": "15000", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783290217.6954634, "question": "y", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783290225.843743, "question": "cree fournisseur", "action": "CREER_FOURNISSEUR", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783290242.8959525, "question": "cree fournisseur", "action": "CREER_FOURNISSEUR", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783290251.2896636, "question": "nour ,dfff", "action": "CREER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783290253.5508883, "question": "y", "action": "CREER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783350728.3291292, "question": "Quelles sont les conditions commerciales du client CLI001", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783352896.595114, "question": "Quelles sont les conditions commerciales du client CLI001", "action": "LISTE_CLIENTS", "origine": "LLM", "confidence": 0.8}
-{"ts": 1783355714.0968964, "question": "Quelles sont les conditions commerciales du client CLI001", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783356178.1626723, "question": "Quelles sont les conditions commerciales du client CLI001", "action": "FICHE_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783357167.2603652, "question": "Quelles sont les caractéristiques de l’article ECRAN4K", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783357198.4715078, "question": "Quels articles ont eu des réclamations ?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783358858.720874, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783358962.7334661, "question": "Quelles sont les caractéristiques de l’article ECRAN4K", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783358988.6301177, "question": "Quelles sont les conditions commerciales du client CLI001", "action": "FICHE_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783359153.1421185, "question": "Donne-moi la fiche technique du IMPRIMANTE", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359244.5538502, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359263.1634402, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359342.3739731, "question": "Quel est le motif de réclamation pour le CPU-I7 ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359367.5545337, "question": "Combien de clients ont signalé un défaut sur la BATTERIE ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359378.3075697, "question": "Combien de clients ont signalé un défaut sur la BATTERIE ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359411.5897365, "question": "Quelles sont les réclamations SAV en cours de traitement ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359436.2797768, "question": "Quelles sont les conditions commerciales négociées avec CLI001 ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359444.040389, "question": "Quelles sont les conditions commerciales négociées avec CLI001 ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359470.1981761, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359489.3258965, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783359517.2659526, "question": "Depuis quand CLI001 bénéficie-t-il de ces conditions ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 0.9}
-{"ts": 1783359520.9648156, "question": "Depuis quand CLI001 bénéficie-t-il de ces conditions ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 0.9}
-{"ts": 1783359572.345819, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783359578.0993028, "question": "liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783359595.1620667, "question": "liste tous les clients", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783359602.9534779, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783359620.289131, "question": "Quel est le stock de l'article ECRAN4K ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783369532.2092798, "question": "Quelles sont les caractéristiques de l'article ECRAN4K ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783369563.3582904, "question": "Donne-moi la fiche technique du CPU-I7", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369588.7250605, "question": "Donne-moi la fiche technique du IMPRIMANTE", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369612.008066, "question": "Quelle est la matière de fabrication de DALLE01 ?", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783369625.9458776, "question": "Quelle est la matière de fabrication de DALLE01 ?", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783369669.60623, "question": "Quel est le procédé de fabrication de l'article CHASSIS-ALU ?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369687.053253, "question": "Quel est le procédé de fabrication de l'article LAPTOP?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369733.7275596, "question": "Quelle tolérance dimensionnelle pour l'ECRAN-FHD ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369755.135845, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783369794.26357, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369802.122345, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369832.359513, "question": "Quel est le motif de réclamation pour le CPU-I7 ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369848.728572, "question": "Combien de clients ont signalé un défaut sur la BATTERIE ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369859.9130344, "question": "Quelles sont les réclamations SAV en cours de traitement ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369884.0393257, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369908.4375074, "question": "Quelles sont les conditions commerciales négociées avec CLI001 ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783369924.8714721, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369945.8142111, "question": "Quels articles ont été commandés par email récemment ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783369961.5345337, "question": "Quels articles ont été commandés par email récemment ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783370004.4420576, "question": "Article ECRAN4K : stock et caractéristiques ?", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783370028.0825536, "question": "Pourquoi le client CLI001 a-t-il des conditions particulières ?", "action": "FICHE_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783441492.1700697, "question": "Quelles sont les caractéristiques de l'article ECRAN4K ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783441508.482322, "question": "Donne-moi la fiche technique du CPU-I7", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783441540.7912922, "question": "Donne-moi la fiche technique du imprimante", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783441681.5714655, "question": "Quelle est la matière de fabrication de DALLE01 ?", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
-{"ts": 1783441707.998669, "question": "....Quel est le procédé de fabrication de l'article CHASSIS-ALU ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783441727.8792338, "question": "Quel est le procédé de fabrication de l'article LAPTOP?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783441760.3258219, "question": "Quelle tolérance dimensionnelle pour l'ECRAN-FHD ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783441770.888094, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783441786.9195921, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442136.7140162, "question": "Pourquoi le client CLI001 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783442180.2357574, "question": "Article ECRAN4K : stock et caractéristiques ?", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783442215.1397903, "question": "Quels articles ont été commandés par email récemment ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442255.402656, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442456.9447558, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783442470.1594613, "question": "Combien de clients ont signalé un défaut sur la BATTERIE ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783442483.3866286, "question": "Quel est le motif de réclamation pour le CPU-I7 ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442501.9235725, "question": "Quelles sont les réclamations SAV en cours de traitement", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783442519.48279, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442529.8981626, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783442569.8540444, "question": "Quelle tolérance dimensionnelle pour l'ECRAN-FHD ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442601.0982883, "question": "Quel est le procédé de fabrication de l'article CHASSIS-ALU ?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783442650.2235, "question": "Donne-moi la fiche technique du IMPRIMANTE", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783442668.1720827, "question": "Donne-moi la fiche technique du CPU-I7", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783446232.1059678, "question": "Donne-moi la fiche technique du CPU-I7", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783446251.3678722, "question": "Donne-moi la fiche technique du TAPTOP", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783446267.7364953, "question": "Donne-moi la fiche technique du imprimante", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783446289.42159, "question": "Quelles sont les caractéristiques de l'article ECRAN4K ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446323.5882845, "question": "Quelle est la matière de fabrication de DALLE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446362.4026303, "question": "Quel est le procédé de fabrication de l'article CHASSIS-ALU ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446385.8377817, "question": "Quel est le procédé de fabrication de l'article LAPTOP?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446396.2738085, "question": "Quelles précautions d'usage pour la BATTERIE ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446418.1393785, "question": "Quelle tolérance dimensionnelle pour l'ECRAN-FHD ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446430.4407291, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446479.5485156, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446498.750502, "question": "Y a-t-il eu des réclamations sur CHASSIS.", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446521.4811525, "question": "Quel est le motif de réclamation pour le CPU-I7 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446530.3315856, "question": "Combien de clients ont signalé un défaut sur la BATTERIE ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446542.7213652, "question": "Quelles sont les réclamations SAV en cours de traitement ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446556.472521, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446575.2354932, "question": "Quelles sont les conditions commerciales négociées avec CLI001 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446587.8674107, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446601.6949818, "question": "Quels articles ont été commandés par email récemment ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783446624.2545404, "question": "Récupérer les informations de l'article ECRAN4K dans Sage 100, notamment le stock et les caractéristiques.", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783446625.7762325, "question": "Vérifier si les informations récupérées dans l'action 1 sont correctes et si le stock et les caractéristiques sont disponibles.", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783446651.6858618, "question": "non", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783446671.6078005, "question": "Pourquoi le client CLI001 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783447143.0115902, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783447181.1656902, "question": "conditions commerciales CLI001", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783447191.0241513, "question": "conditions commerciales CLI002", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783457353.4622352, "question": "Fiche technique du CPU-I7", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458390.6992319, "question": "Fiche technique du CPU-I7", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458427.1203632, "question": "donne-moi la fiche technique du IMPRIMANTE", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458440.1271615, "question": "Quelle est la matière de fabrication de DALLE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458455.9711127, "question": "Quelles précautions d'usage pour la BATTERIE ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458467.1258187, "question": "Quels articles ont eu des réclamations ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458477.306888, "question": "Y a-t-il eu des réclamations sur l'ECRAN4K ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458507.3269217, "question": "Quel est le contexte de la remise accordée au client Societe Alpha ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458520.71078, "question": "Quel est le contexte de la remise accordée au client CLI002", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458543.348089, "question": "Quelles sont les conditions commerciales négociées avec CLI002 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458569.270571, "question": "Y a-t-il eu un email de commande pour CLI002 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458595.4945817, "question": "Récupérer les informations de l'article ECRAN4K dans Sage 100, notamment le stock et les caractéristiques.", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783458597.4407985, "question": "Vérifier si les informations récupérées dans l'action 1 sont correctes et si le stock et les caractéristiques sont disponibles.", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783458610.4786754, "question": "NON", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.0}
-{"ts": 1783458629.311288, "question": "article", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783458660.633002, "question": "les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783458687.6380897, "question": "crre facture", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783458702.1208394, "question": "cree facture", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783458708.7647667, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783458714.7073674, "question": "cree of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783458719.308929, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783458725.099726, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464514.0410213, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464520.6411963, "question": "cli005", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464529.914429, "question": "imprimante", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464532.186254, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464541.1605995, "question": "7/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464548.2455354, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464609.4461708, "question": "comment est fabrique le produit imprimante", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.5}
-{"ts": 1783464641.4857469, "question": "comment est fabrique le produit imprimante?", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464656.5329697, "question": "fiche ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464670.0799527, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464678.351579, "question": "fiche ecran4k", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
-{"ts": 1783464704.3041067, "question": "Quels articles ont été commandés par email récemment ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464725.1313205, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
-{"ts": 1783464758.4586105, "question": "Y a-t-il eu un email de commande pour CLI002 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464786.3607197, "question": "les factures du client cli002", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464807.8404176, "question": "les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464833.3644671, "question": "regle la facture FA260630191817", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
-{"ts": 1783464841.5613644, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
-{"ts": 1783464844.1253014, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783549222.7940485, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549309.0341578, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549397.5725813, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549488.399598, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549647.4439487, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549795.6304865, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549888.1076577, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783550120.2339551, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783550141.9589067, "question": "les fournisseurs bloques", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783550152.8977754, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584631.695838, "question": "la lisurnisseurs", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783584642.7898614, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584658.911312, "question": "la liste des produits", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783584672.1698058, "question": "les factures du client cli002", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584682.7213335, "question": "les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584704.7095156, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584711.638995, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585056.4352999, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585062.220228, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585091.586012, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585097.3798335, "question": "12345", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585316.8354604, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585321.425396, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585324.534673, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585341.975053, "question": "cree le client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585358.3967025, "question": "120000", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585361.7112923, "question": "y", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585366.5821679, "question": "cree un bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585579.4958026, "question": "cree un bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585588.230432, "question": "CLI004", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585596.1731403, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585597.8953502, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585609.7461946, "question": "12/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585626.0255105, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585659.7839355, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585668.0383813, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585669.9996638, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585681.9899988, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585695.4475126, "question": "crée le BF pour OF26070909280201550741AFD759", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585700.119612, "question": "confirm", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585726.9997978, "question": "la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585850.8644137, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585865.614073, "question": "donne moi la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585868.711172, "question": "gh", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585872.0100882, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585875.4527702, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585899.6284163, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585903.9441853, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585916.6155028, "question": "donne moi la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586032.2431767, "question": "bjh", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586034.9284859, "question": "31345", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586036.729072, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586043.5823128, "question": "9/7/202", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586049.931685, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586106.6250365, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586423.7379227, "question": "donne moi la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586799.649629, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586808.5307395, "question": "donne moi la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586838.252066, "question": "Combien de clients avons-nous", "action": "LISTE_CLIENTS", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783586854.3769438, "question": "Liste des produits en rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586881.1383948, "question": "Quel est le chiffre d'affaires du mois dernier ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586908.2440355, "question": "Montre-moi les 10 factures impayées les plus anciennes", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586952.9940147, "question": "Quels clients ont commandé plus de 3 fois mais n'ont jamais payé dans les délais ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783588996.4615626, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589003.5521557, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589026.9450033, "question": "Quel est le chiffre d'affaires du mois dernier ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783589037.3029249, "question": "Quel est le fournisseur qui nous a coûté le plus cher ce trimestre, tous produits confondus ?", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589058.866563, "question": "Quels clients ont commandé plus de 3 fois mais n'ont jamais payé dans les délais ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589076.787328, "question": "Donne-moi la marge moyenne par catégorie de produit sur les 6 derniers mois", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783589083.6192148, "question": "Combien de commandes avons-nous eu la semaine dernière ?", "action": "WORKFLOW_COMMANDE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783589104.105664, "question": "Évolution du stock sur les 30 derniers jours", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589148.2293777, "question": "Y a-t-il eu un email de commande pour CLI002 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589340.9748285, "question": "les produits que CLI001 a commande", "action": "WORKFLOW_COMMANDE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783589453.1085806, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589463.612999, "question": "lamliste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600264.1277115, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600405.8980598, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600597.0356102, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600911.3654928, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600919.4649358, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600945.223857, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600954.2013521, "question": "CLI003", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600960.502474, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600963.1745257, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600968.4040508, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600984.085046, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601024.9073775, "question": "liste des factures du client CLI003", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783601101.9224224, "question": "regle la facture FA00003", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783601111.2945497, "question": "1234566", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601114.1847308, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601209.7755058, "question": "Pourquoi le client CLI001 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601232.6659079, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601384.9977539, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601965.7329073, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601975.5764832, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602044.4665499, "question": "Pourquoi le client CLI003 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783602172.6395833, "question": "Quelle est la matière de fabrication de l'article BATTERIE ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602232.4848204, "question": "Quel est le contexte de la remise accordée au client CLI002 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602256.0087817, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602275.70855, "question": "Quel est le motif de réclamation pour le CABLE-HDMI ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602336.3157754, "question": "quels articles avons-nous en stock", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783602347.069407, "question": "quels articles avons-nous en stock", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783602365.3468015, "question": "articles avec stock supérieur à 5", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602387.2888715, "question": "clients avec factures non réglées", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602445.4055154, "question": "clients sans commande depuis 1 mois", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602476.9063258, "question": "top 5 clients par chiffre d'affaires", "action": "TOP_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602509.7414017, "question": "articles vendus à un seul client", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602545.4246392, "question": "articles avec prix de vente supérieur à 50", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602764.7089455, "question": "articles avec stock inférieur à 1", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602920.421227, "question": "articles avec stock inférieur à 1", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602932.1321855, "question": "articles avec stock inférieur à 2", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602954.6627986, "question": "articles avec stock superieur a 3", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783629265.6762826, "question": "modifie le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629281.6749873, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629486.627048, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629707.4798608, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630233.6961675, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630434.9561698, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630678.0943892, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630934.7420933, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630970.7456481, "question": "Encours max: 10000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783631142.723201, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631494.0540915, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631509.5417242, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631689.7166665, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631720.8334856, "question": "Encours max:15000", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783631882.4450817, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631900.5607252, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632109.4251885, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632114.7909777, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632259.6887364, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632267.3535402, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632576.8938465, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632582.0434139, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632938.2984202, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632954.6982615, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783633000.3434322, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783633011.2826931, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783633275.581204, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783633286.8888395, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636389.3764393, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636396.2462606, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636573.0319595, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636587.338508, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636624.5874035, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636636.4999607, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636650.2037055, "question": "ghkkl", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783636672.91464, "question": "modifie le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783673653.1266766, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783673676.8707044, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783674551.0052516, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783674576.99575, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783674604.9540782, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783675041.93021, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783675061.6110857, "question": "modifier ecran4k", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783675266.1707826, "question": "modifier ecran4k", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783675284.2751231, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783676020.1223748, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676035.4565127, "question": "modifier l article ecran4k", "action": "MODIFIER_ARTICLE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783676351.228475, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676711.886895, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676784.5720694, "question": "modifier le fournisseur FOUR02", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783676809.7463996, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783676858.9163518, "question": "modifier le fournisseur Grossiste Electronique", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 1.0}
+{"ts": 1783677227.380092, "question": "modifier le fournisseur Grossiste Electronique", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 1.0}
+{"ts": 1783677242.6661167, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783677428.8568442, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783677442.0538669, "question": "modifier le fournisseur Grossiste Electronique", "action": "MODIFIER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783677717.3354461, "question": "modifier le client Societe Alpha", "action": "MODIFIER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783677996.2965672, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678188.8066182, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678312.6015213, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678733.5914266, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678754.8139575, "question": "modifier le client CLI001111", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678790.200926, "question": "modifier le fournisseur FOUR0001", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678811.222732, "question": "modifl article ecraaaaa", "action": "MODIFIER_ARTICLE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783678851.7934008, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783678914.6694515, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783679037.4781241, "question": "bloquer le client CLI0033", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783679989.2594242, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783680207.6972294, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783681243.6039317, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783681992.1453135, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783682778.5027843, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682817.3933773, "question": "bloquer le client CLI001", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682832.7461157, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682858.2705572, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683134.3873003, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683148.1644192, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683249.2706258, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683254.0507996, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683266.894125, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683690.3390152, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683742.7526197, "question": "y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783684826.1894915, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783684830.0502262, "question": "Y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685225.5153408, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783685228.8475537, "question": "y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685251.7368245, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783685300.569814, "question": "bloquer le client CLI001", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783685303.8082771, "question": "Y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685314.3934793, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783688737.535232, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783688958.3751068, "question": "180.000", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
+{"ts": 1783689504.6196718, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689517.5895975, "question": "180.000", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689533.4673536, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689553.3290455, "question": "non", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690101.369936, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690111.8501017, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690120.3356981, "question": "confirmer", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690151.3088615, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690533.0371401, "question": "Crée une offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690544.8725429, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690551.1085665, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690608.0320768, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP et IMPRIMANTE", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783690616.271004, "question": "CONFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690619.884641, "question": "CONFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690625.1645355, "question": "COMFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690632.8102756, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690742.9817874, "question": "Crée une offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690778.31971, "question": "CONFIRMER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690782.1211798, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691482.132128, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783691493.30587, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691498.4171605, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691501.1982212, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691507.6176019, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691515.157837, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783692968.8056536, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783692974.070229, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692976.3345132, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692984.7595527, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692996.3550367, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693001.4118385, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693007.816245, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693010.7385795, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693017.6850913, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693020.2385192, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693391.880366, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693395.14222, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693399.6068037, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693403.0232167, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693408.4997687, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693413.0628319, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693851.254556, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693854.7212062, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693859.8784096, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693863.3934734, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693872.3600595, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693911.7571962, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693917.7946405, "question": "CLI004", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693923.9114175, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693927.991307, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693937.353646, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693941.3629777, "question": "CLI000001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693945.9035635, "question": "ECRAN54K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693947.663871, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693952.3362076, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783694110.0309255, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783694114.630216, "question": "CLI000012", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}

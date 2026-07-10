@@ -1,0 +1,63 @@
+# requirements.txt — Copilot ERP Sage 100 v9.4
+# Reconstitué à partir des imports détectés dans le code source
+# et des versions trouvées dans le .venv fourni (Python 3.14, Windows).
+#
+# ⚠️ À FAIRE avant utilisation en production :
+#   1. pip install -r requirements.txt --break-system-packages   (ou dans un venv propre)
+#   2. Lancer les tests (pytest tests/) pour confirmer que rien ne casse
+#   3. Une fois validé : pip freeze > requirements.lock.txt  pour figer TOUTES
+#      les sous-dépendances transitives (reproductibilité garantie).
+
+# --- Web / API ---
+fastapi==0.139.0
+uvicorn==0.50.0
+pydantic==2.13.4
+python-dotenv==1.2.2
+
+# --- Orchestration LLM / Agents ---
+langgraph==1.2.7
+langgraph-checkpoint==4.1.1
+langchain-ollama==1.1.0
+langchain-openai==1.3.3
+ollama==0.6.2
+mcp==1.28.1
+
+# --- NL2SQL / Base de données ---
+sqlalchemy==2.0.51
+vanna==0.7.9
+sqlglot==25.27.0
+
+# --- Recherche vectorielle / RAG (base de connaissances) ---
+qdrant-client==1.18.0
+chromadb==0.6.3
+rank-bm25==0.2.2
+rapidfuzz==3.14.5
+
+# --- Génération de documents ---
+openpyxl==3.1.5
+reportlab==5.0.0
+pymupdf==1.28.0        # import : fitz
+
+# --- Utilitaires ---
+numpy==2.5.0
+pyyaml==6.0.3
+python-dateutil==2.9.0.post0
+httpx==0.28.1
+
+# --- Optionnel : rate limiting API (activé seulement si installé, cf. api.py) ---
+slowapi
+
+# --- Optionnel : extraction d'entités nommées (activé si ENABLE_GLINER=1) ---
+gliner
+
+# --- Optionnel : mémoire conversationnelle (activé si ENABLE_MEM0=1) ---
+mem0ai
+
+# --- Tests ---
+pytest
+
+# NOTE : slowapi, gliner, mem0ai et pytest sont importés dans le code
+# (api.py, semantic_classifier.py, mcp_pool.py, tests/) mais n'étaient PAS
+# présents dans le .venv livré avec le projet — preuve supplémentaire que
+# cet environnement n'était pas reproductible tel quel. Installe-les et
+# fige leur version exacte après un premier `pip install` réussi.

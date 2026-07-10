@@ -22,6 +22,7 @@ interface ChatResponse {
   responses: string[];
   suggestions: string[];
   draft_status: string;
+  confirmation_status: string;
   pdf_url: string | null;
   alerts: string[];
   attente_complements: boolean;
@@ -73,6 +74,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [draftStatus, setDraftStatus] = useState("");
+  const [confirmationStatus, setConfirmationStatus] = useState("");
   const [alerts, setAlerts] = useState<string[]>([]);
   const [attenteComplements, setAttenteComplements] = useState(false);
 
@@ -86,7 +88,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, suggestions, isLoading, draftStatus]);
+  }, [messages, suggestions, isLoading, draftStatus, confirmationStatus]);
 
   const sendMessage = async (text: string, displayText?: string) => {
     if (!text.trim()) return;
@@ -108,6 +110,11 @@ function App() {
         {
           session_id: SESSION_ID,
           message: text,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_API_TOKEN || 'your_api_token_here'}`,
+          },
         }
       );
 
@@ -115,6 +122,7 @@ function App() {
         responses,
         suggestions: newSuggestions,
         draft_status,
+        confirmation_status,
         pdf_url,
         alerts: newAlerts,
         attente_complements,
@@ -134,6 +142,7 @@ function App() {
       setMessages((prev) => [...prev, ...assistantMessages]);
       setSuggestions(newSuggestions ?? []);
       setDraftStatus(draft_status ?? "");
+      setConfirmationStatus(confirmation_status ?? "");
       setAlerts(newAlerts ?? []);
       setAttenteComplements(attente_complements);
     } catch (err) {
@@ -275,18 +284,18 @@ function App() {
             </div>
           )}
 
-          {draftStatus === "draft" && (
-            <div className="flex gap-3">
+          {(draftStatus === "draft" || draftStatus === "PREVIEW" || confirmationStatus === "ATTENTE") && (
+            <div className="flex gap-4 mt-2">
               <button
                 onClick={handleDraftConfirm}
-                className="bg-green-600 px-4 py-2 rounded"
+                className="bg-emerald-600 px-6 py-2.5 rounded-lg flex items-center justify-center min-w-[140px] font-semibold text-white shadow-md hover:bg-emerald-500 hover:shadow-lg transition-all active:scale-95"
               >
                 Confirmer
               </button>
 
               <button
                 onClick={handleDraftCancel}
-                className="bg-red-600 px-4 py-2 rounded"
+                className="bg-rose-600 px-6 py-2.5 rounded-lg flex items-center justify-center min-w-[140px] font-semibold text-white shadow-md hover:bg-rose-500 hover:shadow-lg transition-all active:scale-95"
               >
                 Annuler
               </button>
