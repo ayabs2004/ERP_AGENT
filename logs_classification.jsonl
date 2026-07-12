@@ -259,3 +259,60 @@
 {"ts": 1783693952.3362076, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
 {"ts": 1783694110.0309255, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
 {"ts": 1783694114.630216, "question": "CLI000012", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782682.4354293, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782694.2321086, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782704.6921246, "question": "donne moi la liste des clients", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782720.8250709, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782729.135248, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782742.9502797, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782751.166524, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782798.7695878, "question": "liste des articles", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783432.9908686, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783438.3492923, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783454.0320508, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783783471.044688, "question": "liste des factures du client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783484.2615142, "question": "CREE OF", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783488.3571668, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783490.7577085, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783494.6329412, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783503.8163385, "question": "crée le BF pour OF2607111624546625241F323BE6", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783507.3704896, "question": "CONFIRM", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783784035.2894523, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783803324.2187746, "question": "donne moi la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803330.9947565, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803344.3622024, "question": "les factures impayes de CLI001", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803350.4767208, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803356.607854, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803360.5609963, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803362.964709, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803367.5014422, "question": "11/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803377.920362, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803384.5090296, "question": "LAPTOP", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803386.530767, "question": "3", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803388.8444345, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803400.3780317, "question": "crée le BF pour OF260711215628925178F9C4AD26", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803402.8205414, "question": "CONFIRM", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803435.3509126, "question": "comment est fabrique ECRAN4K", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.0}
+{"ts": 1783803459.9613504, "question": "cree declaration juin 2026", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803528.9244995, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803556.816002, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803597.864731, "question": "CONFIRMER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803604.113698, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850434.4802406, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850457.4107392, "question": "annuler", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850841.1512163, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783851332.1856606, "question": "cree un offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783851781.3617246, "question": "cree un offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783879988.9757087, "question": "reset", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783880015.0586863, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880235.3203094, "question": "cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880283.8756456, "question": "Cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880298.0300212, "question": "Cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880889.1817622, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881504.3786342, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783881507.4740875, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881508.6533473, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881515.5141492, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881552.511078, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881561.790158, "question": "180", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881573.6918552, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}

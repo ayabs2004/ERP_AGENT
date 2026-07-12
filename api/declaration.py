@@ -1,6 +1,18 @@
+"""
+declaration.py — Génération de la déclaration mensuelle Achat/Vente (Excel)
+============================================================================
+v2 — CORRECTIF DE NEUTRALITÉ DB (règle d'or db_adapter.py)
+     La requête SQL de _lignes_periode() codait en dur F_DOCENTETE,
+     F_COMPTET, F_DOCLIGNE, CT_Num, CT_Intitule, DO_Piece, DO_Date,
+     DO_Type, DO_Domaine, DL_Qte, DL_PrixUnitaire, et _connect()
+     ouvrait sa propre connexion sqlite3 sur un chemin recalculé
+     localement. Désormais, tout passe par adaptation.db_adapter
+     (table()/col()/get_connection()), comme dans mcp_actions_sage.py
+     et nl2sql_server.py.
+"""
 import json
 import re
-import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 import os
@@ -9,7 +21,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-DB_PATH = os.getenv("DB_PATH", str(Path(__file__).parent / "entreprise_mock.db"))
+# Permet d'importer adaptation.db_adapter quel que soit le cwd d'exécution
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from adaptation.db_adapter import table, col, get_connection
+
 OUTPUT_DIR = Path("./declarations_generes")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -47,25 +62,42 @@ def _parse_mois_annee(texte: str) -> tuple[int, int]:
 
 
 def _connect():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Connexion DB via db_adapter (sqlite ou mssql selon db_config.json)."""
+    return get_connection()
 
 
 def _lignes_periode(conn, domaine: int, mois: int, annee: int, label_tiers: str):
     """domaine=0 → ventes (clients) | domaine=1 → achats (fournisseurs)"""
     mois_str = f"{annee:04d}-{mois:02d}"
+
+    doc_entete_table = table("doc_entete")
+    clients_table    = table("clients_fournisseurs")
+    doc_ligne_table  = table("doc_ligne")
+
+    piece_col   = col("doc_entete", "piece")
+    date_col    = col("doc_entete", "date")
+    type_col    = col("doc_entete", "type")
+    domaine_col = col("doc_entete", "domaine")
+    tiers_col   = col("doc_entete", "code_tiers")
+
+    code_col = col("clients_fournisseurs", "code")
+    nom_col  = col("clients_fournisseurs", "nom")
+
+    piece_col_ligne = col("doc_ligne", "piece")
+    qte_col         = col("doc_ligne", "qte")
+    prix_col        = col("doc_ligne", "prix_unitaire")
+
     rows = conn.execute(f"""
-        SELECT e.DO_Piece, e.DO_Date, e.CT_Num,
-               COALESCE(c.CT_Intitule, e.CT_Num) AS tiers,
-               COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0) AS ht
-        FROM F_DOCENTETE e
-        LEFT JOIN F_COMPTET  c ON e.CT_Num = c.CT_Num
-        LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
-        WHERE e.DO_Type = 3 AND e.DO_Domaine = {domaine}
-          AND STRFTIME('%Y-%m', e.DO_Date) = ?
-        GROUP BY e.DO_Piece
-        ORDER BY e.DO_Date
+        SELECT e.{piece_col} AS DO_Piece, e.{date_col} AS DO_Date, e.{tiers_col} AS CT_Num,
+               COALESCE(c.{nom_col}, e.{tiers_col}) AS tiers,
+               COALESCE(SUM(l.{qte_col} * l.{prix_col}), 0) AS ht
+        FROM {doc_entete_table} e
+        LEFT JOIN {clients_table}  c ON e.{tiers_col} = c.{code_col}
+        LEFT JOIN {doc_ligne_table} l ON e.{piece_col} = l.{piece_col_ligne}
+        WHERE e.{type_col} = 3 AND e.{domaine_col} = {domaine}
+          AND STRFTIME('%Y-%m', e.{date_col}) = ?
+        GROUP BY e.{piece_col}
+        ORDER BY e.{date_col}
     """, (mois_str,)).fetchall()
 
     lignes = []

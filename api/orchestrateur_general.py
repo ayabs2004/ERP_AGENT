@@ -23,7 +23,6 @@ v9.4 — PATCHS APPLIQUÉS (session de debug) :
   PATCH J : persistance pending_action/statut_confirmation entre tours (session)
   PATCH K : CREER_CLIENT exige un nom_client_brut valide avant de confirmer
 """
-
 from datetime import datetime
 import asyncio
 import re
@@ -38,6 +37,7 @@ import warnings
 import shelve
 import hashlib
 import itertools
+import formatting.formatters
 from graph.draft_flow import (
     SCHEMAS_DOCUMENTS, est_confirmation_stricte, est_annulation_stricte,
     champs_manquants as df_champs_manquants,
@@ -45,6 +45,19 @@ from graph.draft_flow import (
     construire_draft_depuis_state, generer_preview,
     executer_draft_confirme, generer_pdf_final,
     ajouter_alerte_bf_requis, resoudre_alerte_bf, formater_alertes_persistantes,
+)
+from formatting.formatters import (
+    _FORMATEURS_JSON,
+    _formater_reponse_directe,
+    _formater_nl2sql_brut,
+)
+from extraction.extraction import (
+    _ner_extraire_entites,
+    _est_nom_valide,
+    _nettoyer_nom_client,
+    _extraire_code_ou_nom_depuis_texte,
+    _corriger_ref_article as _corriger_ref_article_impl,
+    _rechercher_client_par_nom as _rechercher_client_par_nom_impl,
 )
 from graph.offre_prix_flow import (
     extraire_articles_depuis_demande, initialiser_draft_offre,
@@ -60,8 +73,6 @@ os.environ["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = "1"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"]        = "1"
 os.environ["TRANSFORMERS_VERBOSITY"]               = "error"
 os.environ["CUDA_LAUNCH_BLOCKING"]                 = "1"
-
-
 def _fix_encoding():
     try:
         if hasattr(sys.stdout, "reconfigure"):
@@ -74,19 +85,15 @@ def _fix_encoding():
                 sys.stderr.buffer, encoding="utf-8", line_buffering=True)
     except Exception:
         pass
-
-
 _fix_encoding()
-
 from dotenv import load_dotenv
 load_dotenv()
-
-from pathlib import Path as _Path
-_db_path = _Path(__file__).parent / "entreprise_mock.db"
-if not _db_path.exists() or _db_path.stat().st_size < 1000:
+from adaptation.db_adapter import get_sqlite_path
+_db_path = get_sqlite_path()  # None si DB_DRIVER=mssql (pas de fichier local à vérifier)
+if _db_path is not None and (not _db_path.exists() or _db_path.stat().st_size < 1000):
     from database.init_db_complet import init_database_complete as _init_db
     print("🗄️  [DB] Initialisation automatique...")
-    _init_db()
+    _init_db(str(_db_path))
     print("✅ [DB] Base initialisée.")
 
 from typing import TypedDict, Optional
@@ -179,8 +186,6 @@ def _safe_str(obj) -> str:
 
 async def _input(prompt: str) -> str:
     return await asyncio.to_thread(input, prompt)
-
-
 # ─────────────────────────────────────────────────────────────────────
 # HELPERS OUI/NON
 # ─────────────────────────────────────────────────────────────────────
@@ -196,25 +201,17 @@ _MOTS_NON = {
     "stop", "arrête", "arrete", "laisse tomber", "laisse",
     "pas maintenant", "plus tard", "skip", "ignore",
 }
-
-
 def _est_oui(texte: str) -> bool:
     return texte.lower().strip().rstrip("!.") in _MOTS_OUI
-
-
 def _est_non(texte: str) -> bool:
     t = texte.lower().strip().rstrip("!.")
     return t in _MOTS_NON or any(m in t for m in _MOTS_NON)
-
-
 # ─────────────────────────────────────────────────────────────────────
 # CACHE DISQUE
 # ─────────────────────────────────────────────────────────────────────
 def _disk_cache_key(action: str, **kwargs) -> str:
     raw = action + ":" + json.dumps(kwargs, sort_keys=True)
     return hashlib.md5(raw.encode()).hexdigest()
-
-
 async def _disk_cache_get(action: str, **kwargs) -> str | None:
     global _disk_cache_lock
     if _disk_cache_lock is None:
@@ -235,8 +232,6 @@ async def _disk_cache_get(action: str, **kwargs) -> str | None:
             return await asyncio.to_thread(_read)
     except Exception:
         return None
-
-
 async def _disk_cache_set(action: str, value: str, **kwargs):
     global _disk_cache_lock
     if _disk_cache_lock is None:
@@ -250,8 +245,6 @@ async def _disk_cache_set(action: str, value: str, **kwargs):
             await asyncio.to_thread(_write)
     except Exception:
         pass
-
-
 # ─────────────────────────────────────────────────────────────────────
 # WARMUP OLLAMA
 # ─────────────────────────────────────────────────────────────────────
@@ -288,8 +281,6 @@ async def _warmup_ollama():
         print(f"\n🔥 [Ollama] ⚠️  1/2 modèle prêt ({ok}).\n")
     else:
         print(f"\n🔥 [Ollama] ❌ Aucun modèle chargé. Vérifiez : ollama serve\n")
-
-
 # ─────────────────────────────────────────────────────────────────────
 # INVOKE LLM
 # ─────────────────────────────────────────────────────────────────────
@@ -336,8 +327,6 @@ async def _invoke_llm(
             if FALLBACK_KEY:
                 return await _invoke_fallback(prompt_u)
             raise
-
-
 async def _invoke_fallback(prompt_utf8: str) -> str:
     print(f"   🔄 Fallback → {FALLBACK_MODEL}")
     try:
@@ -353,58 +342,27 @@ async def _invoke_fallback(prompt_utf8: str) -> str:
         return content.strip()
     except Exception as e2:
         return f"⚠️  Service IA temporairement indisponible. ({_safe_str(e2)})"
-
-
 # ─────────────────────────────────────────────────────────────────────
 # GLiNER
 # ─────────────────────────────────────────────────────────────────────
 _gliner_model:      object | None = None
 _gliner_load_tried: bool          = False
 _gliner_lock:       asyncio.Lock | None = None
-
 async def _verifier_encours_draft(draft: dict) -> str:
     """Bloque la création si l'encours client sera dépassé.
-    Utilise une requête SQL directe identique à mcp_actions_sage pour être cohérent.
-    """
-    import sqlite3 as _sqlite3
+    Délègue entièrement le calcul au serveur MCP 'actions' — aucun SQL ici."""
     code_client = (draft.get("code_client") or "").strip()
     if not code_client or draft.get("type_doc", "").upper() not in ("BL", "FACTURE"):
         return ""
+    montant = float(draft.get("quantite", 0) or 0) * float(draft.get("prix_unitaire", 0) or 0)
     try:
-        conn = _sqlite3.connect(str(_db_path))
-        conn.row_factory = _sqlite3.Row
-        try:
-            # Lire le plafond d'encours du client
-            row = conn.execute(
-                "SELECT CT_EncoursMax FROM F_COMPTET WHERE CT_Num = ? COLLATE NOCASE",
-                (code_client,)
-            ).fetchone()
-            if not row:
-                return ""
-            encours_max = float(row["CT_EncoursMax"] or 0)
-            if encours_max <= 0:
-                return ""
-
-            # Calculer l'encours réel (même requête que mcp_actions_sage)
-            encours_actuel = float(conn.execute(
-                """
-                SELECT COALESCE(SUM(l.DL_Qte * l.DL_PrixUnitaire), 0.0)
-                FROM F_DOCENTETE e
-                LEFT JOIN F_DOCLIGNE l ON e.DO_Piece = l.DO_Piece
-                WHERE e.CT_Num = ? AND e.DO_Type = 3 AND e.DO_Domaine = 0
-                """,
-                (code_client,)
-            ).fetchone()[0] or 0)
-
-            montant = float(draft.get("quantite", 0) or 0) * float(draft.get("prix_unitaire", 0) or 0)
-            if encours_actuel + montant > encours_max:
-                return (
-                    f"🚫 Encours client dépassé : ce document porterait l'encours de **{code_client}** à "
-                    f"**{encours_actuel + montant:.2f} TND** alors que le plafond autorisé est de **{encours_max:.2f} TND**.\n"
-                    f"La création est annulée. Contactez le service commercial pour régulariser la situation."
-                )
-        finally:
-            conn.close()
+        raw = await mcp_pool.call("actions", "verifier_encours_client", {
+            "code_client": code_client,
+            "montant_supplementaire": montant,
+        })
+        data = _parse_mcp_response(raw)
+        if data.get("statut") == "OK" and data.get("depasse"):
+            return data.get("message", "")
     except Exception as e:
         print(f"⚠️ [Vérif encours draft] {e}")
     return ""
@@ -430,8 +388,6 @@ def _get_gliner_sync() -> object | None:
         print(f"   ⚠️  [GLiNER] {_safe_str(e)}")
         _gliner_model = None
     return _gliner_model
-
-
 async def _get_gliner_async() -> object | None:
     global _gliner_lock, _gliner_load_tried
     if not ENABLE_GLINER:
@@ -444,38 +400,6 @@ async def _get_gliner_async() -> object | None:
         if _gliner_load_tried:
             return _gliner_model
         return await asyncio.to_thread(_get_gliner_sync)
-
-
-def _ner_extraire_entites(texte: str) -> dict:
-    model = _get_gliner_sync()
-    if model is None:
-        return {}
-    labels = [
-        "code client", "référence article", "numéro de pièce",
-        "type de document", "date de début", "date de fin", "quantité",
-    ]
-    try:
-        entities = model.predict_entities(texte, labels, threshold=0.4)
-        label_map = {
-            "code client":       "client",
-            "référence article": "article",
-            "numéro de pièce":   "piece",
-            "type de document":  "type_doc",
-            "date de début":     "date_debut",
-            "date de fin":       "date_fin",
-            "quantité":          "quantite",
-        }
-        result = {}
-        for ent in entities:
-            key = label_map.get(ent["label"])
-            if key and key not in result:
-                result[key] = ent["text"].strip()
-        return result
-    except Exception as e:
-        print(f"   ⚠️  [GLiNER] {_safe_str(e)}")
-        return {}
-
-
 # ─────────────────────────────────────────────────────────────────────
 # MEM0
 # ─────────────────────────────────────────────────────────────────────
@@ -487,8 +411,6 @@ MEM0_USER_ID     = os.getenv("MEM0_USER_ID",     "erp_copilot_user")
 MEM0_EMBED_MODEL = os.getenv("MEM0_EMBED_MODEL", "nomic-embed-text")
 MEM0_EMBED_DIMS  = int(os.getenv("MEM0_EMBED_DIMS", "768"))
 MEM0_DB_PATH     = os.getenv("MEM0_DB_PATH",     "./mem0_qdrant_db")
-
-
 def _get_mem0_sync() -> object | None:
     global _mem0_client, _mem0_load_tried
     if not ENABLE_MEM0:
@@ -537,8 +459,6 @@ def _get_mem0_sync() -> object | None:
         print(f"   ⚠️  [Mem0] {_safe_str(e)}")
         _mem0_client = None
     return _mem0_client
-
-
 async def _get_mem0_async() -> object | None:
     global _mem0_lock, _mem0_load_tried
     if not ENABLE_MEM0:
@@ -551,8 +471,6 @@ async def _get_mem0_async() -> object | None:
         if _mem0_load_tried:
             return _mem0_client
         return await asyncio.to_thread(_get_mem0_sync)
-
-
 def _mem0_rechercher_sync(requete: str) -> str:
     mem = _get_mem0_sync()
     if mem is None:
@@ -571,12 +489,8 @@ def _mem0_rechercher_sync(requete: str) -> str:
         )
     except Exception:
         return ""
-
-
 async def _mem0_rechercher(requete: str) -> str:
     return await asyncio.to_thread(_mem0_rechercher_sync, requete)
-
-
 def _mem0_sauvegarder(message: str, reponse: str):
     mem = _get_mem0_sync()
     if mem is None:
@@ -589,16 +503,12 @@ def _mem0_sauvegarder(message: str, reponse: str):
         )
     except Exception:
         pass
-
-
 # ─────────────────────────────────────────────────────────────────────
 # VANNA
 # ─────────────────────────────────────────────────────────────────────
 _vanna_client       = None
 _vanna_load_tried   = False
 _vanna_lock: asyncio.Lock | None = None
-
-
 def _get_vanna_sync():
     global _vanna_client, _vanna_load_tried
     if not ENABLE_VANNA:
@@ -644,8 +554,6 @@ def _get_vanna_sync():
         print(f"⚠️  [Vanna] {_safe_str(e)}")
         _vanna_client = None
     return _vanna_client
-
-
 async def _get_vanna_async():
     global _vanna_lock, _vanna_load_tried
     if not ENABLE_VANNA:
@@ -663,8 +571,6 @@ async def _get_vanna_async():
         if result:
             print(f"   ✅ [Vanna] Prêt en {time.perf_counter() - t0:.1f}s")
         return result
-
-
 def _vanna_entrainer_schema(vn):
     tables_ddl = [
         """CREATE TABLE F_COMPTET (
@@ -1541,6 +1447,16 @@ class CopilotState(TypedDict):
     # Cycle de modification (lecture entité → question champ/valeur → confirmation)
     modification_en_cours: dict
     attente_confirmation: bool
+    # ★ FIX : ces 3 champs étaient utilisés dans les nœuds (ex: noeud_collecte_draft
+    # pour l'offre de prix) mais n'étaient PAS déclarés dans le schéma CopilotState.
+    # LangGraph construit ses "channels" uniquement à partir des clés déclarées
+    # dans le TypedDict : toute clé absente du schéma est silencieusement perdue
+    # entre les nœuds, même si le code Python l'assigne correctement.
+    # C'est pour ça que les boutons Confirmer/Annuler n'apparaissaient jamais,
+    # dès le premier message, quel que soit le contenu de orchestrateur_general.py.
+    draft_status: str
+    action_buttons: list
+    suggestions: list
 
 
 def _etat_initial(demande: str, contexte_session: dict | None = None) -> CopilotState:
@@ -1580,6 +1496,9 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         numero_piece_paiement="",
         modification_en_cours=ctx.get("modification_en_cours", {}),
         attente_confirmation=ctx.get("attente_confirmation", False),
+        draft_status="",
+        action_buttons=[],
+        suggestions=[],
     )
 
 def verifier_document_incomplet(state):
@@ -1629,6 +1548,12 @@ _VERBES_NOUVELLE_DEMANDE = re.compile(
     r"g[eé]n[eé]r\w*|transforme[rz]?|r[eè]gle[rz]?|annule[rz]?|stop|quitter)\b",
     re.IGNORECASE
 )
+async def _corriger_ref_article(ref: str) -> str:
+    return await _corriger_ref_article_impl(ref, mcp_pool)
+
+
+async def _rechercher_client_par_nom(nom: str) -> str:
+    return await _rechercher_client_par_nom_impl(nom, mcp_pool)
 def injecter_complement(state):
     if not state.get("attente_complements"):
         return state
@@ -1840,364 +1765,6 @@ def _contient_multi_demandes(texte: str) -> bool:
             return True
     return False
 
-def _formater_liste_fournisseurs(data: dict) -> str:
-    fournisseurs = data.get("fournisseurs", [])
-    nb           = data.get("nb_fournisseurs", len(fournisseurs))
-    if not fournisseurs:
-        return "🏭 Aucun fournisseur enregistré."
-    lignes = [f"🏭 Fournisseurs — {nb} fournisseur(s) :\n", "─" * 55]
-    for f in fournisseurs:
-        statut = f.get("CT_Validite", "VALIDE")
-        icone  = "🔴" if statut == "BLOQUE" else "🟢"
-        lignes.append(
-            f"  {icone} {f['CT_Num']:<10} │ {f['CT_Intitule']:<30} │ {statut}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-# ─────────────────────────────────────────────────────────────────────
-# FORMATTERS DIRECTS
-# ─────────────────────────────────────────────────────────────────────
-def _formater_liste_articles(data: dict) -> str:
-    articles = data.get("articles", [])
-    nb       = data.get("nb_articles", len(articles))
-    if not articles:
-        return "📦 Aucun article dans le catalogue."
-    lignes = [f"📦 Catalogue articles — {nb} référence(s) :\n", "─" * 55]
-    for a in articles:
-        stock  = a.get("stock", 0)
-        alerte = " ⚠️ RUPTURE" if stock <= 0 else (" ⚠️ FAIBLE" if stock < 5 else "")
-        lignes.append(
-            f"  • {a['AR_Ref']:<14} │ {a['AR_Design']:<30} │ "
-            f"Prix: {a.get('AR_PrixVen', 0):>8.2f} € │ Stock: {stock:>5.0f} u{alerte}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_liste_clients(data: dict) -> str:
-    clients = data.get("clients", [])
-    nb      = data.get("nb_clients", len(clients))
-    if not clients:
-        return "👥 Aucun client actif."
-    lignes = [f"👥 Clients actifs — {nb} client(s) :\n", "─" * 55]
-    for c in clients:
-        statut = c.get("CT_Validite", c.get("statut", "VALIDE"))
-        icone  = "🔴" if statut == "BLOQUE" else "🟡" if statut == "SUSPECT" else "🟢"
-        lignes.append(
-            f"  {icone} {c['CT_Num']:<10} │ {c['CT_Intitule']:<30} │ "
-            f"CA: {c.get('ca_total', 0):>10.2f} € │ Fct: {c.get('nb_factures', 0)}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_top_clients(data: dict) -> str:
-    clients = data.get("clients", [])
-    top_n   = data.get("top_n", len(clients))
-    if not clients:
-        return "📊 Aucune donnée clients."
-    lignes = [f"🏆 Top {top_n} clients par CA :\n", "─" * 55]
-    for c in clients:
-        lignes.append(
-            f"  #{c.get('rang', '?'):<3} {c['code_client']:<10} │ "
-            f"{c.get('nom_client', ''):<30} │ "
-            f"CA: {c.get('ca_total', 0):>10.2f} € │ Fct: {c.get('nb_factures', 0)}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_factures(data: dict) -> str:
-    factures  = data.get("factures", [])
-    nb        = data.get("nb_factures", len(factures))
-    intitule  = data.get("CT_Intitule", data.get("CT_Num", ""))
-    total_ht  = data.get("total_ht", 0)
-    total_att = data.get("total_en_attente", 0)
-    total_reg = data.get("total_regle", 0)
-    if not factures:
-        return f"🧾 Aucune facture pour '{intitule}'."
-    lignes = [
-        f"🧾 Factures de '{intitule}' — {nb} facture(s) :",
-        f"   Total HT        : {total_ht:,.2f} €",
-        f"   Total réglé     : {total_reg:,.2f} €",
-        f"   Total en attente: {total_att:,.2f} €",
-        "─" * 55,
-    ]
-    for f in factures:
-        regle = f.get("regle", False) or f.get("statut", "") == "RÉGLÉE"
-        icone = "✅" if regle else "⏳"
-        mnt   = f.get("montant_ht", f.get("DO_TotalHT", 0)) or 0
-        lignes.append(
-            f"  {icone} {f['DO_Piece']:<16} │ "
-            f"{f.get('DO_Date', ''):<12} │ "
-            f"{mnt:>8.2f} € │ {'RÉGLÉE' if regle else 'EN ATTENTE'}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_factures_fourn_impayees(data: dict) -> str:
-    factures = data.get("factures", [])
-    nb       = data.get("nb_factures", len(factures))
-    total_du = data.get("total_du", 0)
-    ct_num   = data.get("CT_Num", "")
-    titre    = f"Factures fournisseur {ct_num}" if ct_num else "Toutes factures fournisseurs"
-    if not factures:
-        return f"✅ Aucune facture fournisseur impayée{' pour ' + ct_num if ct_num else ''}."
-    lignes = [
-        f"🧾  {titre} — non réglées : {nb} facture(s)",
-        f"   Total dû : {total_du:,.2f} €",
-        "─" * 65,
-    ]
-    for f in factures:
-        mnt = f.get("montant_ht", 0) or 0
-        lignes.append(
-            f"  ⏳ {f['DO_Piece']:<16} │ "
-            f"{f.get('CT_Intitule', f.get('CT_Num', '')):<25} │ "
-            f"{f.get('DO_Date', ''):<12} │ {mnt:>10.2f} €"
-        )
-    lignes.append("─" * 65)
-    return "\n".join(lignes)
-
-
-def _formater_factures_impayees(data: dict) -> str:
-    factures = data.get("factures", [])
-    nb       = data.get("nb_factures", len(factures))
-    total_du = data.get("total_du", 0)
-    if not factures:
-        return "✅ Aucune facture impayée."
-    lignes = [
-        f"⚠️  Factures impayées — {nb} facture(s)",
-        f"   Total dû : {total_du:,.2f} €",
-        "─" * 55,
-    ]
-    for f in factures:
-        mnt = f.get("montant_ht", f.get("DO_TotalHT", 0)) or 0
-        lignes.append(
-            f"  ⏳ {f['DO_Piece']:<16} │ "
-            f"{f.get('CT_Intitule', f.get('CT_Num', '')):<25} │ "
-            f"{f.get('DO_Date', ''):<12} │ {mnt:>8.2f} €"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_fiche_client(data: dict) -> str:
-    if data.get("statut") == "NON_TROUVE":
-        return f"❌ Client introuvable : {data.get('message', '')}"
-    validite = data.get("CT_Validite", data.get("CT_Statut", "VALIDE"))
-    icone    = "🔴" if validite == "BLOQUÉ" else "🟡" if validite == "SUSPECT" else "🟢"
-    return (
-        f"👤 Fiche Client\n{'─' * 45}\n"
-        f"  Code          : {data.get('CT_Num', '')}\n"
-        f"  Raison sociale: {data.get('CT_Intitule', '')}\n"
-        f"  Statut        : {icone} {validite}\n"
-        f"  Encours       : {data.get('CT_Encours', 0):,.2f} € / max {data.get('CT_EncoursMax', 0):,.2f} €\n"
-        f"{'─' * 45}\n"
-        f"  CA Total      : {data.get('CA_Total', 0):,.2f} €\n"
-        f"  Nb Factures   : {data.get('NB_Factures', 0)}\n"
-        f"  Encours Fct   : {data.get('Encours_Factures', 0):,.2f} €"
-    )
-
-
-def _formater_palmares(data: dict) -> str:
-    palmares = data.get("palmares", [])
-    top_n    = data.get("top_n", len(palmares))
-    if not palmares:
-        return "📊 Aucune donnée de ventes."
-    lignes = [f"🏆 Top {top_n} articles par CA :\n", "─" * 55]
-    for a in palmares:
-        lignes.append(
-            f"  #{a.get('rang', '?'):<3} {a['AR_Ref']:<14} │ "
-            f"{a.get('AR_Design', ''):<28} │ "
-            f"CA: {a.get('ca_article', 0):>8.2f} € │ Qté: {a.get('qte_vendue', 0):.0f}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
-
-
-def _formater_ca_global(data: dict) -> str:
-    return (
-        f"💰 Chiffre d'Affaires Global\n{'─' * 40}\n"
-        f"  CA HT         : {data.get('ca_ht', 0):>12,.2f} €\n"
-        f"  TVA (19%)     : {data.get('tva_19', 0):>12,.2f} €\n"
-        f"  CA TTC        : {data.get('ca_ttc', 0):>12,.2f} €\n"
-        f"{'─' * 40}\n"
-        f"  Nb factures   : {data.get('nb_factures', 0)}\n"
-        f"  Nb clients    : {data.get('nb_clients', 0)}\n"
-        f"  Période       : {data.get('date_debut', '?')} → {data.get('date_fin', '?')}"
-    )
-
-
-def _formater_kpi(data: dict) -> str:
-    return (
-        f"📊 Dashboard KPI\n{'─' * 40}\n"
-        f"  CA Total      : {data.get('ca_total', 0):>12,.2f} €\n"
-        f"  Marge (22%)   : {data.get('marge_22', 0):>12,.2f} €\n"
-        f"  Panier moyen  : {data.get('panier_moy', 0):>12,.2f} €\n"
-        f"{'─' * 40}\n"
-        f"  Clients       : {data.get('nb_clients', 0)}\n"
-        f"  Factures      : {data.get('nb_factures', 0)}\n"
-        f"  Documents     : {data.get('nb_docs', 0)}"
-    )
-
-
-def _formater_rentabilite(data: dict) -> str:
-    articles = data.get("articles", [])
-    if not articles:
-        return "📊 Aucune donnée de rentabilité."
-    lignes = [f"📊 Rentabilité par article — {len(articles)} ligne(s) :\n", "─" * 65]
-    for a in articles:
-        taux  = a.get("taux_marge", 0)
-        icone = "🟢" if taux >= 30 else "🟡" if taux >= 15 else "🔴"
-        lignes.append(
-            f"  {icone} {a['AR_Ref']:<14} │ {a.get('AR_Design', ''):<25} │ "
-            f"CA: {a.get('ca_vente', 0):>8.2f} € │ "
-            f"Marge: {a.get('marge_brute', 0):>8.2f} € │ Taux: {taux:>5.1f}%"
-        )
-    lignes.append("─" * 65)
-    return "\n".join(lignes)
-
-
-def _formater_saisonnalite(data: dict) -> str:
-    mois_list = data.get("mois", [])
-    if not mois_list:
-        return "📅 Aucune donnée mensuelle."
-    lignes = [f"📅 CA Mensuel — {len(mois_list)} mois :\n", "─" * 50]
-    max_ca = max((x.get("ca_mensuel", 0) for x in mois_list), default=1) or 1
-    for m in mois_list:
-        ca    = m.get("ca_mensuel", 0)
-        barre = "█" * int(ca / max_ca * 15)
-        lignes.append(
-            f"  {m.get('mois', ''):<8} │ {barre:<15} │ "
-            f"{ca:>10,.2f} € │ {m.get('nb_factures', 0)} fct"
-        )
-    lignes.append("─" * 50)
-    return "\n".join(lignes)
-
-
-def _formater_dso(data: dict) -> str:
-    clients  = data.get("clients", [])
-    dso_glob = data.get("dso_global", 0)
-    lignes   = [f"⏱️  DSO Global : {dso_glob:.1f} jours\n", "─" * 50]
-    for c in clients:
-        dso_c = c.get("dso_jours", 0)
-        icone = "🔴" if dso_c > 60 else "🟡" if dso_c > 30 else "🟢"
-        lignes.append(
-            f"  {icone} {c.get('CT_Num', ''):<10} │ "
-            f"{c.get('CT_Intitule', ''):<28} │ "
-            f"DSO: {dso_c:>5.1f} j │ Fct: {c.get('nb_factures', 0)}"
-        )
-    lignes.append("─" * 50)
-    return "\n".join(lignes)
-
-
-def _formater_rfm(data: dict) -> str:
-    clients = data.get("clients", [])
-    nb      = data.get("nb_clients", len(clients))
-    lignes  = [f"🎯 Analyse RFM — {nb} client(s) :\n", "─" * 65]
-    for c in clients:
-        statut  = c.get("statut", "VALIDE")
-        icone   = "🔴" if statut == "BLOQUÉ" else "🟡" if statut == "SUSPECT" else "🟢"
-        dernier = c.get("derniere_commande", "Jamais")
-        lignes.append(
-            f"  {icone} {c['CT_Num']:<10} │ {c.get('CT_Intitule', ''):<28} │ "
-            f"CA: {c.get('ca_total', 0):>8.2f} € │ Dernier: {dernier}"
-        )
-    lignes.append("─" * 65)
-    return "\n".join(lignes)
-
-
-def _formater_clients_baisse(data: dict) -> str:
-    clients = data.get("clients", [])
-    nb      = data.get("nb", len(clients))
-    if not clients:
-        return "✅ Aucun client en baisse de CA détecté."
-    lignes = [f"📉 Clients en baisse CA — {nb} client(s) :\n", "─" * 60]
-    for c in clients:
-        var = c.get("variation_pct", 0)
-        lignes.append(
-            f"  📉 {c['CT_Num']:<10} │ {c.get('CT_Intitule', ''):<28} │ "
-            f"Récent: {c.get('ca_recent', 0):>8.2f} € │ "
-            f"Ancien: {c.get('ca_ancien', 0):>8.2f} € │ Var: {var:>+.1f}%"
-        )
-    lignes.append("─" * 60)
-    return "\n".join(lignes)
-
-def _formater_declaration(data: dict) -> str:
-    import os
-    a = data.get("achat", {})
-    v = data.get("vente", {})
-    fichier = data.get("fichier", "")
-    nom_f = os.path.basename(fichier) if fichier else ""
-    lien_md = f"[{nom_f}](/static/pdf/{nom_f})" if nom_f else "Non généré"
-    
-    return (
-        f"📄 Déclaration {data.get('mois','')} {data.get('annee','')}\n"
-        f"{'─'*45}\n"
-        f"  🛒 Achats  : {a.get('nb',0)} doc(s) │ "
-        f"HT: {a.get('total_ht',0):,.2f} € │ TVA: {a.get('total_tva',0):,.2f} € │ TTC: {a.get('total_ttc',0):,.2f} €\n"
-        f"  💰 Ventes  : {v.get('nb',0)} doc(s) │ "
-        f"HT: {v.get('total_ht',0):,.2f} € │ TVA: {v.get('total_tva',0):,.2f} € │ TTC: {v.get('total_ttc',0):,.2f} €\n"
-        f"{'─'*45}\n"
-        f"📎 Fichier Excel : {lien_md}"
-    )
-
-_FORMATEURS_JSON: dict[str, callable] = {
-    "LISTE_ARTICLES":         _formater_liste_articles,
-    "LISTE_CLIENTS":          _formater_liste_clients,
-    "TOP_CLIENTS":            _formater_top_clients,
-    "PALMARES_ARTICLES":      _formater_palmares,
-    "CA_GLOBAL":              _formater_ca_global,
-    "CLIENTS_BAISSE":         _formater_clients_baisse,
-    "FACTURES_NON_REGLEES":        _formater_factures_impayees,
-    "FACTURES_NON_REGLEES_FOURN":   _formater_factures_fourn_impayees,
-    "TOUTES_FACTURES_CLIENT": _formater_factures,
-    "FICHE_CLIENT":           _formater_fiche_client,
-    "RENTABILITE":            _formater_rentabilite,
-    "SAISONNALITE":           _formater_saisonnalite,
-    "DSO":                    _formater_dso,
-    "RFM":                    _formater_rfm,
-    "DASHBOARD_EXCEL":        _formater_kpi,
-    "DECLARATION_EXCEL":      _formater_declaration,
-}
-
-_ACTIONS_DEJA_TEXTE: set[str] = {
-    "VERIFIER_STOCK", "STATUT_CLIENT",
-    "LISTE_FOURNISSEURS", "TOP_FOURNISSEURS", "FICHE_FOURNISSEUR",
-}
-
-
-def _formater_reponse_directe(action: str, reponse_brute: str) -> str | None:
-    if not reponse_brute or reponse_brute.startswith("__"):
-        return None
-    if action in _ACTIONS_DEJA_TEXTE:
-        return reponse_brute
-    try:
-        data = json.loads(reponse_brute)
-    except (json.JSONDecodeError, ValueError):
-        if reponse_brute.startswith(("📊", "Question :", "─", "👥", "📦", "🏆")):
-            return reponse_brute
-        return None
-    if not isinstance(data, dict):
-        return None
-    statut = data.get("statut", "")
-    if statut in _STATUTS_ERREUR_MCP:
-        return data.get("message", f"❌ Erreur : {statut}")
-    if statut == "OK" and action in _FORMATEURS_JSON:
-        try:
-            return _FORMATEURS_JSON[action](data)
-        except Exception as e:
-            print(f"   ⚠️  [Formateur] {action} : {_safe_str(e)}")
-            return None
-    if statut in _STATUTS_ACTIONS_V3_OK:
-        msg = data.get("message", "")
-        if msg:
-            alertes = data.get("alertes", [])
-            if alertes:
-                msg += "\n\n⚠️ Alertes :\n" + "\n".join(f"   {a}" for a in alertes)
-            return msg
-    return None
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2331,239 +1898,18 @@ async def _hub_contexte_client(
 # ─────────────────────────────────────────────────────────────────────
 # EXTRACTION NOM CLIENT
 # ─────────────────────────────────────────────────────────────────────
-_client_nom_cache: dict[str, str] = {}
 
-_PREFIXES_PARASITES = re.compile(
-    r"^\s*(?:le\s+|la\s+|les\s+|l['\u2019]\s*|du\s+|de\s+la\s+|de\s+)?",
-    re.IGNORECASE
-)
-_SUFFIXES_PARASITES = re.compile(
-    r"\s+(?:dans|de|du|pour|avec|sur|est|a|au|aux|et|ou|les|des|qui|dont|que)\s*$",
-    re.IGNORECASE
-)
-_MOTS_PREFIX_CLIENT = (
-    r"(?:informations?\s+sur\s+(?:le\s+|la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:fiche\s+(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:statut\s+(?:actuel\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|tiers\s+))"
-    r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)(?:client\s+))"
-    r"|(?:pour\s+(?:le\s+|la\s+)?(?:client\s+|tiers\s+)?)"
-    r"|(?:(?:du|de|le|la)\s+client\s+)"   # forme explicite uniquement
-)
-_PATTERN_NOM_CLIENT = re.compile(
-    r"(?:" + _MOTS_PREFIX_CLIENT + r")"
-    r"((?:société\s+|sarl\s+|sas\s+|sa\s+)?"
-    r"[A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ0-9\s\-&'.]{1,80}?)"
-    r"(?:\s*[?.,;!]|\s*$)",
-    re.IGNORECASE
-)
-
-
-def _nettoyer_nom_client(nom: str) -> str:
-    nom = _PREFIXES_PARASITES.sub("", nom).strip()
-    nom = _SUFFIXES_PARASITES.sub("", nom).strip()
-    return re.sub(r"\s{2,}", " ", nom).strip()
-
-
-# PATCH F : mots vides français qui ne forment jamais un nom de client,
-# même en combinaison de 2+ mots (ex: "en fonction du nombre de factures")
-_MOTS_VIDES_NOM = {
-    "en", "fonction", "du", "de", "des", "le", "la", "les", "un", "une",
-    "et", "ou", "que", "qui", "dont", "pour", "avec", "sur", "par",
-    "au", "aux", "ce", "cette", "ces", "cet", "nombre", "total",
-    "moyenne", "montant", "selon", "chaque", "tous", "toutes",
-    "dans", "sans", "sous", "entre", "vers", "chez", "depuis",
-}
-
-# FIX 5 : _est_nom_valide rejette les noms contenant des chiffres
-# À placer au niveau module, avant _est_nom_valide (une seule fois)
-_MOTS_METIER_INVALIDES = {
-    "client", "tiers", "societe", "société", "entreprise",
-    "sarl", "sa", "sas", "le", "la", "les", "un", "une",
-    "pour", "avec", "sur", "du", "de", "plus", "moins",
-    "que", "dont", "ayant", "liste", "tous", "toutes",
-    "bons", "bon", "livraison", "commande", "fabrication",
-    "facture", "factures", "pieces", "piece", "unites", "unite",
-    "fournisseur", "fournisseurs", "fourn", "grossiste",
-    "achat", "achats", "reception", "réception",
-    "article", "articles", "catalogue", "produit", "produits",
-    "stock", "stocks", "rupture",
-    "impayées", "impayees", "impayés", "impayé",
-    "encours", "supérieur", "superieur", "inférieur", "inferieur",
-    "actifs", "actif", "inactifs", "inactif", "bloqués", "bloques",
-    "reglées", "réglées", "reglés", "réglés",
-    # ajouts pour couvrir les cas vus en test
-    "nombre", "montant", "moyenne", "total", "fonction",
-    "quantite", "quantité",
-}
-
-
-def _est_nom_valide(nom: str) -> bool:
-    if not nom or len(nom) < 2:
-        return False
-    if re.search(r'\d', nom):
-        return False
-    mots = nom.strip().split()
-    mots_lower = [m.lower() for m in mots]
-    # PATCH F : si TOUS les mots sont des mots vides → jamais un nom valide
-    if all(m in _MOTS_VIDES_NOM for m in mots_lower):
-        return False
-    if len(mots) >= 2:
-        nb_vides = sum(1 for m in mots_lower if m in _MOTS_VIDES_NOM)
-        if nb_vides >= len(mots) - 1:
-            mots_pleins = [m for m in mots_lower if m not in _MOTS_VIDES_NOM]
-            if not mots_pleins or all(len(m) <= 3 for m in mots_pleins):
-                return False
-        # ── CORRECTIF : la longueur ne suffit pas à valider un mot
-        # "plein" (ex: "factures" = 8 caractères mais c'est du
-        # vocabulaire métier, pas un nom). On rejette si TOUS les mots
-        # significatifs (hors mots vides) appartiennent au vocabulaire
-        # métier interdit.
-        mots_pleins = [m for m in mots_lower if m not in _MOTS_VIDES_NOM]
-        if mots_pleins and all(m in _MOTS_METIER_INVALIDES for m in mots_pleins):
-            return False
-        return True
-    mot_lower = mots[0].lower()
-    return mot_lower not in _MOTS_METIER_INVALIDES and len(mots[0]) > 2
-
-_PREFIXES_PIECES = re.compile(r"^(FA|FF|BL|BC|BF|OF|AV|BR|AF)[A-Z0-9]*\d+$", re.IGNORECASE)
-
-def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
-    m_code = re.search(r"\b([A-Z]{2,6}\d{2,})\b", db, re.IGNORECASE)
-    if m_code:
-        code = m_code.group(1).upper()
-        if _PREFIXES_PIECES.match(code):
-            print(f"   🔎 [Regex] '{code}' détecté comme numéro de pièce (pas client)")
-            return "", ""
-        print(f"   🔎 [Regex] code_client direct : '{code}'")
-        return code, ""
-    m_nom = _PATTERN_NOM_CLIENT.search(db)
-    if m_nom:
-        nom_brut = m_nom.group(1).strip()
-        nom = _nettoyer_nom_client(nom_brut)
-        print(f"   🔎 [Regex] Capture brute : '{nom_brut}' → nettoyé : '{nom}'")
-        if _est_nom_valide(nom):
-            print(f"   ✅ [Regex] nom_client validé : '{nom}'")
-            return "", nom
-        else:
-            print(f"   ⚠️  [Regex] nom_client '{nom}' rejeté")
-    return "", ""
-
-import difflib
 import difflib
 
 _articles_refs_cache: list[str] | None = None
 
-def _charger_refs_articles() -> list[str]:
-    global _articles_refs_cache
-    if _articles_refs_cache is not None:
-        return _articles_refs_cache
-    try:
-        import sqlite3
-        conn = sqlite3.connect(str(_db_path))
-        rows = conn.execute("SELECT AR_Ref FROM F_ARTICLE").fetchall()
-        conn.close()
-        _articles_refs_cache = [r[0] for r in rows]
-    except Exception:
-        _articles_refs_cache = []
-    return _articles_refs_cache
+_articles_refs_cache: list[str] | None = None
+_articles_refs_lock: asyncio.Lock | None = None
 
-def _corriger_ref_article(ref: str) -> str:
-    if not ref:
-        return ref
-    refs = _charger_refs_articles()
-    if ref.upper() in refs:
-        return ref.upper()
-    matches = difflib.get_close_matches(ref.upper(), refs, n=1, cutoff=0.72)
-    if matches:
-        print(f"   🔧 [Fuzzy] '{ref}' → '{matches[0]}' (correction automatique)")
-        return matches[0]
-    return ref
+
+
+
 # FIX 6 : _rechercher_client_par_nom — len > 3, sortie rapide si liste vide
-async def _rechercher_client_par_nom(nom: str) -> str:
-    if not nom or len(nom.strip()) < 2:
-        return ""
-    nom_lower = nom.lower().strip()
-    if nom_lower in _client_nom_cache:
-        cached = _client_nom_cache[nom_lower]
-        if cached:
-            print(f"   ⚡ [Cache Nom] '{nom}' → {cached}")
-        return cached
-
-    _MOTS_PARASITES = {"le","la","les","du","de","des","et","ou","un","une","pour","avec","sur"}
-    mots_significatifs = [
-        m for m in nom_lower.split()
-        if m not in _MOTS_PARASITES
-        and len(m) > 3
-        and not m.isdigit()
-        and not re.search(r'\d', m)
-    ]
-    if not mots_significatifs:
-        _client_nom_cache[nom_lower] = ""
-        print(f"   ⚠️  [Recherche Nom] '{nom}' → aucun mot significatif, abandon")
-        return ""
-
-    print(f"   🔍 [Recherche Nom] '{nom}' → mots : {mots_significatifs}")
-
-    async def _appel_fiche(query: str) -> str:
-        try:
-            return await mcp_pool.call("nl2sql", "rechercher_fiche_client", {"code_client": query})
-        except Exception:
-            return ""
-
-    async def _appel_statut(query: str) -> str:
-        try:
-            return await mcp_pool.call("nl2sql", "verifier_statut_client", {"code_client": query})
-        except Exception:
-            return ""
-
-    _CODES_INVALIDES_CACHE = {
-        "client", "clients", "tiers", "societe", "société",
-        "entreprise", "none", "null", "inconnu", "unknown",
-        "non_trouve", "vide", "absent",
-    }
-
-    def _extraire_code(text: str) -> str:
-        try:
-            data = json.loads(text)
-            code = data.get("CT_Num", "")
-            if (code
-                    and code not in ("NON_TROUVE", "")
-                    and code.lower() not in _CODES_INVALIDES_CACHE
-                    and len(code) >= 3):
-                return code
-        except Exception:
-            pass
-        m = re.search(r"CT_Num[:\s]+([A-Z0-9]+)", text, re.IGNORECASE)
-        code_m = m.group(1).strip() if m else ""
-        return code_m if code_m.lower() not in _CODES_INVALIDES_CACHE else ""
-
-    for essai_fn, essai_val in [(_appel_fiche, nom), (_appel_fiche, " ".join(mots_significatifs))]:
-        t = await essai_fn(essai_val)
-        if t:
-            code = _extraire_code(t)
-            if code:
-                _client_nom_cache[nom_lower] = code
-                print(f"   ✅ [MCP] '{essai_val}' → {code}")
-                return code
-
-    for taille in range(len(mots_significatifs), 0, -1):
-        for combo in itertools.combinations(mots_significatifs, taille):
-            sous_nom = " ".join(combo)
-            if len(sous_nom) < 2:
-                continue
-            for fn in (_appel_fiche, _appel_statut):
-                t = await fn(sous_nom)
-                if t:
-                    code = _extraire_code(t)
-                    if code:
-                        _client_nom_cache[nom_lower] = code
-                        print(f"   ✅ [MCP Combo] '{sous_nom}' → {code}")
-                        return code
-
-    _client_nom_cache[nom_lower] = ""
-    print(f"   ⚠️  [Recherche Nom] '{nom}' introuvable")
-    return ""
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2700,10 +2046,13 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
             draft = await initialiser_draft_offre(articles)
             state["document_draft"] = draft
             state["statut_draft"] = draft["statut_offre"]
+            state["draft_status"] = "OFFRE_PRIX"  # Statut spécifique pour l'offre de prix
             
             from graph.offre_prix_flow import formater_suggestion_prix
             art_0 = draft["articles"][0]
             state["reponse_finale"] = formater_suggestion_prix(art_0, 0, len(articles))
+            # Ajouter des boutons d'action pour l'étape ATTENTE_PRIX
+            state["action_buttons"] = ["CONFIRMER", "ANNULER"]
             return state
             
         statut = state.get("statut_draft", "")
@@ -2712,6 +2061,21 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
             state["document_draft"] = draft
             state["statut_draft"] = draft["statut_offre"]
             state["reponse_finale"] = msg
+            # ★ FIX : sans cette ligne, draft_status retombait à "" dès le
+            # 2e article et les boutons Confirmer/Annuler disparaissaient
+            # côté frontend (qui ne les affiche que si draft_status == "OFFRE_PRIX").
+            state["draft_status"] = "OFFRE_PRIX"
+            # Ajouter des boutons d'action selon le statut (cohérent sur
+            # tous les tours, plus seulement le premier)
+            if draft["statut_offre"].startswith("ATTENTE_PRIX"):
+                state["action_buttons"] = ["CONFIRMER", "ANNULER"]
+                state["suggestions"] = []
+            elif draft["statut_offre"] == "ATTENTE_REMISE":
+                state["action_buttons"] = ["non", "10%", "ANNULER"]
+                state["suggestions"] = []
+            else:
+                state["action_buttons"] = []
+                state["suggestions"] = []
             if draft["statut_offre"] == "PRET":
                 state["statut_draft"] = "CONFIRME"
             return state
@@ -2721,12 +2085,19 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
             state["document_draft"] = draft
             state["statut_draft"] = draft["statut_offre"]
             state["reponse_finale"] = msg
+            # ★ FIX : idem, on garde le statut "OFFRE_PRIX" tant que le
+            # flux n'est pas terminé pour que la carte reste affichée.
+            state["draft_status"] = "OFFRE_PRIX"
+            state["action_buttons"] = []
             if draft["statut_offre"] == "PRET":
                 state["statut_draft"] = "CONFIRME"
+                state["draft_status"] = ""
             return state
             
         if statut == "PRET":
             state["statut_draft"] = "CONFIRME"
+            state["draft_status"] = ""
+            state["action_buttons"] = []
             return state
 
     draft_existant = state.get("document_draft") or {}
@@ -2952,7 +2323,7 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
     if state.get("statut_draft") != "CONFIRME":
         return state
     draft = state["document_draft"]
-    
+
     if draft.get("type_doc") == "OFFRE_PRIX":
         pdf_final = await generer_pdf_offre_prix(draft)
         state["pdf_path"] = pdf_final
@@ -2960,38 +2331,27 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
         state["statut_draft"] = ""
         state["document_draft"] = {}
         return state
-        
+
     type_doc = (draft.get("type_doc") or "").upper()
 
+    # ── Vérif doublon via MCP (remplace l'accès sqlite3 direct) ──────────
     source_piece = draft.get("num_of") if type_doc == "BF" else draft.get("num_piece_source")
     if source_piece:
         try:
-            import sqlite3
-            _db = sqlite3.connect(str(_db_path))
-            _cur = _db.cursor()
-            if type_doc == "FACTURE":
-                _cur.execute(
-                    "SELECT COUNT(*) FROM F_DOCENTETE WHERE DO_Ref=? AND DO_Type=3 AND DO_Domaine=0",
-                    (source_piece,),
-                )
-                if _cur.fetchone()[0] > 0:
-                    _db.close()
-                    state["reponse_finale"] = f"⚠️  Le BL **{source_piece}** a déjà été transformé en facture."
+            type_dest_verif = "FACTURE" if type_doc == "FACTURE" else ("BF" if type_doc == "BF" else None)
+            if type_dest_verif:
+                raw = await mcp_pool.call("nl2sql", "verifier_document_deja_transforme", {
+                    "num_piece_source": source_piece,
+                    "type_destination": type_dest_verif,
+                })
+                data = _parse_mcp_response(raw)
+                if data.get("deja_transforme"):
+                    state["reponse_finale"] = data.get("message") or (
+                        f"⚠️  Le document **{source_piece}** a déjà été transformé."
+                    )
                     state["statut_draft"] = ""
                     state["document_draft"] = {}
                     return state
-            elif type_doc == "BF":
-                _cur.execute(
-                    "SELECT COUNT(*) FROM F_DOCENTETE WHERE DO_Ref=? AND DO_Type=4 AND DO_Domaine=2",
-                    (source_piece,),
-                )
-                if _cur.fetchone()[0] > 0:
-                    _db.close()
-                    state["reponse_finale"] = f"⚠️  L'OF **{source_piece}** a déjà été transformé en BF."
-                    state["statut_draft"] = ""
-                    state["document_draft"] = {}
-                    return state
-            _db.close()
         except Exception as e:
             print(f"   ⚠️  [Vérif doublon draft] {e}")
 
@@ -3358,7 +2718,7 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                     _ref_article_trouvee = cand
                     print(f"   🔎 [PreClass] ref_article (après quantité) : '{cand}'")
         state["ref_article"] = _ref_article_trouvee
-        state["ref_article"] = _corriger_ref_article(state["ref_article"])
+        state["ref_article"] = await _corriger_ref_article(state["ref_article"])
         if action_preclass in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
             nom_up = (state.get("nom_client_brut") or "").upper()
             if nom_up and state.get("ref_article", "").upper() == nom_up:
@@ -3835,8 +3195,7 @@ date_fin:VALEUR_OU_INCONNU"""
         print(f"   🔎 [Regex] ref_article : {_regex_article}")
 
     state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
-    state["ref_article"] = entites_ner.get("article") or _regex_article or llm_article
-    state["ref_article"] = _corriger_ref_article(state["ref_article"])
+    state["ref_article"] = await _corriger_ref_article(state["ref_article"])
     if state["ref_article"].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
         state["ref_article"] = ""
 
@@ -4114,55 +3473,36 @@ date_fin:VALEUR_OU_INCONNU"""
 
 
 
-def _generer_code_client(nom: str) -> str:
-    import sqlite3 as _sqlite3
-    import re as _re
+async def _generer_code_client(nom: str) -> str:
+    """Génère le prochain code client disponible via le serveur MCP 'actions'."""
     try:
-        conn = _sqlite3.connect(str(_db_path))
-        rows = conn.execute(
-            "SELECT CT_Num FROM F_COMPTET WHERE CT_Num LIKE 'CLI%' ORDER BY CT_Num"
-        ).fetchall()
-        conn.close()
-        nums = []
-        for (code,) in rows:
-            m = _re.match(r"CLI(\d+)$", code, _re.IGNORECASE)
-            if m:
-                nums.append(int(m.group(1)))
-        prochain = (max(nums) + 1) if nums else 1
-        return f"CLI{prochain:03d}"
-    except Exception:
-        import unicodedata
-        nom_clean = unicodedata.normalize("NFD", nom)
-        nom_clean = "".join(c for c in nom_clean if unicodedata.category(c) != "Mn")
-        import re as _re2
-        nom_clean = _re2.sub(r"[^A-Za-z0-9]", "", nom_clean).upper()
-        return f"CLI{nom_clean[:5]}" if nom_clean else "CLI001"
+        raw = await mcp_pool.call("actions", "generer_prochain_code", {"prefixe": "CLI"})
+        data = _parse_mcp_response(raw)
+        if data.get("statut") == "OK" and data.get("code"):
+            return data["code"]
+    except Exception as e:
+        print(f"   ⚠️  [_generer_code_client] MCP indisponible ({e}) → repli local")
+    import unicodedata
+    nom_clean = unicodedata.normalize("NFD", nom or "")
+    nom_clean = "".join(c for c in nom_clean if unicodedata.category(c) != "Mn")
+    nom_clean = re.sub(r"[^A-Za-z0-9]", "", nom_clean).upper()
+    return f"CLI{nom_clean[:5]}" if nom_clean else "CLI001"
 
 
-def _generer_code_fournisseur(nom: str) -> str:
-    import sqlite3 as _sqlite3
-    import re as _re
+async def _generer_code_fournisseur(nom: str) -> str:
+    """Génère le prochain code fournisseur disponible via le serveur MCP 'actions'."""
     try:
-        conn = _sqlite3.connect(str(_db_path))
-        rows = conn.execute(
-            "SELECT CT_Num FROM F_COMPTET WHERE CT_Num LIKE 'FOUR%' ORDER BY CT_Num"
-        ).fetchall()
-        conn.close()
-        nums = []
-        for (code,) in rows:
-            m = _re.match(r"FOUR(\d+)$", code, _re.IGNORECASE)
-            if m:
-                nums.append(int(m.group(1)))
-        prochain = (max(nums) + 1) if nums else 1
-        return f"FOUR{prochain:03d}"
-    except Exception:
-        import unicodedata
-        nom_clean = unicodedata.normalize("NFD", nom)
-        nom_clean = "".join(c for c in nom_clean if unicodedata.category(c) != "Mn")
-        import re as _re2
-        nom_clean = _re2.sub(r"[^A-Za-z0-9]", "", nom_clean).upper()
-        return f"FOUR{nom_clean[:4]}" if nom_clean else "FOUR001"
-
+        raw = await mcp_pool.call("actions", "generer_prochain_code", {"prefixe": "FOUR"})
+        data = _parse_mcp_response(raw)
+        if data.get("statut") == "OK" and data.get("code"):
+            return data["code"]
+    except Exception as e:
+        print(f"   ⚠️  [_generer_code_fournisseur] MCP indisponible ({e}) → repli local")
+    import unicodedata
+    nom_clean = unicodedata.normalize("NFD", nom or "")
+    nom_clean = "".join(c for c in nom_clean if unicodedata.category(c) != "Mn")
+    nom_clean = re.sub(r"[^A-Za-z0-9]", "", nom_clean).upper()
+    return f"FOUR{nom_clean[:4]}" if nom_clean else "FOUR001"
 
 # ─────────────────────────────────────────────────────────────────────
 # NŒUD CONFIRMATION
@@ -4321,7 +3661,7 @@ async def noeud_nl2sql_libre(state: CopilotState) -> CopilotState:
     return await _noeud_nl2sql_libre(state, ENABLE_VANNA, _vanna_client, _vanna_generer_sql, _vanna_entrainer, _safe_str)
 
 async def noeud_ecriture(state: CopilotState) -> CopilotState:
-    return await _noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mcp_workflow_bl, _mcp_workflow_of, _mcp_workflow_bf, _parse_mcp_response, _db_path, _safe_str)
+    return await _noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mcp_workflow_bl, _mcp_workflow_of, _mcp_workflow_bf, _parse_mcp_response, _safe_str)
 
 async def noeud_workflow(state: CopilotState) -> CopilotState:
     return await _noeud_workflow(state, _hub_contexte_client, _mcp_workflow_bl, _mcp_workflow_of, _mcp_workflow_bf, _parse_mcp_response, _input, _safe_str)

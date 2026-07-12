@@ -1,9 +1,22 @@
 """
 Workflow node for the orchestrator.
 Extracted from orchestrateur_general.py lines 4538-4617.
+
+Note v4.1 : ce fichier n'a PAS besoin d'adaptation vis-à-vis de la règle d'or
+de db_adapter.py. Il ne référence aucun nom physique de table/colonne Sage :
+- "DO_Piece" (result_bl.get / result_of.get) est une clé de CONTRAT DE SORTIE
+  JSON définie par mcp_sage.py (_workflow_bl/_workflow_of), pas un accès
+  colonne — au même titre que CT_Num/AR_Ref consommés dans modification.py.
+- "NON_TROUVE"/"BLOQUE"/"SUSPECT"/"VALIDE" sont des VALEURS métier (contenu
+  de la colonne validite), pas des noms de schéma.
+- Le regex "net:\\s*([\\d.]+)" parse le texte de sortie de
+  verifier_stock_article (nl2sql_server.py) — couplage au format d'affichage
+  de l'outil, pas au schéma DB.
+Seul correctif apporté : import json manquant (bug latent, cf. lecture.py).
 """
 
 import asyncio
+import json
 import re
 import logging
 from api.mcp_pool import pool as mcp_pool

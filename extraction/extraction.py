@@ -1,15 +1,20 @@
+"""
+extraction.py — Extraction client / article.
+Utilise exclusivement common.py comme source de vérité pour les constantes.
+"""
 import re
+import json
+import asyncio
 import difflib
-import logging
-import sqlite3
-from common import (
+import itertools
+
+import api.common
+from api.common import (
     _safe_str, _PREFIXES_PARASITES, _SUFFIXES_PARASITES,
     _MOTS_VIDES_NOM, _MOTS_METIER_INVALIDES, _PATTERN_NOM_CLIENT,
-    _PREFIXES_PIECES, _db_path, _articles_refs_cache, ENABLE_GLINER,
-    _get_gliner_sync,
+    _PREFIXES_PIECES, _get_gliner_sync,
 )
 
-logger = logging.getLogger(__name__)
 
 def _ner_extraire_entites(texte: str) -> dict:
     model = _get_gliner_sync()
@@ -54,7 +59,6 @@ def _est_nom_valide(nom: str) -> bool:
         return False
     mots = nom.strip().split()
     mots_lower = [m.lower() for m in mots]
-    # PATCH F : si TOUS les mots sont des mots vides → jamais un nom valide
     if all(m in _MOTS_VIDES_NOM for m in mots_lower):
         return False
     if len(mots) >= 2:
@@ -93,25 +97,48 @@ def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
     return "", ""
 
 
-def _charger_refs_articles() -> list[str]:
-    global _articles_refs_cache
-    if _articles_refs_cache is not None:
-        return _articles_refs_cache
+# ──────────────────────────────────────────────────────────────
+# Références articles — cache mutable dans common (via `import common`)
+# ──────────────────────────────────────────────────────────────
+def _parse_mcp_response(raw: str | dict) -> dict:
+    if isinstance(raw, dict):
+        return raw
+    if not raw:
+        return {"statut": "ERREUR", "message": "Réponse vide"}
     try:
-        import sqlite3
-        conn = sqlite3.connect(str(_db_path))
-        rows = conn.execute("SELECT AR_Ref FROM F_ARTICLE").fetchall()
-        conn.close()
-        _articles_refs_cache = [r[0] for r in rows]
-    except Exception:
-        _articles_refs_cache = []
-    return _articles_refs_cache
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return {"statut": "ERREUR", "message": str(raw)}
 
 
-def _corriger_ref_article(ref: str) -> str:
+_articles_refs_lock: asyncio.Lock | None = None
+
+
+async def _charger_refs_articles(mcp_pool) -> list[str]:
+    """Charge (une fois) les refs articles via MCP. Mute common._articles_refs_cache
+    directement (via `import common`) pour que le cache soit réellement partagé."""
+    global _articles_refs_lock
+    if api.common._articles_refs_cache is not None:
+        return api.common._articles_refs_cache
+    if _articles_refs_lock is None:
+        _articles_refs_lock = asyncio.Lock()
+    async with _articles_refs_lock:
+        if api.common._articles_refs_cache is not None:
+            return api.common._articles_refs_cache
+        try:
+            raw = await mcp_pool.call("nl2sql", "lister_references_articles", {})
+            data = _parse_mcp_response(raw)
+            api.common._articles_refs_cache = data.get("references", []) if data.get("statut") == "OK" else []
+        except Exception as e:
+            print(f"   ⚠️  [_charger_refs_articles] MCP indisponible ({e})")
+            api.common._articles_refs_cache = []
+    return api.common._articles_refs_cache
+
+
+async def _corriger_ref_article(ref: str, mcp_pool) -> str:
     if not ref:
         return ref
-    refs = _charger_refs_articles()
+    refs = await _charger_refs_articles(mcp_pool)
     if ref.upper() in refs:
         return ref.upper()
     matches = difflib.get_close_matches(ref.upper(), refs, n=1, cutoff=0.72)
@@ -119,3 +146,95 @@ def _corriger_ref_article(ref: str) -> str:
         print(f"   🔧 [Fuzzy] '{ref}' → '{matches[0]}' (correction automatique)")
         return matches[0]
     return ref
+
+
+# ──────────────────────────────────────────────────────────────
+# Recherche client par nom (async/MCP)
+# ──────────────────────────────────────────────────────────────
+_client_nom_cache: dict[str, str] = {}
+
+
+async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
+    if not nom or len(nom.strip()) < 2:
+        return ""
+    nom_lower = nom.lower().strip()
+    if nom_lower in _client_nom_cache:
+        cached = _client_nom_cache[nom_lower]
+        if cached:
+            print(f"   ⚡ [Cache Nom] '{nom}' → {cached}")
+        return cached
+
+    _MOTS_PARASITES = {"le", "la", "les", "du", "de", "des", "et", "ou", "un", "une", "pour", "avec", "sur"}
+    mots_significatifs = [
+        m for m in nom_lower.split()
+        if m not in _MOTS_PARASITES
+        and len(m) > 3
+        and not m.isdigit()
+        and not re.search(r'\d', m)
+    ]
+    if not mots_significatifs:
+        _client_nom_cache[nom_lower] = ""
+        print(f"   ⚠️  [Recherche Nom] '{nom}' → aucun mot significatif, abandon")
+        return ""
+
+    print(f"   🔍 [Recherche Nom] '{nom}' → mots : {mots_significatifs}")
+
+    async def _appel_fiche(query: str) -> str:
+        try:
+            return await mcp_pool.call("nl2sql", "rechercher_fiche_client", {"code_client": query})
+        except Exception:
+            return ""
+
+    async def _appel_statut(query: str) -> str:
+        try:
+            return await mcp_pool.call("nl2sql", "verifier_statut_client", {"code_client": query})
+        except Exception:
+            return ""
+
+    _CODES_INVALIDES_CACHE = {
+        "client", "clients", "tiers", "societe", "société",
+        "entreprise", "none", "null", "inconnu", "unknown",
+        "non_trouve", "vide", "absent",
+    }
+
+    def _extraire_code(text: str) -> str:
+        try:
+            data = json.loads(text)
+            code = data.get("CT_Num", "")
+            if (code
+                    and code not in ("NON_TROUVE", "")
+                    and code.lower() not in _CODES_INVALIDES_CACHE
+                    and len(code) >= 3):
+                return code
+        except Exception:
+            pass
+        m = re.search(r"CT_Num[:\s]+([A-Z0-9]+)", text, re.IGNORECASE)
+        code_m = m.group(1).strip() if m else ""
+        return code_m if code_m.lower() not in _CODES_INVALIDES_CACHE else ""
+
+    for essai_fn, essai_val in [(_appel_fiche, nom), (_appel_fiche, " ".join(mots_significatifs))]:
+        t = await essai_fn(essai_val)
+        if t:
+            code = _extraire_code(t)
+            if code:
+                _client_nom_cache[nom_lower] = code
+                print(f"   ✅ [MCP] '{essai_val}' → {code}")
+                return code
+
+    for taille in range(len(mots_significatifs), 0, -1):
+        for combo in itertools.combinations(mots_significatifs, taille):
+            sous_nom = " ".join(combo)
+            if len(sous_nom) < 2:
+                continue
+            for fn in (_appel_fiche, _appel_statut):
+                t = await fn(sous_nom)
+                if t:
+                    code = _extraire_code(t)
+                    if code:
+                        _client_nom_cache[nom_lower] = code
+                        print(f"   ✅ [MCP Combo] '{sous_nom}' → {code}")
+                        return code
+
+    _client_nom_cache[nom_lower] = ""
+    print(f"   ⚠️  [Recherche Nom] '{nom}' introuvable")
+    return ""

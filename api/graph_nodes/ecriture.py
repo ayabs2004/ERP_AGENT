@@ -1,11 +1,21 @@
 """
 Ecriture node for the orchestrator.
 Extracted from orchestrateur_general.py lines 4211-4537.
+
+v4.1 : CORRECTIF DE NEUTRALITÉ DB.
+       La branche TRANSFORMER_DOC ouvrait une connexion sqlite3 DIRECTE
+       (sqlite3.connect(str(_db_path))) et exécutait du SQL avec des noms
+       physiques Sage codés en dur (F_DOCENTETE, DO_Ref, DO_Type, DO_Domaine).
+       Ceci contournait intégralement adaptation/db_adapter.py ET la couche
+       MCP (accès disque direct depuis le node orchestrateur).
+       Cette vérification de doublon existe déjà, neutralisée (table()/col()),
+       dans nl2sql_server.py : verifier_document_deja_transforme(). On l'appelle
+       désormais via mcp_pool — plus de sqlite3, plus de nom physique, plus
+       d'accès disque hors MCP.
 """
 
 import json
 import sqlite3
-import re
 import logging
 from api.mcp_pool import pool as mcp_pool
 from cache.response_cache import cache as response_cache
@@ -14,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mcp_workflow_bl,
-                         _mcp_workflow_of, _mcp_workflow_bf, _parse_mcp_response, _db_path, _safe_str):
+                         _mcp_workflow_of, _mcp_workflow_bf, _parse_mcp_response, _safe_str):
     """
     Handles write operations (create documents, clients, modify status, etc.).
     """
@@ -234,10 +244,10 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
             _statut_cible = state.get("type_doc", "BLOQUE") or "BLOQUE"
             if _statut_cible not in ("BLOQUE", "VALIDE", "SUSPECT"):
                 _statut_cible = "BLOQUE"
-            
+
             # Detect if it's a supplier or client
             is_fournisseur = state.get("code_fournisseur") is not None
-            
+
             if is_fournisseur:
                 raw = await mcp_pool.call("actions", "modifier_statut_fournisseur", {
                     "code_fournisseur": state["code_fournisseur"],
@@ -266,45 +276,28 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
             num_piece_src = state["num_piece"]
             type_dest     = state["type_doc"] or "FACTURE"
 
+            # ── Vérification anti-doublon — neutralisée (table()/col()) ──
+            # Anciennement : sqlite3.connect(_db_path) + SQL en dur sur
+            # F_DOCENTETE / DO_Ref / DO_Type / DO_Domaine, en accès disque
+            # direct hors MCP. Remplacé par l'outil déjà neutre
+            # verifier_document_deja_transforme() de nl2sql_server.py,
+            # qui couvre FACTURE/FA/FACTURE_ACHAT/FA_ACHAT/BF.
             try:
-                _db  = sqlite3.connect(str(_db_path))
-                _cur = _db.cursor()
+                raw_verif = await mcp_pool.call("nl2sql", "verifier_document_deja_transforme", {
+                    "num_piece_source": num_piece_src,
+                    "type_destination": type_dest,
+                })
+                data_verif = _parse_mcp_response(raw_verif)
+                if data_verif.get("deja_transforme"):
+                    message = data_verif.get("message") or (
+                        f"⚠️  Le document **{num_piece_src}** a déjà été transformé "
+                        f"en {type_dest}."
+                    )
+                    state["reponse_brute"]  = message
+                    state["reponse_finale"] = message
+                    return state
 
-                if type_dest == "FACTURE":
-                    _cur.execute("""
-                        SELECT COUNT(*) FROM F_DOCENTETE
-                        WHERE DO_Ref = ? AND DO_Type = 3 AND DO_Domaine = 0
-                    """, (num_piece_src,))
-                    nb_fa = _cur.fetchone()[0]
-                    if nb_fa > 0:
-                        _db.close()
-                        state["reponse_brute"] = (
-                            f"⚠️  Le BL **{num_piece_src}** a déjà été transformé en facture.\n"
-                            f"   ({nb_fa} facture(s) existante(s) liée(s) à ce BL)\n"
-                            f"   Utilisez 'liste des factures' pour retrouver la facture correspondante."
-                        )
-                        state["reponse_finale"] = state["reponse_brute"]
-                        return state
-
-                elif type_dest == "BF":
-                    _cur.execute("""
-                        SELECT COUNT(*) FROM F_DOCENTETE
-                        WHERE DO_Ref = ? AND DO_Type = 4 AND DO_Domaine = 2
-                    """, (num_piece_src,))
-                    nb_bf = _cur.fetchone()[0]
-                    if nb_bf > 0:
-                        _db.close()
-                        state["reponse_brute"] = (
-                            f"⚠️  L'OF **{num_piece_src}** a déjà été transformé en Bon de Fabrication.\n"
-                            f"   ({nb_bf} BF existant(s) lié(s) à cet OF)\n"
-                            f"   La fabrication est déjà en cours ou terminée."
-                        )
-                        state["reponse_finale"] = state["reponse_brute"]
-                        return state
-
-                _db.close()
-
-            except (sqlite3.Error, ValueError) as e_verif:
+            except (json.JSONDecodeError, KeyError, ValueError) as e_verif:
                 logger.warning(f"   ⚠️  [Vérif doublon] {_safe_str(e_verif)}")
 
             raw  = await mcp_pool.call("actions", "transformer_document", {

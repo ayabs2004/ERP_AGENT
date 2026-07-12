@@ -187,21 +187,26 @@ def extraire_articles_depuis_demande(demande: str) -> list[str]:
     refs: list[str] = []
 
     # Pattern : suite de tokens séparés par "et", "," après "pour"
-    # On cherche des mots de 2+ chars alphanumeriques qui ressemblent à des refs
+    # On cherche des mots de 3+ chars alphanumériques qui ressemblent à des refs
+    # (minimum 3 chars pour éviter "LE", "LA", "UN", etc.)
     _EXCLUS = {
         "OFFRE", "PRIX", "UNE", "UN", "DE", "POUR", "ET", "ARTICLE",
         "ARTICLES", "PRODUIT", "PRODUITS", "CRÉE", "CREE", "CREER",
         "GÉNÈRE", "GENERE", "GENERER", "FAIRE", "FAIS",
+        # Articles français et mots courts à exclure
+        "LE", "LA", "LES", "UN", "UNE", "DES", "DU", "DE", "AU", "AUX",
+        "CE", "CET", "CETTE", "CES", "MON", "MA", "MES", "TON", "TA", "TES",
+        "SON", "SA", "SES", "NOTRE", "NOS", "VOTRE", "VOS", "LEUR", "LEURS",
     }
 
     # Cherche les tokens après "pour" / "de" dans la phrase
     texte_upper = demande.upper()
 
-    # Retire les mots vides connus
-    tokens = re.findall(r"\b([A-Z][A-Z0-9\-]{1,19})\b", texte_upper)
+    # Retire les mots vides connus - minimum 3 chars pour éviter "LE", "LA", etc.
+    tokens = re.findall(r"\b([A-Z][A-Z0-9\-]{2,19})\b", texte_upper)
 
     for tok in tokens:
-        if tok not in _EXCLUS and len(tok) >= 2:
+        if tok not in _EXCLUS and len(tok) >= 3:
             refs.append(tok)
 
     # Dédoublonnage en conservant l'ordre
@@ -296,7 +301,10 @@ def formater_suggestion_prix(article: dict, index: int, total: int) -> str:
         lignes.append(f"⚠️  {erreur}")
         lignes.append(f"💡 Prix suggéré (basé sur prix d'achat ou 0) : **{prix_suggere:.3f} TND**")
         lignes.append("")
-        lignes.append("✏️  Saisissez le prix unitaire souhaité (ou **CONFIRMER** pour accepter) :")
+        lignes.append("**Actions disponibles :**")
+        lignes.append("  • Tapez un prix personnalisé (ex: **150.000**)")
+        lignes.append("  • Tapez **CONFIRMER** pour accepter le prix suggéré")
+        lignes.append("  • Tapez **ANNULER** pour arrêter l'offre")
         return "\n".join(lignes)
 
     if infos_kb:
@@ -326,7 +334,11 @@ def formater_suggestion_prix(article: dict, index: int, total: int) -> str:
 
     lignes.append("")
     lignes.append(f"💡 Prix suggéré : **{prix_suggere:.3f} TND**")
-    lignes.append("✏️  Tapez **CONFIRMER** pour accepter ce prix, ou saisissez un montant différent :")
+    lignes.append("")
+    lignes.append("**Actions disponibles :**")
+    lignes.append("  • Tapez **CONFIRMER** pour accepter ce prix")
+    lignes.append("  • Tapez un prix personnalisé (ex: **150.000**)")
+    lignes.append("  • Tapez **ANNULER** pour arrêter l'offre")
     return "\n".join(lignes)
 
 
@@ -339,6 +351,7 @@ def traiter_reponse_prix(draft: dict, texte_user: str) -> tuple[dict, str]:
     Parse la réponse de l'utilisateur concernant le prix d'un article.
 
     - Si "confirmer"/"oui"/vide → utilise prix_suggere
+    - Si "annuler"/"stop"/"non" → annule l'offre
     - Sinon tente de parser un montant numérique
 
     Retourne (draft_mis_à_jour, message_suivant)
@@ -351,6 +364,12 @@ def traiter_reponse_prix(draft: dict, texte_user: str) -> tuple[dict, str]:
 
     article = articles[i]
     texte = texte_user.strip().lower().rstrip("!.")
+
+    # Mots d'annulation
+    _MOTS_ANNULER = {"annuler", "annule", "stop", "arret", "arreter", "non", "cancel"}
+    if texte in _MOTS_ANNULER:
+        draft["statut_offre"] = ""
+        return draft, "❌ Offre de prix annulée."
 
     # Mots acceptant le prix suggéré
     _MOTS_OK = {"confirmer", "confirme", "ok", "oui", "yes", "accepter", "accepte", "valider", "valide"}
@@ -387,7 +406,8 @@ def traiter_reponse_prix(draft: dict, texte_user: str) -> tuple[dict, str]:
             f"✅ Prix retenu pour **{article['ref']}** : {prix_retenu:.3f} TND\n\n"
             + ("─" * 55) + "\n"
             + "💬 Y a-t-il une **remise** sur cette offre ?\n"
-            + "   → Tapez le pourcentage (ex: **10** ou **10%**) ou **non** si pas de remise."
+            + "   → Tapez le pourcentage (ex: **10** ou **10%**) ou **non** si pas de remise.\n"
+            + "   → Tapez **ANNULER** pour arrêter l'offre."
         )
 
     draft["statut_offre"] = draft.get("statut_offre", "ATTENTE_REMISE")
@@ -404,10 +424,17 @@ def traiter_reponse_remise(draft: dict, texte_user: str) -> tuple[dict, str]:
 
     - "non" / "0" / "pas de remise" → remise_pct = 0.0
     - "10" / "10%" / "15,5" → remise_pct = 10.0
+    - "annuler" / "stop" → annule l'offre
 
     Retourne (draft_mis_à_jour, message_confirmation)
     """
     texte = texte_user.strip().lower()
+
+    # Mots d'annulation
+    _MOTS_ANNULER = {"annuler", "annule", "stop", "arret", "arreter", "cancel"}
+    if texte in _MOTS_ANNULER:
+        draft["statut_offre"] = ""
+        return draft, "❌ Offre de prix annulée."
 
     _MOTS_NON = {"non", "no", "pas", "aucune", "aucun", "sans"}
     

@@ -1,8 +1,18 @@
 import sqlite3
 from datetime import date, timedelta
 
+
+def _default_db_path() -> str:
+    """Chemin par défaut = celui que db_adapter.get_connection() utiliserait,
+    pour garantir qu'on initialise bien le fichier réellement utilisé par
+    l'application (au lieu d'un chemin relatif dépendant du CWD)."""
+    from adaptation.db_adapter import get_sqlite_path
+    p = get_sqlite_path()
+    return str(p) if p is not None else "entreprise_mock.db"
+
+
 def init_database_complete(db_path: str | None = None):
-    conn = sqlite3.connect(db_path or "entreprise_mock.db")
+    conn = sqlite3.connect(db_path or _default_db_path())
     cursor = conn.cursor()
 
     print("Creation de l'architecture complete type Sage...")

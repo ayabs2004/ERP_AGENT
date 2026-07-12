@@ -1,8 +1,20 @@
 """
 Lecture node for the orchestrator.
 Extracted from orchestrateur_general.py lines 4006-4083.
+
+v4.1 : CORRECTIF DE NEUTRALITÉ DB.
+       Les 3 entrées LISTE_FOURNISSEURS / TOP_FOURNISSEURS / FICHE_FOURNISSEUR
+       du tool_map exécutaient du SQL avec des noms physiques Sage codés en dur
+       (F_COMPTET, CT_Num, CT_Intitule, F_DOCENTETE, DO_Piece, F_DOCLIGNE,
+       DL_Qte, DL_PrixUnitaire...) via "executer_sql_vanna". Ce SQL contournait
+       intégralement adaptation/db_adapter.py.
+       Ces trois cas dupliquaient des outils déjà neutralisés (table()/col())
+       existant dans nl2sql_server.py : lister_fournisseurs,
+       analyser_top_fournisseurs, rechercher_fiche_fournisseur.
+       On les appelle désormais directement — plus aucun nom physique ici.
 """
 
+import json
 from api.mcp_pool import pool as mcp_pool
 import logging
 
@@ -48,32 +60,15 @@ async def noeud_lecture(state, _rechercher_client_par_nom, _safe_str):
             "DECLARATION_EXCEL":       ("nl2sql", "generer_declaration_mensuelle_excel", {"periode": state.get("demande_brute", "")}),
             "BALANCE_AGEE_EXCEL":      ("nl2sql", "exporter_balance_agee_excel",    {}),
             "DASHBOARD_EXCEL":         ("nl2sql", "exporter_dashboard_kpi_excel",   {}),
-            "LISTE_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
-                "sql": "SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite FROM F_COMPTET WHERE CT_Type=1 ORDER BY CT_Intitule",
-                "description": "Liste des fournisseurs",
-            }),
-            "TOP_FOURNISSEURS": ("nl2sql", "executer_sql_vanna", {
-                "sql": (
-                    "SELECT c.CT_Num, c.CT_Intitule, "
-                    "COUNT(DISTINCT e.DO_Piece) AS nb_commandes, "
-                    "COALESCE(SUM(l.DL_Qte*l.DL_PrixUnitaire),0) AS volume_achat "
-                    "FROM F_COMPTET c "
-                    "LEFT JOIN F_DOCENTETE e ON c.CT_Num=e.CT_Num AND e.DO_Type=6 AND e.DO_Domaine=1 "
-                    "LEFT JOIN F_DOCLIGNE l ON e.DO_Piece=l.DO_Piece "
-                    "WHERE c.CT_Type=1 "
-                    "GROUP BY c.CT_Num ORDER BY volume_achat DESC LIMIT 10"
-                ),
-                "description": "Top fournisseurs par volume d'achat",
-            }),
-            "FICHE_FOURNISSEUR": ("nl2sql", "executer_sql_vanna", {
-                "sql": (
-                    f"SELECT CT_Num, CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite "
-                    f"FROM F_COMPTET "
-                    f"WHERE CT_Type=1 AND (CT_Num='{state.get('code_client','')}' "
-                    f"OR UPPER(CT_Intitule) LIKE UPPER('%{state.get('code_client','')}%')) LIMIT 1"
-                ),
-                "description": f"Fiche fournisseur {state.get('code_client','')}",
-            }),
+            # ── Fournisseurs : neutralisé (table()/col() via nl2sql_server.py) ──
+            # Anciennement : executer_sql_vanna avec SQL brut (F_COMPTET, CT_Num,
+            # CT_Intitule, CT_Encours, CT_EncoursMax, CT_Validite, F_DOCENTETE,
+            # F_DOCLIGNE, DO_Piece, DL_Qte, DL_PrixUnitaire en dur).
+            # Remplacé par les outils dédiés, déjà neutres vis-à-vis du schéma.
+            "LISTE_FOURNISSEURS":  ("nl2sql", "lister_fournisseurs", {}),
+            "TOP_FOURNISSEURS":    ("nl2sql", "analyser_top_fournisseurs", {}),
+            "FICHE_FOURNISSEUR":   ("nl2sql", "rechercher_fiche_fournisseur",
+                                    {"code_fournisseur": state.get("code_client", "")}),
             "FACTURES_NON_REGLEES_FOURN": ("nl2sql", "lister_factures_fournisseurs_non_reglees", {
                 "code_fournisseur": state.get("code_client", ""),
             }),

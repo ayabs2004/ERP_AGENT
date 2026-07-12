@@ -1,0 +1,72 @@
+{
+    "_comment": "Table de correspondance UNIQUE. Ne jamais coder un nom de colonne en dur ailleurs dans le projet. Le jour où tu obtiens l'accès à la vraie base Sage, tu n'as QUE ce fichier à modifier (utilise introspect_schema.py pour t'aider à générer les vraies valeurs).",
+    "driver": "sqlite",
+    "_driver_options": "sqlite | mssql (utilisées par db_adapter.py pour choisir le connecteur)",
+    "tables": {
+        "clients_fournisseurs": "F_COMPTET",
+        "articles": "F_ARTICLE",
+        "stock": "F_ARTSTOCK",
+        "doc_entete": "F_DOCENTETE",
+        "doc_ligne": "F_DOCLIGNE",
+        "mouvements_stock": "mouvements_stock",
+        "reglements": "reglements",
+        "nomenclature": "F_NOMENCLAT"
+    },
+    "columns": {
+        "clients_fournisseurs": {
+            "code": "CT_Num",
+            "nom": "CT_Intitule",
+            "type_tiers": "CT_Type",
+            "validite": "CT_Validite",
+            "encours_max": "CT_EncoursMax",
+            "encours": "CT_Encours"
+        },
+        "articles": {
+            "ref": "AR_Ref",
+            "designation": "AR_Design",
+            "prix_achat": "AR_PrixAch",
+            "prix_vente": "AR_PrixVen",
+            "type_article": "AR_Type"
+        },
+        "stock": {
+            "ref": "AR_Ref",
+            "qte_stock": "AS_QteSto",
+            "qte_commande": "AS_QteCom"
+        },
+        "doc_entete": {
+            "piece": "DO_Piece",
+            "domaine": "DO_Domaine",
+            "type": "DO_Type",
+            "date": "DO_Date",
+            "reference": "DO_Ref",
+            "code_tiers": "CT_Num"
+        },
+        "doc_ligne": {
+            "piece": "DO_Piece",
+            "ref_article": "AR_Ref",
+            "qte": "DL_Qte",
+            "prix_unitaire": "DL_PrixUnitaire",
+            "ligne": "DL_Ligne"
+        },
+        "mouvements_stock": {
+            "id": "id",
+            "ref_article": "AR_Ref",
+            "type_mouvement": "type_mouvement",
+            "qte": "qte",
+            "motif": "motif",
+            "date_mouvement": "date_mouvement"
+        },
+        "reglements": {
+            "id": "id",
+            "piece": "DO_Piece",
+            "mode_paiement": "mode_paiement",
+            "montant": "montant",
+            "date_reglement": "date_reglement"
+        },
+        "nomenclature": {
+            "ref_pf": "NO_RefPF",
+            "ref_mp": "NO_RefMP",
+            "qte": "NO_Qte"
+        }
+    }
+}

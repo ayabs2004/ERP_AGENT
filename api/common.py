@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 common.py — Module partagé entre orchestrateur_general, formatters, extraction.
 Contient les constantes, helpers et cache communs pour éviter les dépendances
@@ -6,7 +5,6 @@ circulaires et les `from X import *` fragiles.
 """
 
 import re
-from pathlib import Path
 from typing import Optional
 
 # ─────────────────────────────────────────────────────────────────────
@@ -21,7 +19,13 @@ def _safe_str(obj) -> str:
 # ─────────────────────────────────────────────────────────────────────
 # CHEMIN DB
 # ─────────────────────────────────────────────────────────────────────
-_db_path = Path(__file__).parent / "entreprise_mock.db"
+# NB : plus de chemin DB codé en dur ici. Toute résolution de connexion
+# DB doit passer exclusivement par adaptation.db_adapter.get_connection()
+# (lui-même piloté par db_config.json / DB_DRIVER / DB_PATH). Si ce module
+# a un jour besoin d'une connexion, importer :
+#   from adaptation.db_adapter import get_connection
+# et appeler get_connection() au point d'usage plutôt que de recalculer
+# un chemin ici.
 
 
 # ─────────────────────────────────────────────────────────────────────

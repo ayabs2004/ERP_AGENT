@@ -167,6 +167,7 @@ class ChatResponse(BaseModel):
     # confiance moyenne et puisse la corriger facilement.
     score_confiance: float = 0.0
     origine_classification: str = ""
+    action_buttons: Optional[List[str]] = None  # Nouveau champ pour boutons d'action
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -177,6 +178,22 @@ async def chat_endpoint(req: ChatRequest, token: str = Depends(verify_token)):
 
     if not demande:
         return ChatResponse(responses=["Demande vide."], suggestions=[])
+
+    # Traitement spécial pour la commande "reset"
+    if demande.lower() == "reset":
+        contexte_session.clear()
+        dernieres_demandes[session_id] = ""
+        return ChatResponse(
+            responses=["🔄 Session réinitialisée avec succès."],
+            suggestions=[],
+            draft_status="",
+            confirmation_status="",
+            pdf_url=None,
+            alerts=[],
+            attente_complements=False,
+            score_confiance=0.0,
+            origine_classification="",
+        )
 
     sugg = contexte_session.get("suggestion_en_attente", {})
     if sugg and (_est_oui(demande) or _est_non(demande)):
@@ -256,6 +273,11 @@ async def chat_endpoint(req: ChatRequest, token: str = Depends(verify_token)):
             # ── Persistance du cycle draft/preview/confirm ──
             contexte_session["document_draft"] = final_state.get("document_draft", {})
             contexte_session["statut_draft"] = final_state.get("statut_draft", "")
+            # Persister les suggestions pour l'offre de prix
+            if final_state.get("suggestions"):
+                contexte_session["suggestions"] = final_state["suggestions"]
+            else:
+                contexte_session["suggestions"] = []
             if final_state.get("statut_confirmation") == "ATTENTE":
                 contexte_session["pending_action"]      = final_state.get("pending_action", {})
                 contexte_session["statut_confirmation"] = "ATTENTE"
@@ -326,21 +348,38 @@ async def chat_endpoint(req: ChatRequest, token: str = Depends(verify_token)):
             reponses_multi.append(reponse)
             if sugg_nouvelle:
                 suggestions.append(sugg_nouvelle.get("description", ""))
+            
+            # Ajouter les suggestions directes de l'état (pour offre_prix)
+            suggestions_directes = final_state.get("suggestions", [])
+            if suggestions_directes:
+                suggestions.extend(suggestions_directes)
 
         # ── Alertes persistantes (ex : BF requis pour OF) ──
         alertes_txt = formater_alertes_persistantes(contexte_session)
         alerts = [alertes_txt] if alertes_txt else []
+        
+        # Ajouter les suggestions de la session (pour offre_prix)
+        session_suggestions = contexte_session.get("suggestions", [])
+        if session_suggestions:
+            suggestions.extend(session_suggestions)
+        
+        # Utiliser le draft_status de l'état s'il existe (pour offre_prix)
+        draft_status = final_state.get("draft_status") or contexte_session.get("statut_draft", "")
+        
+        # Ajouter les boutons d'action depuis l'état (pour offre_prix)
+        action_buttons = final_state.get("action_buttons")
 
         return ChatResponse(
             responses=reponses_multi,
             suggestions=suggestions,
-            draft_status=contexte_session.get("statut_draft", ""),
+            draft_status=draft_status,
             confirmation_status=contexte_session.get("statut_confirmation", ""),
             pdf_url=dernier_pdf_url,
             alerts=alerts,
             attente_complements=contexte_session.get("attente_complements", False),
             score_confiance=derniere_confiance if sous_demandes else 0.0,
             origine_classification=derniere_origine if sous_demandes else "",
+            action_buttons=action_buttons,
         )
     except Exception as e:
         traceback.print_exc()

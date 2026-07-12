@@ -3,11 +3,11 @@ llm_anonymizer.py — Anonymisation data-aware avant appel LLM externe
 ======================================================================
 Stratégie hybride en deux passes :
 
-  Passe 1 – Valeurs exactes DB (chargées depuis entreprise_mock.db)
-    • CT_Num   (codes client et fournisseur)   → <<CLIENT_1>> / <<FOUR_1>>
-    • AR_Ref   (références article)            → <<ARTICLE_1>>
-    • DO_Piece (numéros de pièce)              → <<PIECE_1>>
-    • CT_Intitule (noms commerciaux)           → <<NOM_1>>
+  Passe 1 – Valeurs exactes DB (chargées depuis la base configurée)
+    • code tiers (client/fournisseur) → <<CLIENT_1>> / <<FOUR_1>>
+    • référence article              → <<ARTICLE_1>>
+    • numéro de pièce                → <<PIECE_1>>
+    • nom commercial (tiers)         → <<NOM_1>>
 
   Passe 2 – Regex calibrés sur les formats réels observés
     * Nouveaux codes clients  CLI[0-9]{2,4}    -> <<CLIENT_n>>
@@ -17,66 +17,90 @@ Stratégie hybride en deux passes :
 
 La passe DB garantit que des refs comme LAPTOP, IMPRIMANTE, ECRAN4K
 sont anonymisées même si elles ne ressemblent pas à un code "générique".
+
+──────────────────────────────────────────────────────────────────
+v2 — CORRECTIF DE NEUTRALITÉ DB (règle d'or db_adapter.py)
+     Ce module exécutait auparavant trois requêtes SQL avec les noms
+     physiques Sage codés en dur (F_COMPTET, CT_Num, CT_Intitule,
+     CT_Type, F_ARTICLE, AR_Ref, F_DOCENTETE, DO_Piece) et ouvrait sa
+     propre connexion sqlite3 sur un chemin recalculé localement.
+     Désormais, toutes les tables/colonnes passent par
+     adaptation.db_adapter.table()/col(), et la connexion passe par
+     adaptation.db_adapter.get_connection() (sqlite ou mssql selon
+     adaptation/db_config.json). Si la base est temporairement
+     inaccessible, on retombe silencieusement sur l'anonymisation par
+     regex seule (comportement inchangé).
+──────────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
 
 import os
 import re
-import sqlite3
+import sys
 from pathlib import Path
 from typing import Callable, Awaitable, Any
 
+# Permet d'importer adaptation.db_adapter quel que soit le cwd d'exécution
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from adaptation.db_adapter import table, col, get_connection
+
 
 # ─────────────────────────────────────────────────────────────────────
-# Chemin vers la base — résolu depuis l'emplacement de CE fichier
-# ─────────────────────────────────────────────────────────────────────
-_DB_PATH = Path(os.getenv(
-    "DB_PATH",
-    str(Path(__file__).parent.parent / "entreprise_mock.db")
-))
-
 # Cache mémoire des valeurs DB (chargé une fois)
+# ─────────────────────────────────────────────────────────────────────
 _DB_VALUES: dict[str, list[str]] = {}   # "clients", "fournisseurs", "articles", "pieces", "noms"
 _DB_LOADED = False
 
 
 def _load_db_values() -> None:
-    """Charge tous les identifiants sensibles depuis la DB Sage."""
+    """Charge tous les identifiants sensibles depuis la base configurée
+    (adaptation/db_config.json), via db_adapter — jamais de nom de
+    table/colonne physique en dur ici."""
     global _DB_VALUES, _DB_LOADED
     if _DB_LOADED:
         return
     _DB_LOADED = True
 
-    if not _DB_PATH.exists():
-        print(f"   ⚠️  [Anonymiseur] DB introuvable : {_DB_PATH} — fallback regex seul")
-        _DB_VALUES = {"clients": [], "fournisseurs": [], "articles": [], "pieces": [], "noms": []}
-        return
-
     try:
-        con = sqlite3.connect(str(_DB_PATH))
-        cur = con.cursor()
+        clients_table = table("clients_fournisseurs")
+        code_col      = col("clients_fournisseurs", "code")
+        nom_col       = col("clients_fournisseurs", "nom")
+        type_col      = col("clients_fournisseurs", "type_tiers")
 
-        # Codes tiers (clients CT_Type=0, fournisseurs CT_Type=1)
-        cur.execute("SELECT CT_Num, CT_Intitule, CT_Type FROM F_COMPTET")
-        clients, fournisseurs, noms = [], [], []
-        for ct_num, ct_intitule, ct_type in cur.fetchall():
-            if ct_num and ct_num.upper() not in ("PROD-INT", ""):
-                if ct_type == 0:
-                    clients.append(ct_num)
-                elif ct_type == 1:
-                    fournisseurs.append(ct_num)
-            if ct_intitule and len(ct_intitule.strip()) >= 3:
-                noms.append(ct_intitule.strip())
+        articles_table = table("articles")
+        ref_col        = col("articles", "ref")
 
-        # Références articles
-        cur.execute("SELECT AR_Ref FROM F_ARTICLE")
-        articles = [r[0] for r in cur.fetchall() if r[0]]
+        doc_entete_table = table("doc_entete")
+        piece_col        = col("doc_entete", "piece")
 
-        # Numéros de pièce
-        cur.execute("SELECT DISTINCT DO_Piece FROM F_DOCENTETE")
-        pieces = [r[0] for r in cur.fetchall() if r[0]]
+        con = get_connection()
+        try:
+            cur = con.cursor() if hasattr(con, "cursor") else con
 
-        con.close()
+            # Codes tiers (clients type=0, fournisseurs type=1)
+            cur.execute(
+                f"SELECT {code_col}, {nom_col}, {type_col} FROM {clients_table}"
+            )
+            clients, fournisseurs, noms = [], [], []
+            for ct_num, ct_intitule, ct_type in cur.fetchall():
+                if ct_num and ct_num.upper() not in ("PROD-INT", ""):
+                    if ct_type == 0:
+                        clients.append(ct_num)
+                    elif ct_type == 1:
+                        fournisseurs.append(ct_num)
+                if ct_intitule and len(ct_intitule.strip()) >= 3:
+                    noms.append(ct_intitule.strip())
+
+            # Références articles
+            cur.execute(f"SELECT {ref_col} FROM {articles_table}")
+            articles = [r[0] for r in cur.fetchall() if r[0]]
+
+            # Numéros de pièce
+            cur.execute(f"SELECT DISTINCT {piece_col} FROM {doc_entete_table}")
+            pieces = [r[0] for r in cur.fetchall() if r[0]]
+        finally:
+            con.close()
 
         _DB_VALUES = {
             "clients":      sorted(clients,      key=len, reverse=True),  # plus long d'abord
@@ -92,7 +116,7 @@ def _load_db_values() -> None:
               f"{len(articles)} articles, {len(pieces)} pieces, {len(noms)} noms)")
 
     except Exception as e:
-        print(f"   [Anonymiseur] Erreur chargement DB : {e} -- fallback regex seul")
+        print(f"   [Anonymiseur] DB inaccessible ({e}) -- fallback regex seul")
         _DB_VALUES = {"clients": [], "fournisseurs": [], "articles": [], "pieces": [], "noms": []}
 
 

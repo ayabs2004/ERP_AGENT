@@ -7,85 +7,123 @@ Ce serveur est le point d'entrée unique de l'architecture.
 
 N'écrit JAMAIS en base directement → il délègue à mcp_actions_sage.
 Ne fait PAS de lecture SQL complexe → il délègue à mcp_nl2sql.
+
+──────────────────────────────────────────────────────────────────
+v4.2 — CORRECTIF DE NEUTRALITÉ DB (règle d'or db_adapter.py)
+       Ce fichier importait auparavant `database.schema_sage_a_effacer`
+       (nom explicite : fichier obsolète, source de vérité concurrente
+       de adaptation/db_config.json) et exécutait une requête SQL brute
+       avec CT_Num/CT_Intitule/CT_Validite/F_COMPTET codés en dur dans
+       `valider_demande_metier()`.
+       Désormais :
+         - les noms de TABLE et de COLONNE physiques proviennent
+           exclusivement de `adaptation/db_adapter.py` (table()/col()),
+           lui-même alimenté par `adaptation/db_config.json` ;
+         - les CODES MÉTIER (DO_Type=3, DO_Domaine=0, etc., qui ne sont
+           PAS des noms de colonnes mais des valeurs applicatives) sont
+           importés depuis `database.schema_sage`, le même module de
+           référence que celui utilisé par mcp_actions_sage.py — et
+           non plus depuis le fichier `..._a_effacer` désormais inutile ;
+         - la connexion DB passe par `db_adapter.get_connection()`
+           (sqlite ou mssql selon db_config.json) au lieu d'un
+           `sqlite3.connect()` figé sur le chemin du mock.
+       Aucun nom de table/colonne physique Sage n'est plus écrit en
+       dur dans ce fichier.
+──────────────────────────────────────────────────────────────────
 """
 
 import json
-import sqlite3
 import sys
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
-# Add parent directory to path for database import
+# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.schema_sage import COL, DOC_DOMAINE, DOC_TYPE
+# ── Codes métier (valeurs applicatives, PAS des noms physiques) ──────
+# Même source que mcp_actions_sage.py — plus jamais schema_sage_a_effacer.
+from database.schema_sage import DOC_DOMAINE, DOC_TYPE
+
+# ── Mapping schéma DB centralisé (table/colonnes physiques) ──────────
+from adaptation.db_adapter import table, col, get_connection
 
 mcp = FastMCP("Sage-API-Translator")
-DB_PATH = str(Path(__file__).parent.parent / "entreprise_mock.db")
+
 
 # =====================================================================
 # SCHÉMA DE RÉFÉRENCE CENTRALISÉ
-# Toute modification de nommage de colonnes se fait ici uniquement.
+# Toute modification de nommage de colonnes se fait dans
+# adaptation/db_config.json UNIQUEMENT — jamais ici.
 # =====================================================================
-SAGE_SCHEMA = {
-    # Tables principales
-    "TABLE_CLIENT":      "F_COMPTET",
-    "TABLE_ARTICLE":     "F_ARTICLE",
-    "TABLE_STOCK":       "F_ARTSTOCK",
-    "TABLE_NOMENCLAT":   "F_NOMENCLAT",
-    "TABLE_DOC_ENTETE":  "F_DOCENTETE",
-    "TABLE_DOC_LIGNE":   "F_DOCLIGNE",
+def _construire_sage_schema() -> dict:
+    """
+    Construit dynamiquement le schéma exposé aux autres serveurs MCP,
+    à partir de adaptation.db_adapter (table()/col()), pour que ce
+    dictionnaire ne puisse jamais diverger de db_config.json.
+    """
+    return {
+        # Tables principales (noms logiques → noms physiques réels)
+        "TABLE_CLIENT":      table("clients_fournisseurs"),
+        "TABLE_ARTICLE":     table("articles"),
+        "TABLE_STOCK":       table("stock"),
+        "TABLE_NOMENCLAT":   table("nomenclature"),
+        "TABLE_DOC_ENTETE":  table("doc_entete"),
+        "TABLE_DOC_LIGNE":   table("doc_ligne"),
 
-    # Colonnes F_COMPTET
-    "COL_CLIENT_ID":     COL["CT_NUM"],
-    "COL_CLIENT_NOM":    COL["CT_INTITULE"],
-    "COL_CLIENT_TYPE":   COL["CT_TYPE"],
-    "COL_CLIENT_STATUT": COL["CT_VALIDITE"],
-    "COL_CLIENT_ENCOURS": COL["CT_ENCOURS"],
+        # Colonnes clients_fournisseurs (ex F_COMPTET)
+        "COL_CLIENT_ID":      col("clients_fournisseurs", "code"),
+        "COL_CLIENT_NOM":     col("clients_fournisseurs", "nom"),
+        "COL_CLIENT_TYPE":    col("clients_fournisseurs", "type_tiers"),
+        "COL_CLIENT_STATUT":  col("clients_fournisseurs", "validite"),
+        "COL_CLIENT_ENCOURS": col("clients_fournisseurs", "encours"),
+        "COL_CLIENT_ENCOURS_MAX": col("clients_fournisseurs", "encours_max"),
 
-    # Colonnes F_ARTICLE
-    "COL_ART_REF":       COL["AR_REF"],
-    "COL_ART_DESIGN":    COL["AR_DESIGN"],
-    "COL_ART_PRIX_ACH":  COL["AR_PRIXACH"],
-    "COL_ART_PRIX_VEN":  COL["AR_PRIXVEN"],
-    "COL_ART_TYPE":      "AR_Type",
+        # Colonnes articles (ex F_ARTICLE)
+        "COL_ART_REF":      col("articles", "ref"),
+        "COL_ART_DESIGN":   col("articles", "designation"),
+        "COL_ART_PRIX_ACH": col("articles", "prix_achat"),
+        "COL_ART_PRIX_VEN": col("articles", "prix_vente"),
+        "COL_ART_TYPE":     col("articles", "type_article"),
 
-    # Colonnes F_ARTSTOCK
-    "COL_STOCK_REF":     COL["AR_REF"],
-    "COL_STOCK_QTE":     COL["AS_QTESTO"],
-    "COL_STOCK_QTE_COM": COL["AS_QTECOM"],
-    "COL_STOCK_QTE_AHA": "AS_QteAchaCom",
+        # Colonnes stock (ex F_ARTSTOCK)
+        "COL_STOCK_REF":     col("stock", "ref"),
+        "COL_STOCK_QTE":     col("stock", "qte_stock"),
+        "COL_STOCK_QTE_COM": col("stock", "qte_commande"),
 
-    # Colonnes F_DOCENTETE
-    "COL_DOC_PIECE":     COL["DO_PIECE"],
-    "COL_DOC_DOMAINE":   COL["DO_DOMAINE"],
-    "COL_DOC_TYPE":      COL["DO_TYPE"],
-    "COL_DOC_DATE":      COL["DO_DATE"],
-    "COL_DOC_TIERS":     COL["CT_NUM"],
-    "COL_DOC_REF":       COL["DO_REF"],
+        # Colonnes doc_entete (ex F_DOCENTETE)
+        "COL_DOC_PIECE":   col("doc_entete", "piece"),
+        "COL_DOC_DOMAINE": col("doc_entete", "domaine"),
+        "COL_DOC_TYPE":    col("doc_entete", "type"),
+        "COL_DOC_DATE":    col("doc_entete", "date"),
+        "COL_DOC_TIERS":   col("doc_entete", "code_tiers"),
+        "COL_DOC_REF":     col("doc_entete", "reference"),
 
-    # Colonnes F_DOCLIGNE
-    "COL_LIG_PIECE":     COL["DO_PIECE"],
-    "COL_LIG_ART":       COL["AR_REF"],
-    "COL_LIG_QTE":       COL["DL_QTE"],
-    "COL_LIG_PU":        COL["DL_PU"],
+        # Colonnes doc_ligne (ex F_DOCLIGNE)
+        "COL_LIG_PIECE": col("doc_ligne", "piece"),
+        "COL_LIG_ART":   col("doc_ligne", "ref_article"),
+        "COL_LIG_QTE":   col("doc_ligne", "qte"),
+        "COL_LIG_PU":    col("doc_ligne", "prix_unitaire"),
 
-    # Codes types de documents Sage
-    "DOC_TYPE": {
-        "OF":      DOC_TYPE.get("OF", 1),
-        "BF":      DOC_TYPE.get("BF", 2),
-        "BL":      DOC_TYPE.get("BL", 2),
-        "FACTURE": DOC_TYPE.get("FACTURE", 3),
-        "AVOIR":   DOC_TYPE.get("AVOIR", 9),
-        "BC":      DOC_TYPE.get("BC", 6),
-    },
-    # Domaines
-    "DOC_DOMAINE": {
-        "VENTE":       DOC_DOMAINE.get("BL", 0),
-        "ACHAT":       DOC_DOMAINE.get("BL_ACHAT", 1),
-        "FABRICATION": DOC_DOMAINE.get("OF", 2),
+        # Codes types de documents Sage (valeurs applicatives — pas des
+        # noms de colonnes, donc légitimement issues de database.schema_sage)
+        "DOC_TYPE": {
+            "OF":      DOC_TYPE.get("OF", 1),
+            "BF":      DOC_TYPE.get("BF", 4),
+            "BL":      DOC_TYPE.get("BL", 2),
+            "FACTURE": DOC_TYPE.get("FACTURE", 3),
+            "AVOIR":   DOC_TYPE.get("AVOIR", 9),
+            "BC":      DOC_TYPE.get("BC", 6),
+        },
+        # Domaines
+        "DOC_DOMAINE": {
+            "VENTE":       DOC_DOMAINE.get("BL", 0),
+            "ACHAT":       DOC_DOMAINE.get("BL_ACHAT", 1),
+            "FABRICATION": DOC_DOMAINE.get("OF", 2),
+        },
     }
-}
+
+
+SAGE_SCHEMA = _construire_sage_schema()
 
 
 # =====================================================================
@@ -97,8 +135,12 @@ def get_schema() -> str:
     Retourne le schéma centralisé de la base Sage en JSON.
     Utilisé par mcp_nl2sql et mcp_actions_sage pour construire
     leurs requêtes de manière cohérente.
+
+    Ce schéma est reconstruit à chaque appel à partir de
+    adaptation/db_config.json : il ne peut donc jamais diverger
+    de la configuration réelle.
     """
-    return json.dumps(SAGE_SCHEMA, ensure_ascii=False, indent=2)
+    return json.dumps(_construire_sage_schema(), ensure_ascii=False, indent=2)
 
 
 # =====================================================================
@@ -145,27 +187,43 @@ def valider_demande_metier(
         code_client = data.get("code_client", "").strip()
         if code_client and action_demandee not in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
             try:
-                conn = sqlite3.connect(DB_PATH)
-                conn.row_factory = sqlite3.Row
-                row = conn.execute(
-                    "SELECT CT_Intitule, CT_Validite FROM F_COMPTET WHERE CT_Num = ?",
-                    (code_client,)
-                ).fetchone()
-                conn.close()
+                clients_table = table("clients_fournisseurs")
+                code_col      = col("clients_fournisseurs", "code")
+                nom_col       = col("clients_fournisseurs", "nom")
+                validite_col  = col("clients_fournisseurs", "validite")
+
+                conn = get_connection()
+                try:
+                    row = conn.execute(
+                        f"SELECT {nom_col} AS nom, {validite_col} AS validite "
+                        f"FROM {clients_table} WHERE {code_col} = ?",
+                        (code_client,)
+                    ).fetchone()
+                finally:
+                    conn.close()
+
                 if row is None:
                     return json.dumps({
                         "valide": False,
                         "message": f"Client '{code_client}' introuvable en base."
                     })
-                if row["CT_Validite"] == "BLOQUE":
+                # row peut être un sqlite3.Row (accès par clé) ou un tuple
+                # pyodbc (accès par index) selon le driver configuré.
+                try:
+                    nom = row["nom"]
+                    validite = row["validite"]
+                except (TypeError, IndexError, KeyError):
+                    nom, validite = row[0], row[1]
+
+                if str(validite or "").upper() == "BLOQUE":
                     return json.dumps({
                         "valide": False,
                         "message": (
-                            f"🚫 Client '{code_client}' ({row['CT_Intitule']}) est BLOQUÉ. "
+                            f"🚫 Client '{code_client}' ({nom}) est BLOQUÉ. "
                             f"Aucune facturation possible. Contactez la direction commerciale."
                         )
                     })
-            except Exception as e:
+            except Exception:
                 # Ne pas bloquer si la DB est inaccessible depuis le hub
                 pass
 

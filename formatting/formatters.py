@@ -1,21 +1,29 @@
+"""
+formatters.py — Formatteurs de réponses ERP
+Contient EXACTEMENT les versions "clés logiques" utilisées par l'orchestrateur
+(c.get("code", c.get("CT_Num", "?")), data.get('code',''), data.get('nom',''), ...)
+"""
 import json
-from decimal import Decimal
-from common import (_safe_str, _ACTIONS_DEJA_TEXTE, _STATUTS_ERREUR_MCP, _STATUTS_ACTIONS_V3_OK, _FORMATEURS_JSON)
 
-def _formater_liste_fournisseurs(data: dict) -> str:
-    fournisseurs = data.get("fournisseurs", [])
-    nb           = data.get("nb_fournisseurs", len(fournisseurs))
-    if not fournisseurs:
-        return "🏭 Aucun fournisseur enregistré."
-    lignes = [f"🏭 Fournisseurs — {nb} fournisseur(s) :\n", "─" * 55]
-    for f in fournisseurs:
-        statut = f.get("CT_Validite", "VALIDE")
-        icone  = "🔴" if statut == "BLOQUE" else "🟢"
-        lignes.append(
-            f"  {icone} {f['CT_Num']:<10} │ {f['CT_Intitule']:<30} │ {statut}"
-        )
-    lignes.append("─" * 55)
-    return "\n".join(lignes)
+
+def _safe_str(obj) -> str:
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    return str(obj).encode("utf-8", errors="replace").decode("utf-8")
+
+
+_STATUTS_ACTIONS_V3_OK = {
+    "GENERE", "TRANSFORME", "CREE", "MODIFIE",
+    "REGLE", "MOUVEMENT_ENREGISTRE", "INCHANGE",
+}
+_STATUTS_ERREUR_MCP = {
+    "CLIENT_NON_TROUVE", "ARTICLE_NON_TROUVE", "STOCK_INSUFFISANT",
+    "CLIENT_BLOQUE", "COMPOSANTS_INSUFFISANTS", "NON_TROUVE",
+    "EXISTE_DEJA", "ERREUR",
+}
+_ACTIONS_DEJA_TEXTE: set[str] = {
+    "VERIFIER_STOCK", "STATUT_CLIENT",
+}
 
 
 def _formater_liste_articles(data: dict) -> str:
@@ -28,8 +36,8 @@ def _formater_liste_articles(data: dict) -> str:
         stock  = a.get("stock", 0)
         alerte = " ⚠️ RUPTURE" if stock <= 0 else (" ⚠️ FAIBLE" if stock < 5 else "")
         lignes.append(
-            f"  • {a['AR_Ref']:<14} │ {a['AR_Design']:<30} │ "
-            f"Prix: {a.get('AR_PrixVen', 0):>8.2f} € │ Stock: {stock:>5.0f} u{alerte}"
+            f"  • {a['ref']:<14} │ {a['designation']:<30} │ "
+            f"Prix: {a.get('prix_vente', 0):>8.2f} € │ Stock: {stock:>5.0f} u{alerte}"
         )
     lignes.append("─" * 55)
     return "\n".join(lignes)
@@ -42,10 +50,14 @@ def _formater_liste_clients(data: dict) -> str:
         return "👥 Aucun client actif."
     lignes = [f"👥 Clients actifs — {nb} client(s) :\n", "─" * 55]
     for c in clients:
-        statut = c.get("CT_Validite", c.get("statut", "VALIDE"))
+        # Clés logiques ('code', 'nom', 'validite') renvoyées par lister_clients_actifs()
+        # via db_adapter — fallback CT_* conservé pour compat avec d'anciens appelants
+        code   = c.get("code", c.get("CT_Num", "?"))
+        nom    = c.get("nom", c.get("CT_Intitule", "?"))
+        statut = (c.get("validite") or c.get("CT_Validite") or c.get("statut") or "VALIDE").upper()
         icone  = "🔴" if statut == "BLOQUE" else "🟡" if statut == "SUSPECT" else "🟢"
         lignes.append(
-            f"  {icone} {c['CT_Num']:<10} │ {c['CT_Intitule']:<30} │ "
+            f"  {icone} {code:<10} │ {nom:<30} │ "
             f"CA: {c.get('ca_total', 0):>10.2f} € │ Fct: {c.get('nb_factures', 0)}"
         )
     lignes.append("─" * 55)
@@ -71,7 +83,7 @@ def _formater_top_clients(data: dict) -> str:
 def _formater_factures(data: dict) -> str:
     factures  = data.get("factures", [])
     nb        = data.get("nb_factures", len(factures))
-    intitule  = data.get("CT_Intitule", data.get("CT_Num", ""))
+    intitule  = data.get("nom", data.get("code", ""))
     total_ht  = data.get("total_ht", 0)
     total_att = data.get("total_en_attente", 0)
     total_reg = data.get("total_regle", 0)
@@ -87,10 +99,10 @@ def _formater_factures(data: dict) -> str:
     for f in factures:
         regle = f.get("regle", False) or f.get("statut", "") == "RÉGLÉE"
         icone = "✅" if regle else "⏳"
-        mnt   = f.get("montant_ht", f.get("DO_TotalHT", 0)) or 0
+        mnt   = f.get("montant_ht", 0) or 0
         lignes.append(
-            f"  {icone} {f['DO_Piece']:<16} │ "
-            f"{f.get('DO_Date', ''):<12} │ "
+            f"  {icone} {f['piece']:<16} │ "
+            f"{f.get('date', ''):<12} │ "
             f"{mnt:>8.2f} € │ {'RÉGLÉE' if regle else 'EN ATTENTE'}"
         )
     lignes.append("─" * 55)
@@ -101,7 +113,7 @@ def _formater_factures_fourn_impayees(data: dict) -> str:
     factures = data.get("factures", [])
     nb       = data.get("nb_factures", len(factures))
     total_du = data.get("total_du", 0)
-    ct_num   = data.get("CT_Num", "")
+    ct_num   = data.get("code", "")
     titre    = f"Factures fournisseur {ct_num}" if ct_num else "Toutes factures fournisseurs"
     if not factures:
         return f"✅ Aucune facture fournisseur impayée{' pour ' + ct_num if ct_num else ''}."
@@ -113,9 +125,9 @@ def _formater_factures_fourn_impayees(data: dict) -> str:
     for f in factures:
         mnt = f.get("montant_ht", 0) or 0
         lignes.append(
-            f"  ⏳ {f['DO_Piece']:<16} │ "
-            f"{f.get('CT_Intitule', f.get('CT_Num', '')):<25} │ "
-            f"{f.get('DO_Date', ''):<12} │ {mnt:>10.2f} €"
+            f"  ⏳ {f['piece']:<16} │ "
+            f"{f.get('nom', f.get('code', '')):<25} │ "
+            f"{f.get('date', ''):<12} │ {mnt:>10.2f} €"
         )
     lignes.append("─" * 65)
     return "\n".join(lignes)
@@ -133,11 +145,11 @@ def _formater_factures_impayees(data: dict) -> str:
         "─" * 55,
     ]
     for f in factures:
-        mnt = f.get("montant_ht", f.get("DO_TotalHT", 0)) or 0
+        mnt = f.get("montant_ht", 0) or 0
         lignes.append(
-            f"  ⏳ {f['DO_Piece']:<16} │ "
-            f"{f.get('CT_Intitule', f.get('CT_Num', '')):<25} │ "
-            f"{f.get('DO_Date', ''):<12} │ {mnt:>8.2f} €"
+            f"  ⏳ {f['piece']:<16} │ "
+            f"{f.get('nom', f.get('code', '')):<25} │ "
+            f"{f.get('date', ''):<12} │ {mnt:>8.2f} €"
         )
     lignes.append("─" * 55)
     return "\n".join(lignes)
@@ -146,18 +158,18 @@ def _formater_factures_impayees(data: dict) -> str:
 def _formater_fiche_client(data: dict) -> str:
     if data.get("statut") == "NON_TROUVE":
         return f"❌ Client introuvable : {data.get('message', '')}"
-    validite = data.get("CT_Validite", data.get("CT_Statut", "VALIDE"))
-    icone    = "🔴" if validite == "BLOQUÉ" else "🟡" if validite == "SUSPECT" else "🟢"
+    validite = data.get("statut_client", data.get("validite", "VALIDE"))
+    icone    = "🔴" if validite in ("BLOQUÉ", "BLOQUE") else "🟡" if validite == "SUSPECT" else "🟢"
     return (
         f"👤 Fiche Client\n{'─' * 45}\n"
-        f"  Code          : {data.get('CT_Num', '')}\n"
-        f"  Raison sociale: {data.get('CT_Intitule', '')}\n"
+        f"  Code          : {data.get('code', '')}\n"
+        f"  Raison sociale: {data.get('nom', '')}\n"
         f"  Statut        : {icone} {validite}\n"
-        f"  Encours       : {data.get('CT_Encours', 0):,.2f} € / max {data.get('CT_EncoursMax', 0):,.2f} €\n"
+        f"  Encours       : {data.get('encours', 0):,.2f} € / max {data.get('encours_max', 0):,.2f} €\n"
         f"{'─' * 45}\n"
-        f"  CA Total      : {data.get('CA_Total', 0):,.2f} €\n"
-        f"  Nb Factures   : {data.get('NB_Factures', 0)}\n"
-        f"  Encours Fct   : {data.get('Encours_Factures', 0):,.2f} €"
+        f"  CA Total      : {data.get('ca_total', 0):,.2f} €\n"
+        f"  Nb Factures   : {data.get('nb_factures', 0)}\n"
+        f"  Encours Fct   : {data.get('encours_factures', 0):,.2f} €"
     )
 
 
@@ -169,8 +181,8 @@ def _formater_palmares(data: dict) -> str:
     lignes = [f"🏆 Top {top_n} articles par CA :\n", "─" * 55]
     for a in palmares:
         lignes.append(
-            f"  #{a.get('rang', '?'):<3} {a['AR_Ref']:<14} │ "
-            f"{a.get('AR_Design', ''):<28} │ "
+            f"  #{a.get('rang', '?'):<3} {a['ref']:<14} │ "
+            f"{a.get('designation', ''):<28} │ "
             f"CA: {a.get('ca_article', 0):>8.2f} € │ Qté: {a.get('qte_vendue', 0):.0f}"
         )
     lignes.append("─" * 55)
@@ -212,7 +224,7 @@ def _formater_rentabilite(data: dict) -> str:
         taux  = a.get("taux_marge", 0)
         icone = "🟢" if taux >= 30 else "🟡" if taux >= 15 else "🔴"
         lignes.append(
-            f"  {icone} {a['AR_Ref']:<14} │ {a.get('AR_Design', ''):<25} │ "
+            f"  {icone} {a['ref']:<14} │ {a.get('designation', ''):<25} │ "
             f"CA: {a.get('ca_vente', 0):>8.2f} € │ "
             f"Marge: {a.get('marge_brute', 0):>8.2f} € │ Taux: {taux:>5.1f}%"
         )
@@ -245,8 +257,8 @@ def _formater_dso(data: dict) -> str:
         dso_c = c.get("dso_jours", 0)
         icone = "🔴" if dso_c > 60 else "🟡" if dso_c > 30 else "🟢"
         lignes.append(
-            f"  {icone} {c.get('CT_Num', ''):<10} │ "
-            f"{c.get('CT_Intitule', ''):<28} │ "
+            f"  {icone} {c.get('code', ''):<10} │ "
+            f"{c.get('nom', ''):<28} │ "
             f"DSO: {dso_c:>5.1f} j │ Fct: {c.get('nb_factures', 0)}"
         )
     lignes.append("─" * 50)
@@ -258,11 +270,11 @@ def _formater_rfm(data: dict) -> str:
     nb      = data.get("nb_clients", len(clients))
     lignes  = [f"🎯 Analyse RFM — {nb} client(s) :\n", "─" * 65]
     for c in clients:
-        statut  = c.get("statut", "VALIDE")
-        icone   = "🔴" if statut == "BLOQUÉ" else "🟡" if statut == "SUSPECT" else "🟢"
+        statut  = (c.get("statut") or "VALIDE").upper()
+        icone   = "🔴" if statut in ("BLOQUÉ", "BLOQUE") else "🟡" if statut == "SUSPECT" else "🟢"
         dernier = c.get("derniere_commande", "Jamais")
         lignes.append(
-            f"  {icone} {c['CT_Num']:<10} │ {c.get('CT_Intitule', ''):<28} │ "
+            f"  {icone} {c['code']:<10} │ {c.get('nom', ''):<28} │ "
             f"CA: {c.get('ca_total', 0):>8.2f} € │ Dernier: {dernier}"
         )
     lignes.append("─" * 65)
@@ -278,7 +290,7 @@ def _formater_clients_baisse(data: dict) -> str:
     for c in clients:
         var = c.get("variation_pct", 0)
         lignes.append(
-            f"  📉 {c['CT_Num']:<10} │ {c.get('CT_Intitule', ''):<28} │ "
+            f"  📉 {c['code']:<10} │ {c.get('nom', ''):<28} │ "
             f"Récent: {c.get('ca_recent', 0):>8.2f} € │ "
             f"Ancien: {c.get('ca_ancien', 0):>8.2f} € │ Var: {var:>+.1f}%"
         )
@@ -293,7 +305,6 @@ def _formater_declaration(data: dict) -> str:
     fichier = data.get("fichier", "")
     nom_f = os.path.basename(fichier) if fichier else ""
     lien_md = f"[{nom_f}](/static/pdf/{nom_f})" if nom_f else "Non généré"
-    
     return (
         f"📄 Déclaration {data.get('mois','')} {data.get('annee','')}\n"
         f"{'─'*45}\n"
@@ -304,6 +315,81 @@ def _formater_declaration(data: dict) -> str:
         f"{'─'*45}\n"
         f"📎 Fichier Excel : {lien_md}"
     )
+
+
+def _formater_liste_fournisseurs(data: dict) -> str:
+    fournisseurs = data.get("fournisseurs", [])
+    nb           = data.get("nb_fournisseurs", len(fournisseurs))
+    if not fournisseurs:
+        return "🏭 Aucun fournisseur enregistré."
+    lignes = [f"🏭 Fournisseurs — {nb} fournisseur(s) :\n", "─" * 55]
+    for f in fournisseurs:
+        statut = (f.get("validite") or "VALIDE").upper()
+        icone  = "🔴" if statut in ("BLOQUÉ", "BLOQUE") else "🟢"
+        lignes.append(
+            f"  {icone} {f.get('code', ''):<10} │ {f.get('nom', ''):<30} │ {statut}"
+        )
+    lignes.append("─" * 55)
+    return "\n".join(lignes)
+
+
+def _formater_top_fournisseurs(data: dict) -> str:
+    fournisseurs = data.get("fournisseurs", [])
+    top_n        = data.get("top_n", len(fournisseurs))
+    if not fournisseurs:
+        return "📊 Aucune donnée fournisseurs."
+    lignes = [f"🏆 Top {top_n} fournisseurs par volume d'achat :\n", "─" * 55]
+    for f in fournisseurs:
+        lignes.append(
+            f"  #{f.get('rang', '?'):<3} {f.get('code', '?'):<10} │ "
+            f"{f.get('nom', ''):<28} │ "
+            f"Volume: {f.get('volume_achat', 0):>10.2f} € │ Cmd: {f.get('nb_commandes', 0)}"
+        )
+    lignes.append("─" * 55)
+    return "\n".join(lignes)
+
+
+def _formater_fiche_fournisseur(data: dict) -> str:
+    if data.get("statut") == "NON_TROUVE":
+        return f"❌ Fournisseur introuvable : {data.get('message', '')}"
+    validite = (data.get("validite") or "VALIDE").upper()
+    icone    = "🔴" if validite == "BLOQUE" else "🟢"
+    return (
+        f"🏭 Fiche Fournisseur\n{'─' * 45}\n"
+        f"  Code          : {data.get('code', '')}\n"
+        f"  Raison sociale: {data.get('nom', '')}\n"
+        f"  Statut        : {icone} {validite}\n"
+        f"  Encours       : {data.get('encours', 0):,.2f} € / max {data.get('encours_max', 0):,.2f} €\n"
+        f"{'─' * 45}\n"
+        f"  Nb commandes  : {data.get('nb_commandes', 0)}\n"
+        f"  Volume total  : {data.get('volume_total', 0):,.2f} €"
+    )
+
+
+# ──────────────────────────────────────────────────────────────
+# Table de dispatch — construite localement (source de vérité unique)
+# ──────────────────────────────────────────────────────────────
+_FORMATEURS_JSON: dict[str, callable] = {
+    "LISTE_ARTICLES":             _formater_liste_articles,
+    "LISTE_CLIENTS":              _formater_liste_clients,
+    "TOP_CLIENTS":                _formater_top_clients,
+    "PALMARES_ARTICLES":          _formater_palmares,
+    "CA_GLOBAL":                  _formater_ca_global,
+    "CLIENTS_BAISSE":             _formater_clients_baisse,
+    "FACTURES_NON_REGLEES":       _formater_factures_impayees,
+    "FACTURES_NON_REGLEES_FOURN": _formater_factures_fourn_impayees,
+    "TOUTES_FACTURES_CLIENT":     _formater_factures,
+    "FICHE_CLIENT":               _formater_fiche_client,
+    "RENTABILITE":                _formater_rentabilite,
+    "SAISONNALITE":               _formater_saisonnalite,
+    "DSO":                        _formater_dso,
+    "RFM":                        _formater_rfm,
+    "DASHBOARD_EXCEL":            _formater_kpi,
+    "DECLARATION_EXCEL":          _formater_declaration,
+    "LISTE_FOURNISSEURS":         _formater_liste_fournisseurs,
+    "TOP_FOURNISSEURS":           _formater_top_fournisseurs,
+    "FICHE_FOURNISSEUR":          _formater_fiche_fournisseur,
+}
 
 
 def _formater_reponse_directe(action: str, reponse_brute: str) -> str | None:
@@ -341,10 +427,8 @@ def _formater_reponse_directe(action: str, reponse_brute: str) -> str | None:
 def _formater_nl2sql_brut(rb: str, question: str) -> str:
     if not rb:
         return "⚠️  Aucun résultat trouvé."
-
     if rb.startswith(("📊", "✅", "❌", "⚠️", "─", "👥", "📦", "🏆", "⏳", "Question :")):
         return rb
-
     try:
         data = json.loads(rb)
         if isinstance(data, dict):
@@ -362,7 +446,6 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
                 for key in ("clients", "factures", "articles", "resultats", "rows", "data", "lignes"):
                     items = data.get(key)
                     if items and isinstance(items, list) and items:
-                        cols = list(items[0].keys()) if isinstance(items[0], dict) else []
                         lignes = [f"📊 {question} — {len(items)} résultat(s) :", "─" * 60]
                         for i, row in enumerate(items[:30], 1):
                             parts = [f"{k}: {v}" for k, v in row.items() if v is not None]
@@ -393,8 +476,6 @@ def _formater_nl2sql_brut(rb: str, question: str) -> str:
             return "\n".join(lignes)
     except (json.JSONDecodeError, ValueError):
         pass
-
     if "│" in rb or "─" in rb or ":" in rb:
         return rb
-
     return f"📊 Résultat de « {question} » :\n{rb}"
