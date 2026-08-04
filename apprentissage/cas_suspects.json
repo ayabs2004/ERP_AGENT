@@ -1,0 +1,38 @@
+[
+  {
+    "question": "stok de ECRAN4K",
+    "action_loggee": "LISTE_CLIENTS",
+    "origine_loggee": "LLM",
+    "confidence_loggee": 0.8,
+    "correction_supposee": "CREER_CLIENT",
+    "message_correction": "Non , je veux dire le stock de ECRAN4K pas liste des clients",
+    "note": "Contesté par l'utilisateur (detecter_correction). Vérifier manuellement avant d'assigner action_attendue."
+  },
+  {
+    "question": "Le client CLI001 est-il bloqué ?",
+    "action_loggee": "RFM",
+    "origine_loggee": "LLM",
+    "confidence_loggee": 1.0,
+    "correction_supposee": "BL",
+    "message_correction": "non , je veux savoir Le client CLI123 est-il bloqué ?",
+    "note": "Contesté par l'utilisateur (detecter_correction). Vérifier manuellement avant d'assigner action_attendue."
+  },
+  {
+    "question": "Facture.",
+    "action_loggee": "LISTE_CLIENTS",
+    "origine_loggee": "LLM",
+    "confidence_loggee": 0.8,
+    "correction_supposee": "FACTURE",
+    "message_correction": "NON , pas client facture",
+    "note": "Contesté par l'utilisateur (detecter_correction). Vérifier manuellement avant d'assigner action_attendue."
+  },
+  {
+    "question": "Classe les clients selon leur chiffre d'affaires.",
+    "action_loggee": "LISTE_CLIENTS",
+    "origine_loggee": "LLM",
+    "confidence_loggee": 0.8,
+    "correction_supposee": "CREER_CLIENT",
+    "message_correction": "non, elle ne sont pas ordonnees,Classe les clients selon leur chiffre d'affaires.  👥 Clients actifs — 5 client(s) :",
+    "note": "Contesté par l'utilisateur (detecter_correction). Vérifier manuellement avant d'assigner action_attendue."
+  }
+]

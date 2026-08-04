@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  --color-sage-50: #f2f7f5;
+  --color-sage-100: #e0eee8;
+  --color-sage-500: #3c9c73;
+  --color-sage-600: #2f835f;
+  --color-sage-700: #266b4d;
+  --color-sage-900: #1b4b36;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-900 text-gray-100 antialiased h-screen overflow-hidden;
+    font-family: var(--font-sans);
+  }
+}
+
+@layer utilities {
+  .glassmorphism {
+    @apply bg-gray-800/60 backdrop-blur-md border border-gray-700/50 shadow-xl;
+  }
+}

@@ -1,2 +1,0 @@
-invalid type: string "\n        RÈGLES SAGE 100 COMPLÈTES :\n        - DO_Type=3 AND DO_Domaine=0 → factures de vente\n        - DO_Type=2 AND DO_Domaine=0 → bons de livraison (BL)\n        - DO_Type=6 AND DO_Domaine=0 → bons de commande client\n        - DO_Type=1 AND DO_Domaine=2 → ordres de fabrication (OF)\n        - DO_Type=4 AND DO_Domaine=2 → bons de fabrication (BF)\nisseur)
-  

@@ -1,0 +1,20 @@
+{
+  "utilisateurs": {
+    "admin": {
+      "username": "admin",
+      "password_hash": "pbkdf2_sha256$260000$1feb11193a8802a2171a6ed36d1a4b40$990b1d2b80fbced0ec3848031706c64415380e33f16f7a085b83cd2e33056439",
+      "role": "admin",
+      "nom_complet": "Administrateur",
+      "actif": true,
+      "cree_le": "2026-07-22T21:40:00Z"
+    },
+    "commercial": {
+      "username": "commercial",
+      "password_hash": "pbkdf2_sha256$260000$c112b104468e8cc49f0a1ef871b85c64$798f9c961c7b3b4a43fe5f9aee6cb8cef65bea1c53114d8eceb96cb16cfea739",
+      "role": "commercial",
+      "nom_complet": "Commercial Sage",
+      "actif": true,
+      "cree_le": "2026-07-22T21:40:00Z"
+    }
+  }
+}

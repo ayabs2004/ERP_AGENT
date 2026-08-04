@@ -1,0 +1,21 @@
+
+--- assurer_tiers_interne (PROD-INT) ---
+Traceback (most recent call last):
+  File "C:\Users\aya\Documents\agent_sage_v4\agent_sage_v4\api\mcp_actions_sage.py", line 2373, in call_tool
+    _assurer_tiers_interne(conn, code)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\aya\Documents\agent_sage_v4\agent_sage_v4\api\mcp_actions_sage.py", line 322, in _assurer_tiers_interne
+    conn.execute(
+    ~~~~~~~~~~~~^
+        f"""INSERT INTO {T_TIERS}
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        (code, "Production Interne")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\aya\Documents\agent_sage_v4\agent_sage_v4\adaptation\db_adapter.py", line 257, in execute
+    cur.execute(sql, *args)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+pyodbc.ProgrammingError: ('42000', "[42000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Could not find stored procedure 'master..xp_CBIsFileLock'. (50000) (SQLExecDirectW)")
+

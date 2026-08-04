@@ -1,0 +1,651 @@
+{"ts": 1783549222.7940485, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549309.0341578, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549397.5725813, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549488.399598, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549647.4439487, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549795.6304865, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783549888.1076577, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783550120.2339551, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783550141.9589067, "question": "les fournisseurs bloques", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783550152.8977754, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584631.695838, "question": "la lisurnisseurs", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783584642.7898614, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584658.911312, "question": "la liste des produits", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783584672.1698058, "question": "les factures du client cli002", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584682.7213335, "question": "les factures du client cli001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584704.7095156, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783584711.638995, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585056.4352999, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585062.220228, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585091.586012, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585097.3798335, "question": "12345", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585316.8354604, "question": "regle la facture FA00001", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585321.425396, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585324.534673, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585341.975053, "question": "cree le client", "action": "CREER_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585358.3967025, "question": "120000", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585361.7112923, "question": "y", "action": "CREER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585366.5821679, "question": "cree un bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585579.4958026, "question": "cree un bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585588.230432, "question": "CLI004", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585596.1731403, "question": "IMPRIMANTE", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585597.8953502, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585609.7461946, "question": "12/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585626.0255105, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585659.7839355, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585668.0383813, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585669.9996638, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585681.9899988, "question": "confirm", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585695.4475126, "question": "crée le BF pour OF26070909280201550741AFD759", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783585700.119612, "question": "confirm", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585726.9997978, "question": "la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585850.8644137, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585865.614073, "question": "donne moi la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585868.711172, "question": "gh", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585872.0100882, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585875.4527702, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585899.6284163, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585903.9441853, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783585916.6155028, "question": "donne moi la liste des bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586032.2431767, "question": "bjh", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586034.9284859, "question": "31345", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586036.729072, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586043.5823128, "question": "9/7/202", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586049.931685, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586106.6250365, "question": "annuler", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586423.7379227, "question": "donne moi la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586799.649629, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586808.5307395, "question": "donne moi la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586838.252066, "question": "Combien de clients avons-nous", "action": "LISTE_CLIENTS", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783586854.3769438, "question": "Liste des produits en rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586881.1383948, "question": "Quel est le chiffre d'affaires du mois dernier ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783586908.2440355, "question": "Montre-moi les 10 factures impayées les plus anciennes", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783586952.9940147, "question": "Quels clients ont commandé plus de 3 fois mais n'ont jamais payé dans les délais ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783588996.4615626, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589003.5521557, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589026.9450033, "question": "Quel est le chiffre d'affaires du mois dernier ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783589037.3029249, "question": "Quel est le fournisseur qui nous a coûté le plus cher ce trimestre, tous produits confondus ?", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589058.866563, "question": "Quels clients ont commandé plus de 3 fois mais n'ont jamais payé dans les délais ?", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589076.787328, "question": "Donne-moi la marge moyenne par catégorie de produit sur les 6 derniers mois", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783589083.6192148, "question": "Combien de commandes avons-nous eu la semaine dernière ?", "action": "WORKFLOW_COMMANDE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783589104.105664, "question": "Évolution du stock sur les 30 derniers jours", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589148.2293777, "question": "Y a-t-il eu un email de commande pour CLI002 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589340.9748285, "question": "les produits que CLI001 a commande", "action": "WORKFLOW_COMMANDE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783589453.1085806, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783589463.612999, "question": "lamliste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600264.1277115, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600405.8980598, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600597.0356102, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600911.3654928, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600919.4649358, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600945.223857, "question": "cree facture", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783600954.2013521, "question": "CLI003", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600960.502474, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600963.1745257, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600968.4040508, "question": "9/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783600984.085046, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601024.9073775, "question": "liste des factures du client CLI003", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783601101.9224224, "question": "regle la facture FA00003", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783601111.2945497, "question": "1234566", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601114.1847308, "question": "y", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783601209.7755058, "question": "Pourquoi le client CLI001 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601232.6659079, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601384.9977539, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601965.7329073, "question": "Pourquoi le client CLI002 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783601975.5764832, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602044.4665499, "question": "Pourquoi le client CLI003 a-t-il des conditions particulières ?", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783602172.6395833, "question": "Quelle est la matière de fabrication de l'article BATTERIE ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602232.4848204, "question": "Quel est le contexte de la remise accordée au client CLI002 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602256.0087817, "question": "Y a-t-il eu un email de commande pour CLI001 mentionnant une référence incertaine ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602275.70855, "question": "Quel est le motif de réclamation pour le CABLE-HDMI ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602336.3157754, "question": "quels articles avons-nous en stock", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783602347.069407, "question": "quels articles avons-nous en stock", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783602365.3468015, "question": "articles avec stock supérieur à 5", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602387.2888715, "question": "clients avec factures non réglées", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602445.4055154, "question": "clients sans commande depuis 1 mois", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602476.9063258, "question": "top 5 clients par chiffre d'affaires", "action": "TOP_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602509.7414017, "question": "articles vendus à un seul client", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602545.4246392, "question": "articles avec prix de vente supérieur à 50", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602764.7089455, "question": "articles avec stock inférieur à 1", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602920.421227, "question": "articles avec stock inférieur à 1", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602932.1321855, "question": "articles avec stock inférieur à 2", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783602954.6627986, "question": "articles avec stock superieur a 3", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783629265.6762826, "question": "modifie le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629281.6749873, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629486.627048, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783629707.4798608, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630233.6961675, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630434.9561698, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630678.0943892, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630934.7420933, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783630970.7456481, "question": "Encours max: 10000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783631142.723201, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631494.0540915, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631509.5417242, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631689.7166665, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631720.8334856, "question": "Encours max:15000", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783631882.4450817, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783631900.5607252, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632109.4251885, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632114.7909777, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632259.6887364, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632267.3535402, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632576.8938465, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632582.0434139, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783632938.2984202, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783632954.6982615, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783633000.3434322, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783633011.2826931, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783633275.581204, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783633286.8888395, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636389.3764393, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636396.2462606, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636573.0319595, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636587.338508, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636624.5874035, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783636636.4999607, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783636650.2037055, "question": "ghkkl", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783636672.91464, "question": "modifie le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783673653.1266766, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783673676.8707044, "question": "Encours max: 15000.0", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783674551.0052516, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783674576.99575, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783674604.9540782, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783675041.93021, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783675061.6110857, "question": "modifier ecran4k", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783675266.1707826, "question": "modifier ecran4k", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783675284.2751231, "question": "modifier l article ecran4k", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783676020.1223748, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676035.4565127, "question": "modifier l article ecran4k", "action": "MODIFIER_ARTICLE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783676351.228475, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676711.886895, "question": "modifier ecran4k", "action": "MODIFIER_ARTICLE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783676784.5720694, "question": "modifier le fournisseur FOUR02", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783676809.7463996, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783676858.9163518, "question": "modifier le fournisseur Grossiste Electronique", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 1.0}
+{"ts": 1783677227.380092, "question": "modifier le fournisseur Grossiste Electronique", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 1.0}
+{"ts": 1783677242.6661167, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783677428.8568442, "question": "modifier le fournisseur FOUR022", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783677442.0538669, "question": "modifier le fournisseur Grossiste Electronique", "action": "MODIFIER_FOURNISSEUR", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783677717.3354461, "question": "modifier le client Societe Alpha", "action": "MODIFIER_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783677996.2965672, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678188.8066182, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678312.6015213, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678733.5914266, "question": "modifier le client Socttttttt", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678754.8139575, "question": "modifier le client CLI001111", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678790.200926, "question": "modifier le fournisseur FOUR0001", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783678811.222732, "question": "modifl article ecraaaaa", "action": "MODIFIER_ARTICLE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783678851.7934008, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783678914.6694515, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783679037.4781241, "question": "bloquer le client CLI0033", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783679989.2594242, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783680207.6972294, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783681243.6039317, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783681992.1453135, "question": "Bloquer le fournisseur FOUR01", "action": "FICHE_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783682778.5027843, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682817.3933773, "question": "bloquer le client CLI001", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682832.7461157, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783682858.2705572, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683134.3873003, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683148.1644192, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683249.2706258, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683254.0507996, "question": "bloquer le client CLI003", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683266.894125, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683690.3390152, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783683742.7526197, "question": "y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783684826.1894915, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783684830.0502262, "question": "Y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685225.5153408, "question": "Bloquer le fournisseur FOUR01", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783685228.8475537, "question": "y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685251.7368245, "question": "modifier le fournisseur FOUR01", "action": "MODIFIER_FOURNISSEUR", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783685300.569814, "question": "bloquer le client CLI001", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783685303.8082771, "question": "Y", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783685314.3934793, "question": "modifier le client CLI001", "action": "MODIFIER_CLIENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783688737.535232, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783688958.3751068, "question": "180.000", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.8}
+{"ts": 1783689504.6196718, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689517.5895975, "question": "180.000", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689533.4673536, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783689553.3290455, "question": "non", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690101.369936, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690111.8501017, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690120.3356981, "question": "confirmer", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690151.3088615, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690533.0371401, "question": "Crée une offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690544.8725429, "question": "confirm", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690551.1085665, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690608.0320768, "question": "Crée une offre de prix pour ECRAN4K et LAPTOP et IMPRIMANTE", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783690616.271004, "question": "CONFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690619.884641, "question": "CONFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690625.1645355, "question": "COMFIRM", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690632.8102756, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690742.9817874, "question": "Crée une offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690778.31971, "question": "CONFIRMER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783690782.1211798, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691482.132128, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783691493.30587, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691498.4171605, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691501.1982212, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691507.6176019, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783691515.157837, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783692968.8056536, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783692974.070229, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692976.3345132, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692984.7595527, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783692996.3550367, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693001.4118385, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693007.816245, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693010.7385795, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693017.6850913, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693020.2385192, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693391.880366, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693395.14222, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693399.6068037, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693403.0232167, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693408.4997687, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693413.0628319, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693851.254556, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693854.7212062, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693859.8784096, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693863.3934734, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693872.3600595, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693911.7571962, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693917.7946405, "question": "CLI004", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693923.9114175, "question": "ecran4k", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693927.991307, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693937.353646, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783693941.3629777, "question": "CLI000001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693945.9035635, "question": "ECRAN54K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693947.663871, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783693952.3362076, "question": "10/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783694110.0309255, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783694114.630216, "question": "CLI000012", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782682.4354293, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782694.2321086, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782704.6921246, "question": "donne moi la liste des clients", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782720.8250709, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782729.135248, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782742.9502797, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783782751.166524, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783782798.7695878, "question": "liste des articles", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783432.9908686, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783438.3492923, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783454.0320508, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783783471.044688, "question": "liste des factures du client CLI001", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783484.2615142, "question": "CREE OF", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783488.3571668, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783490.7577085, "question": "5", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783494.6329412, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783783503.8163385, "question": "crée le BF pour OF2607111624546625241F323BE6", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783783507.3704896, "question": "CONFIRM", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783784035.2894523, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1783803324.2187746, "question": "donne moi la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803330.9947565, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803344.3622024, "question": "les factures impayes de CLI001", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803350.4767208, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803356.607854, "question": "CLI001", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803360.5609963, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803362.964709, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803367.5014422, "question": "11/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803377.920362, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803384.5090296, "question": "LAPTOP", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803386.530767, "question": "3", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803388.8444345, "question": "CONFIRM", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803400.3780317, "question": "crée le BF pour OF260711215628925178F9C4AD26", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803402.8205414, "question": "CONFIRM", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803435.3509126, "question": "comment est fabrique ECRAN4K", "action": "NL2SQL_LIBRE", "origine": "FALLBACK", "confidence": 0.0}
+{"ts": 1783803459.9613504, "question": "cree declaration juin 2026", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783803528.9244995, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803556.816002, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803597.864731, "question": "CONFIRMER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783803604.113698, "question": "10", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850434.4802406, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850457.4107392, "question": "annuler", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783850841.1512163, "question": "cree offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783851332.1856606, "question": "cree un offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783851781.3617246, "question": "cree un offre de prix pour le produit ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783879988.9757087, "question": "reset", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1783880015.0586863, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880235.3203094, "question": "cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880283.8756456, "question": "Cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880298.0300212, "question": "Cree un offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783880889.1817622, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881504.3786342, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783881507.4740875, "question": "ECRAN4K", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881508.6533473, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881515.5141492, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881552.511078, "question": "cree offre de prix pour ECRAN4K", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881561.790158, "question": "180", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783881573.6918552, "question": "10%", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1783935913.792075, "question": "liste les clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1783936547.198706, "question": "reset", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1784753058.2558222, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784754002.3435152, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784754959.1865916, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784755171.6091483, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784755435.3517303, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784755840.0207684, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784797991.6842656, "question": "liste les clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784798923.804619, "question": "liste les clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784799558.1102386, "question": "liste les clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784799571.3245237, "question": "liste les fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800304.9553542, "question": "liste les fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800361.4667318, "question": "liste des produits", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800460.4058864, "question": "les articles en rupture de stock", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800494.938488, "question": "les clients qui ont commande en 2026", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1784800614.8460486, "question": "le ca global", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800689.459047, "question": "les factures du client Au centre d'Or", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800734.8681083, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784800782.2700527, "question": "liste des of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1784800803.6562402, "question": "Bague Or et pierres", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800806.5100214, "question": "3", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800813.2659442, "question": "cree facture", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800818.1461709, "question": "cree bl", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800830.960377, "question": "cree declaration juin", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784800844.0286152, "question": "cree offre de prix", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802344.2215168, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784802367.24901, "question": "CISEL", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802396.0302138, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802399.8118734, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802406.1328602, "question": "23/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802417.5459096, "question": "la liste des factures", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784802427.2789805, "question": "cree declaration juin", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784803265.4184182, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784803279.85111, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784803284.2227297, "question": "as", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784803286.5505135, "question": "fd", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784803288.4737823, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784803295.1501088, "question": "23/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784803306.049258, "question": "liste des clients", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784815302.5396178, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784817029.6868207, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784817043.4636526, "question": "liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784817060.1242838, "question": "liste des produits", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784817061.955171, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891154.8670802, "question": "la liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891169.2352471, "question": "la liste des produits", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891170.8449585, "question": "la liste des fournisseurs", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891178.4430897, "question": "la liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891203.7334073, "question": "la liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891219.8619049, "question": "la liste des of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891229.612911, "question": "l", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891234.6058817, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891237.8381908, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891239.8658974, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891248.7560031, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891278.058742, "question": "cree declaration juin", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891297.693502, "question": "cree offre de prix", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891305.601023, "question": "cree of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891666.4410532, "question": "cree declaration juin", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891709.424053, "question": "la liste des fcatures", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1784891717.0201268, "question": "la liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891729.9503255, "question": "liste les factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891740.8177953, "question": "liste les bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891763.8026597, "question": "declaration mars", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891772.644275, "question": "declaration mars 2019", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891817.714279, "question": "liste les articles", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891827.2040331, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891830.334357, "question": "Bague Argent", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891832.31424, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891860.7018278, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1784891881.404774, "question": "Diamant Vert", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891891.5715377, "question": "Bague Argent", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891894.1775677, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891900.2126946, "question": "24/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1784891918.8060794, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158030.9711092, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158041.4916337, "question": "ca global", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158075.0885453, "question": "factures du client Au centre d'Or", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158147.2277327, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158160.6480386, "question": "liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158198.000913, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158201.6655693, "question": "4", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158221.929145, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785158239.1805818, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158241.695511, "question": "pierres", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158245.801665, "question": "3", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158276.3194084, "question": "cree declaration juin", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158304.2288957, "question": "creer declaration mars 2019", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158326.811022, "question": "creer declaration mars", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785158357.2278128, "question": "cree offre de prix pierres", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158376.8914878, "question": "CONFIRMER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785158387.6014564, "question": "non", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785165837.6932147, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785168251.0677493, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785168255.3479369, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785168270.4737422, "question": "liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785168278.0856485, "question": "liste des of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785168293.7042851, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168296.3451538, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168333.444858, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785168353.246688, "question": "GRENA", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168366.5103333, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168369.0271866, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168374.248271, "question": "27/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168384.033647, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168400.258223, "question": "GRENA", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168407.51329, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168409.1818016, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168413.3113236, "question": "27/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168416.1720278, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168452.7941122, "question": "cree declaration mars 2019", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168469.7957015, "question": "cree offre de prix BAR001", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168477.766899, "question": "H", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785168489.791014, "question": "cree declaration mars", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785231868.7971654, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785231898.3295887, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785231916.2591596, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785231922.6079063, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785231933.9242468, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785231936.4652522, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785232284.3910112, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785232289.1775615, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785232292.3078425, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785233324.1814957, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785233329.1334484, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785233331.8176982, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785234568.9989746, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785234576.9253294, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785234580.5271864, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785235773.288369, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785235787.5814016, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785235793.9160185, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785236000.8944433, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785236016.6150966, "question": "les factures impayees de CENTREOR", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785236591.1210244, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785236688.7625425, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785236691.1788557, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242685.7090683, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785242694.8710246, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242697.1180458, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242717.3090444, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242933.5648966, "question": "CREE  OF", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785242940.0059087, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242945.5056767, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785242949.2673583, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785243543.6065652, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785243548.4959004, "question": "Baar01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785243552.0569785, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785243553.8550265, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785245572.212196, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785245576.8106751, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785245579.3142734, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785245582.4624162, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785252653.5407321, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785252660.1598494, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785252661.9776223, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785252664.1622784, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785253473.5165904, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785253482.0101888, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785253484.7396967, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785253487.7135808, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424555.4091897, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424586.6563957, "question": "liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785424666.3108642, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424693.2380939, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424695.385739, "question": "GRENA", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424700.7853026, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424705.2569473, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424710.2421565, "question": "30/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424715.4208343, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424728.009459, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424731.842967, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424733.3142695, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424738.4748552, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424771.2197814, "question": "liste des factures du client GRENA", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424799.462227, "question": "Liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785424809.4610183, "question": "liste des of", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785424815.450251, "question": "n", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785424837.2751622, "question": "cree declaration mars 2019", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785425814.224653, "question": "regle la facture 1457", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785425828.4784377, "question": "En attente de paiement", "action": "FACTURES_NON_REGLEES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785490295.205045, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490321.7270536, "question": "liste des factures", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490344.8412325, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490349.5644667, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490352.8681588, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490371.3990626, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490401.431635, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490414.6197243, "question": "CENTREOR", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490419.0510361, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490421.6285307, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490430.7498698, "question": "31/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490437.8496182, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490914.441707, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490943.7645345, "question": "liste des factures pour le client GRENA", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490962.1452875, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785490966.98435, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490969.2026422, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785490983.6036124, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785491122.081287, "question": "le produit le plus vendu", "action": "PALMARES_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785491149.3051145, "question": "ca total", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785491173.8466563, "question": "top 5 articles", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785491189.5916634, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785491193.5518665, "question": "BAOR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785491195.4791114, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785491225.168694, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785491274.2409623, "question": "regle la facture FA00006", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785491279.271083, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785495030.252416, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495039.4599962, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785495043.776294, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785495052.3262587, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785495076.122314, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495088.0223384, "question": "regle la facture FA00006", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495092.600863, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785495100.105517, "question": "liste des of", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495123.157615, "question": "cree declaration mars 2019", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495322.2489345, "question": "liste des factures non reglees", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495332.4075685, "question": "top 5 client", "action": "TOP_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785495341.8453107, "question": "top 5 articles", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496683.8592193, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496693.7107081, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496695.4708972, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496706.8271635, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496738.0796173, "question": "liste des factures non reglees", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496751.6600409, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496772.8452733, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496794.6730382, "question": "regle la facture FA00006", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496798.110446, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496829.2846, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785496838.5636237, "question": "GRENA", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496841.975241, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496843.8933992, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496850.2550194, "question": "31/7/2026", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785496855.0947742, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497551.6308346, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785497558.093282, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497559.9729226, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497567.1978066, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497759.292776, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785497763.6218374, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497766.0964625, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785497772.1703618, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785498377.1706305, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785498382.3106046, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785498384.615933, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785498392.1486826, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501093.148286, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785501098.6416512, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501100.8080075, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501110.4620647, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501204.564544, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785501210.8663893, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501213.5451477, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501222.834528, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501669.2742028, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785501676.1313016, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501677.7988226, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501685.9244251, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501807.9847958, "question": "les factures impayees", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785501893.3585503, "question": "le contenu de la facture FA0006", "action": "REGLEMENT", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1785501899.5254695, "question": "h", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785501924.5199192, "question": "les factures", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785501942.565136, "question": "regle la facture FA00006", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785501947.295559, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502088.3219724, "question": "Combien de produits existent dans la base ?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502098.0426369, "question": "Liste les 20 premiers produits.", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502111.8103218, "question": "Quels sont les produits dont le prix est supérieur à 100 DT ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502146.8282378, "question": "Quels produits coûtent moins de 20 DT ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502191.37393, "question": "Quels sont les produits sans stock ?", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502212.1835508, "question": "Quels produits ont un stock inférieur à 1 ?", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502236.6251686, "question": "Quel est le stock actuel du produit BAAR01", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502254.2956152, "question": "Quels sont les produits en rupture de stock ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502262.315671, "question": "Quels sont les produits en rupture de stock ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502275.8562255, "question": "Quel est le stock total de tous les produits ?", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502289.6074064, "question": "Quels sont les 10 produits ayant le plus grand stock ?", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502313.1698508, "question": "Quels clients n'ont passé aucune commande ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502342.6948023, "question": "Quel est le client ayant effectué le plus d'achats ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502353.6802545, "question": "Quels sont les cinq meilleurs clients en chiffre d'affaires ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502379.701906, "question": "Combien existe-t-il de fournisseurs ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502395.5654614, "question": "Quel fournisseur possède le plus grand nombre de produits ?", "action": "LISTE_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502415.3864272, "question": "Quelle est la facture la plus élevée ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502430.4078734, "question": "Quelle est la facture la plus récente ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502474.710364, "question": "Quel est le chiffre d'affaires par mois ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502490.6452882, "question": "Quel est le chiffre d'affaires par année ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502508.544039, "question": "Quels sont les cinq meilleurs fournisseurs ?", "action": "TOP_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502527.1515102, "question": "Quel est le produit le plus rentable ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502565.1557822, "question": "Quel est notre meilleur client ?", "action": "TOP_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502582.266916, "question": "Quel est notre produit vedette ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502593.7248874, "question": "Quels produits vendons-nous le plus ?", "action": "PALMARES_ARTICLES", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502615.0560627, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502619.923396, "question": "non", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502624.6939485, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785502628.4814296, "question": "BAOR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502630.1744142, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502650.0013282, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785502667.760883, "question": "Nombre de produits par catégorie.", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785502704.9789248, "question": "Quelles ventes ont eu lieu en 2019", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785504889.5405865, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785504925.2407086, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785504927.0948758, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785504936.9382503, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785505020.0973642, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505026.7677488, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785505028.7187078, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785505035.091373, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785505055.518095, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505077.026748, "question": "les factures", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785505094.83173, "question": "donne moi la liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505139.5117657, "question": "liste des clients", "action": "LISTE_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505158.8790193, "question": "les factures du client CENTREOR", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505966.4052052, "question": "la liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785505988.8800266, "question": "articles en rupture", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785506011.6201663, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785506017.5845718, "question": "BAAR01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785506019.955114, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785506041.114251, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512244.2467248, "question": "Combien de produits existent dans la base ?", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512262.7309086, "question": "Quels sont les produits dont le prix est supérieur à 100 DT ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512304.0186214, "question": "Quels sont les produits sans stock ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512344.4527762, "question": "Quels produits ont un stock inférieur à 1 ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512381.0055656, "question": "Quels produits coûtent moins de 20 DT ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512458.259451, "question": "Combien y a-t-il de clients ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512492.2905293, "question": "Quel est le client ayant effectué le plus d'achats ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785512549.9577892, "question": "Quels sont les cinq meilleurs clients en chiffre d'affaires ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512740.4674845, "question": "Liste les fournisseurs actifs.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512748.0317316, "question": "liste des factures", "action": "LISTE_FACTURES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512753.4050343, "question": "listes des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512774.3520484, "question": "Quelle est la facture la plus élevée ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1785512797.8531296, "question": "Liste les 10 dernières factures.", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1785512827.3377383, "question": "Quel est le chiffre d'affaires par mois ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1785512833.9311414, "question": "liste des of", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}

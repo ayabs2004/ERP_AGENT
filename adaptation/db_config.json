@@ -1,0 +1,64 @@
+{
+    "_comment": "Table de correspondance UNIQUE. Ne jamais coder un nom de colonne en dur ailleurs.",
+    "driver": "sqlite",
+    "tables": {
+        "clients_fournisseurs": "F_COMPTET",
+        "articles": "F_ARTICLE",
+        "stock": "F_ARTSTOCK",
+        "doc_entete": "F_DOCENTETE",
+        "doc_ligne": "F_DOCLIGNE",
+        "reglements": "F_DOCREGL",
+        "nomenclature": "F_NOMENCLAT"
+    },
+    "columns": {
+        "clients_fournisseurs": {
+            "code": "CT_Num",
+            "nom": "CT_Intitule",
+            "type_tiers": "CT_Type",
+            "sommeil": "CT_Sommeil",
+            "validite": "CT_Sommeil",
+            "encours": "CT_Encours", "cb_marq": "cbMarq"
+        },
+        "articles": {
+            "ref": "AR_Ref",
+            "designation": "AR_Design",
+            "prix_achat": "AR_PrixAch",
+            "prix_vente": "AR_PrixVen",
+            "type_article": "AR_Type","cb_marq": "cbMarq", "code_famille": "FA_CodeFamille"
+        },
+        "stock": {
+            "ref": "AR_Ref",
+            "qte_stock": "AS_QteSto",
+            "qte_commande": "AS_QteCom",
+            "cb_marq": "cbMarq", "de_no": "DE_No"
+        },
+        "doc_entete": {
+            "piece": "DO_Piece",
+            "domaine": "DO_Domaine",
+            "type": "DO_Type",
+            "date": "DO_Date",
+            "reference": "DO_Ref",
+            "code_tiers": "DO_Tiers",
+            "cb_marq": "cbMarq"
+        },
+        "doc_ligne": {
+            "piece": "DO_Piece",
+            "ref_article": "AR_Ref",
+            "qte": "DL_Qte",
+            "prix_unitaire": "DL_PrixUnitaire",
+            "ligne": "DL_Ligne", "cb_marq": "cbMarq", "pf_num": "PF_Num"
+        },
+        "reglements": {
+            "piece": "DO_Piece",
+            "type_reglement": "DR_TypeRegl",
+            "montant": "DR_Montant",
+            "mode_paiement": "DR_TypeRegl",
+            "date_reglement": "DR_Date", "cb_marq": "cbMarq"
+        },
+        "nomenclature": {
+            "ref_pf": "AR_Ref",
+            "ref_mp": "NO_RefDet",
+            "qte": "NO_Qte", "cb_marq": "cbMarq"
+        }
+    }
+}

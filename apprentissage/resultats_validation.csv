@@ -1,0 +1,146 @@
+question,attendu,sans_sem_action,sans_sem_ok,avec_sem_action,avec_sem_origine,avec_sem_score,avec_sem_ok
+liste tous les clients,LISTE_CLIENTS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+montre-moi mes clients,LISTE_CLIENTS,,False,,,,False
+quels clients avons-nous,LISTE_CLIENTS,LISTE_CLIENTS,True,LISTE_CLIENTS,REGEX,1.0,True
+donne la liste des clients,LISTE_CLIENTS,LISTE_CLIENTS,True,LISTE_CLIENTS,REGEX,1.0,True
+affiche les clients actifs,LISTE_CLIENTS,LISTE_CLIENTS,True,LISTE_CLIENTS,REGEX,1.0,True
+peux-tu m'afficher tous les clients svp,LISTE_CLIENTS,LISTE_CLIENTS,True,LISTE_CLIENTS,REGEX,1.0,True
+clients,LISTE_CLIENTS,,False,,,,False
+top 5 clients,TOP_CLIENTS,TOP_CLIENTS,True,TOP_CLIENTS,REGEX,1.0,True
+meilleurs clients par chiffre d'affaires,TOP_CLIENTS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+qui achète le plus,TOP_CLIENTS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+classement des clients par CA,TOP_CLIENTS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+mes plus gros clients,TOP_CLIENTS,,False,,,,False
+clients les plus fidèles,TOP_CLIENTS,,False,,,,False
+fiche du client CLI001,FICHE_CLIENT,FICHE_CLIENT,True,FICHE_CLIENT,REGEX,1.0,True
+informations sur le client Dupont,FICHE_CLIENT,FICHE_CLIENT,True,FICHE_CLIENT,REGEX,1.0,True
+détail du client CLI002,FICHE_CLIENT,FICHE_CLIENT,True,FICHE_CLIENT,REGEX,1.0,True
+profil du client Martin,FICHE_CLIENT,FICHE_CLIENT,True,FICHE_CLIENT,REGEX,1.0,True
+dis-moi tout sur le client CLI003,FICHE_CLIENT,,False,,,,False
+qui est le client CLI004,FICHE_CLIENT,,False,,,,False
+quel est le statut du client CLI005,STATUT_CLIENT,STATUT_CLIENT,True,STATUT_CLIENT,REGEX,1.0,True
+le client CLI006 est-il bloqué,STATUT_CLIENT,,False,,,,False
+validité du client CLI007,STATUT_CLIENT,,False,,,,False
+liste tous les articles,LISTE_ARTICLES,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+affiche le catalogue produits,LISTE_ARTICLES,LISTE_ARTICLES,True,LISTE_ARTICLES,REGEX,1.0,True
+montre-moi les articles,LISTE_ARTICLES,,False,,,,False
+tous les produits,LISTE_ARTICLES,LISTE_ARTICLES,True,LISTE_ARTICLES,REGEX,1.0,True
+catalogue,LISTE_ARTICLES,LISTE_ARTICLES,True,LISTE_ARTICLES,REGEX,1.0,True
+quel est le stock de l'article ECRAN4K,VERIFIER_STOCK,VERIFIER_STOCK,True,VERIFIER_STOCK,REGEX,1.0,True
+stock disponible de REF123,VERIFIER_STOCK,VERIFIER_STOCK,True,VERIFIER_STOCK,REGEX,1.0,True
+combien de stock reste-t-il pour l'écran,VERIFIER_STOCK,VERIFIER_STOCK,True,VERIFIER_STOCK,REGEX,1.0,True
+articles en rupture de stock,VERIFIER_STOCK,VERIFIER_STOCK,True,VERIFIER_STOCK,REGEX,1.0,True
+y a-t-il du stock pour SKU456,VERIFIER_STOCK,,False,,,,False
+chiffre d'affaires global,CA_GLOBAL,CA_GLOBAL,True,CA_GLOBAL,REGEX,1.0,True
+CA total de l'entreprise,CA_GLOBAL,CA_GLOBAL,True,CA_GLOBAL,REGEX,1.0,True
+quel est notre CA,CA_GLOBAL,,False,,,,False
+chiffre d'affaires mensuel,SAISONNALITE,,False,,,,False
+CA par mois,SAISONNALITE,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+évolution du CA mois par mois,SAISONNALITE,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+factures fournisseur impayées,FACTURES_NON_REGLEES_FOURN,FACTURES_NON_REGLEES_FOURN,True,FACTURES_NON_REGLEES_FOURN,REGEX,1.0,True
+factures fournisseur non réglées,FACTURES_NON_REGLEES_FOURN,FACTURES_NON_REGLEES,False,FACTURES_NON_REGLEES,REGEX,1.0,False
+achats non réglés,FACTURES_NON_REGLEES_FOURN,FACTURES_NON_REGLEES_FOURN,True,FACTURES_NON_REGLEES_FOURN,REGEX,1.0,True
+factures impayées,FACTURES_NON_REGLEES,FACTURES_NON_REGLEES,True,FACTURES_NON_REGLEES,REGEX,1.0,True
+factures non réglées,FACTURES_NON_REGLEES,FACTURES_NON_REGLEES,True,FACTURES_NON_REGLEES,REGEX,1.0,True
+factures en attente de paiement,FACTURES_NON_REGLEES,FACTURES_NON_REGLEES,True,FACTURES_NON_REGLEES,REGEX,1.0,True
+toutes les factures du client CLI008,TOUTES_FACTURES_CLIENT,TOUTES_FACTURES_CLIENT,True,TOUTES_FACTURES_CLIENT,REGEX,1.0,True
+factures du client Martin,TOUTES_FACTURES_CLIENT,TOUTES_FACTURES_CLIENT,True,TOUTES_FACTURES_CLIENT,REGEX,1.0,True
+délai de paiement moyen,DSO,DSO,True,DSO,REGEX,1.0,True
+DSO des clients,DSO,DSO,True,DSO,REGEX,1.0,True
+retard de paiement moyen,DSO,DSO,True,DSO,REGEX,1.0,True
+analyse RFM des clients,RFM,RFM,True,RFM,REGEX,1.0,True
+segmentation des clients,RFM,,False,,,,False
+palmarès des articles les plus vendus,PALMARES_ARTICLES,PALMARES_ARTICLES,True,PALMARES_ARTICLES,REGEX,1.0,True
+meilleurs articles,PALMARES_ARTICLES,PALMARES_ARTICLES,True,PALMARES_ARTICLES,REGEX,1.0,True
+top des produits vendus,PALMARES_ARTICLES,,False,,,,False
+marge brute par article,RENTABILITE,RENTABILITE,True,RENTABILITE,REGEX,1.0,True
+rentabilité des articles,RENTABILITE,RENTABILITE,True,RENTABILITE,REGEX,1.0,True
+taux de marge,RENTABILITE,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+clients en baisse de chiffre d'affaires,CLIENTS_BAISSE,CLIENTS_BAISSE,True,CLIENTS_BAISSE,REGEX,1.0,True
+clients dont le CA diminue,CLIENTS_BAISSE,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+documents entre deux dates,DOCS_PERIODE,,False,,,,False
+documents créés en 2024,DOCS_PERIODE,,False,,,,False
+crée un nouveau client,CREER_CLIENT,CREER_CLIENT,True,CREER_CLIENT,REGEX,1.0,True
+ajoute un client appelé Dupont SARL,CREER_CLIENT,CREER_CLIENT,True,CREER_CLIENT,REGEX,1.0,True
+enregistre un nouveau client,CREER_CLIENT,CREER_CLIENT,True,CREER_CLIENT,REGEX,1.0,True
+nouveau client Martin,CREER_CLIENT,CREER_CLIENT,True,CREER_CLIENT,REGEX,1.0,True
+crée un nouveau fournisseur,CREER_FOURNISSEUR,CREER_FOURNISSEUR,True,CREER_FOURNISSEUR,REGEX,1.0,True
+ajoute un fournisseur ACME,CREER_FOURNISSEUR,CREER_FOURNISSEUR,True,CREER_FOURNISSEUR,REGEX,1.0,True
+nouveau fournisseur Grossiste SA,CREER_FOURNISSEUR,CREER_FOURNISSEUR,True,CREER_FOURNISSEUR,REGEX,1.0,True
+bloque le client CLI009,MODIFIER_STATUT,MODIFIER_STATUT,True,MODIFIER_STATUT,REGEX,1.0,True
+débloque le client CLI010,MODIFIER_STATUT,MODIFIER_STATUT,True,MODIFIER_STATUT,REGEX,1.0,True
+réactive le client CLI011,MODIFIER_STATUT,MODIFIER_STATUT,True,MODIFIER_STATUT,REGEX,1.0,True
+crée un bon de livraison pour le client CLI012,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+génère une facture pour ABC,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+crée un ordre de fabrication de 100 pièces,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+crée un bon de fabrication pour l'OF00123,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+crée un bon de commande,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+établis une facture pour le client CLI013,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+crée un bon de réception fournisseur,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+crée un BL achat pour le fournisseur FOUR001,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+prépare une facture,GENERER_DOC,,False,,,,False
+je veux une facture,GENERER_DOC,,False,,,,False
+transforme le BL BL000123 en facture,TRANSFORMER_DOC,TRANSFORMER_DOC,True,TRANSFORMER_DOC,REGEX,1.0,True
+convertis le bon de livraison en facture,TRANSFORMER_DOC,GENERER_DOC,False,GENERER_DOC,REGEX,1.0,False
+facture le BL BL000456,TRANSFORMER_DOC,,False,,,,False
+passe l'OF00789 en BF,TRANSFORMER_DOC,,False,,,,False
+crée un avoir pour la facture FA000789,CREER_AVOIR,CREER_AVOIR,True,CREER_AVOIR,REGEX,1.0,True
+génère un avoir client pour FA000111,CREER_AVOIR,CREER_AVOIR,True,CREER_AVOIR,REGEX,1.0,True
+règle la facture FA000456,REGLEMENT,,False,,,,False
+enregistre le paiement de la facture FA000222,REGLEMENT,REGLEMENT,True,REGLEMENT,REGEX,1.0,True
+marque la facture FA000333 comme réglée,REGLEMENT,REGLEMENT,True,REGLEMENT,REGEX,1.0,True
+paye la facture FA000444 par virement,REGLEMENT,REGLEMENT,True,REGLEMENT,REGEX,1.0,True
+crée une déclaration du mois de juin,DECLARATION_EXCEL,DECLARATION_EXCEL,True,DECLARATION_EXCEL,REGEX,1.0,True
+génère la déclaration fiscale de janvier,DECLARATION_EXCEL,DECLARATION_EXCEL,True,DECLARATION_EXCEL,REGEX,1.0,True
+déclaration mensuelle achat vente,DECLARATION_EXCEL,DECLARATION_EXCEL,True,DECLARATION_EXCEL,REGEX,1.0,True
+déclaration de juillet,DECLARATION_EXCEL,DECLARATION_EXCEL,True,DECLARATION_EXCEL,REGEX,1.0,True
+génère une offre de prix pour le client CLI014,OFFRE_PRIX_EXCEL,,False,,,,False
+exporte l'offre de prix en Excel,OFFRE_PRIX_EXCEL,,False,,,,False
+exporte la balance âgée,BALANCE_AGEE_EXCEL,,False,,,,False
+génère la balance âgée en Excel,BALANCE_AGEE_EXCEL,,False,,,,False
+affiche le tableau de bord,DASHBOARD_EXCEL,DASHBOARD_EXCEL,True,DASHBOARD_EXCEL,REGEX,1.0,True
+montre le dashboard KPI,DASHBOARD_EXCEL,DASHBOARD_EXCEL,True,DASHBOARD_EXCEL,REGEX,1.0,True
+résumé général de l'activité,DASHBOARD_EXCEL,DASHBOARD_EXCEL,True,DASHBOARD_EXCEL,REGEX,1.0,True
+donne-moi un résumé global,DASHBOARD_EXCEL,DASHBOARD_EXCEL,True,DASHBOARD_EXCEL,REGEX,1.0,True
+liste tous les fournisseurs,LISTE_FOURNISSEURS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+affiche les fournisseurs,LISTE_FOURNISSEURS,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+quels sont nos fournisseurs actifs,LISTE_FOURNISSEURS,LISTE_FOURNISSEURS,True,LISTE_FOURNISSEURS,REGEX,1.0,True
+donne-moi les fournisseurs,LISTE_FOURNISSEURS,,False,,,,False
+fiche du fournisseur FOUR002,FICHE_FOURNISSEUR,FICHE_FOURNISSEUR,True,FICHE_FOURNISSEUR,REGEX,1.0,True
+informations sur le fournisseur Grossiste SA,FICHE_FOURNISSEUR,FICHE_FOURNISSEUR,True,FICHE_FOURNISSEUR,REGEX,1.0,True
+top des fournisseurs,TOP_FOURNISSEURS,,False,,,,False
+meilleurs fournisseurs par volume d'achat,TOP_FOURNISSEURS,TOP_FOURNISSEURS,True,TOP_FOURNISSEURS,REGEX,1.0,True
+entrée de stock pour l'article REF789,MOUVEMENT_STOCK,,False,,,,False
+sortie de stock pour ECRAN4K,MOUVEMENT_STOCK,,False,,,,False
+ajuste le stock de l'article REF999,MOUVEMENT_STOCK,VERIFIER_STOCK,False,VERIFIER_STOCK,REGEX,1.0,False
+propose une commande d'achat pour cet article,PROPOSITION_ACHAT,,False,,,,False
+génère une proposition d'achat pour REF111,PROPOSITION_ACHAT,,False,,,,False
+traite la commande complète du client CLI015,WORKFLOW_COMMANDE,,False,,,,False
+lance le flux commande,WORKFLOW_COMMANDE,,False,,,,False
+quelle est la procédure pour créer un BL,RECHERCHE_PROCEDURE,GENERER_DOC,False,GENERER_DOC,REGEX,1.0,False
+comment fait-on pour bloquer un client,RECHERCHE_PROCEDURE,,False,,,,False
+que recommandes-tu pour le client CLI016,RECOMMANDATION,,False,,,,False
+quelle action recommandes-tu pour ce client,RECOMMANDATION,,False,,,,False
+quel est le seuil de stock de l'article REF222,SEUIL_STOCK,VERIFIER_STOCK,False,VERIFIER_STOCK,REGEX,1.0,False
+liste toutes les procédures,LISTE_PROCEDURES,NL2SQL_LIBRE,False,NL2SQL_LIBRE,REGEX,1.0,False
+liste les bons de livraison du client CLI017,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+factures supérieures à 1000 euros,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+clients ayant plus de 3 factures,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+articles dont le prix dépasse 500,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+clients bloqués,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+clients inactifs depuis 6 mois,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+encours du client CLI018,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+nombre de commandes par client,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+factures du mois de juin,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+toutes les factures,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+quel client a le meilleur panier moyen,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+clients classés par nombre de commandes,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+les clients,LISTE_CLIENTS,,False,,,,False
+client,,,True,,,,True
+facturation,,,True,,,,True
+factur,,,True,,,,True
+clients qui ont des factures impayées et un encours élevé,NL2SQL_LIBRE,NL2SQL_LIBRE,True,NL2SQL_LIBRE,REGEX,1.0,True
+crée une facture pour le client CLI019 de l'article REF333 quantité 10,GENERER_DOC,GENERER_DOC,True,GENERER_DOC,REGEX,1.0,True
+est-ce que le client CLI020 est bloqué ou actif,STATUT_CLIENT,,False,,,,False
+montre-moi le stock et le prix de REF444,VERIFIER_STOCK,,False,,,,False
+"bonjour, peux-tu me dire combien j'ai de clients actifs en ce moment",LISTE_CLIENTS,LISTE_CLIENTS,True,LISTE_CLIENTS,REGEX,1.0,True

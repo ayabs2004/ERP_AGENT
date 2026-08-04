@@ -1,0 +1,4 @@
+{"question": "peux-tu afficher tous les comptes clients ?", "action": "LISTE_CLIENTS", "timestamp": 1783181431.643453}
+{"question": "le stock de l article imprimante", "action": "VERIFIER_STOCK", "timestamp": 1783181432.6526108}
+{"question": "récupérer la liste des articles existants dans la base de données", "action": "LISTE_ARTICLES", "timestamp": 1783181433.7743807}
+{"question": "j'aimerais connaître notre chiffre d'affaires.", "action": "CA_GLOBAL", "timestamp": 1783181434.742443}
