@@ -145,7 +145,7 @@ python --version
 
 # Modèles Ollama
 ollama pull llama-3.1-8b-instant
-ollama pull llama-3.3-70b-versatile
+ollama pull openai/gpt-oss-120b
 ```
 
 ### 2. Installation des dépendances
@@ -162,12 +162,12 @@ Copier `.env.example` vers `.env` et configurer :
 # LLM (Ollama local)
 OLLAMA_BASE_URL=http://localhost:11434
 GROQ_FAST=llama-3.1-8b-instant
-GROQ_SMART=llama-3.3-70b-versatile
+GROQ_SMART=openai/gpt-oss-120b
 
 # Optionnel : Fallback Groq Cloud
 LLM_FALLBACK_KEY=gsk_...
 LLM_FALLBACK_URL=https://api.groq.com/openai/v1
-LLM_FALLBACK_MODEL=llama-3.3-70b-versatile
+LLM_FALLBACK_MODEL=openai/gpt-oss-120b
 
 # Optionnel : Vanna AI (NL2SQL avancé)
 ENABLE_VANNA=true

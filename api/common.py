@@ -70,6 +70,12 @@ _MOTS_VIDES_NOM: set[str] = {
     "au", "aux", "ce", "cette", "ces", "cet", "nombre", "total",
     "moyenne", "montant", "selon", "chaque", "tous", "toutes",
     "dans", "sans", "sous", "entre", "vers", "chez", "depuis",
+    # Mots interrogatifs et relationnels qui invalident la capture de nom
+    "leur", "leurs", "ayant", "supérieur", "superieur", "inférieur",
+    "inferieur", "dernière", "derniere", "dernier", "première", "premiere",
+    "son", "sa", "ses", "quel", "quelle", "quels", "quelles",
+    "comment", "combien", "quand", "où", "ou", "dont", "lequel",
+    "laquelle", "lesquels", "lesquelles", "parmi", "après", "avant",
 }
 
 _MOTS_METIER_INVALIDES: set[str] = {
@@ -92,13 +98,13 @@ _MOTS_METIER_INVALIDES: set[str] = {
 }
 
 _MOTS_PREFIX_CLIENT = (
-    r"(?:informations?\s+sur\s+(?:le\s+|la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:fiche\s+(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:statut\s+(?:actuel\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|société\s+|tiers\s+)?)"
-    r"|(?:(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:client\s+|tiers\s+))"
-    r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)(?:client\s+))"
-    r"|(?:pour\s+(?:le\s+|la\s+)?(?:client\s+|tiers\s+)?)"
-    r"|(?:(?:du|de|le|la)\s+client\s+)"
+    r"(?:informations?\s+sur\s+(?:le\s+|la\s+)?(?:clients?\s+|fournisseurs?\s+|société\s+|tiers\s+)?)"
+    r"|(?:fiche\s+(?:du\s+|de\s+la\s+)?(?:clients?\s+|fournisseurs?\s+|société\s+|tiers\s+)?)"
+    r"|(?:statut\s+(?:actuel\s+)?(?:du\s+|de\s+la\s+)?(?:clients?\s+|fournisseurs?\s+|société\s+|tiers\s+)?)"
+    r"|(?:(?:non\s+réglées?\s+)?(?:du\s+|de\s+la\s+)?(?:clients?\s+|fournisseurs?\s+|tiers\s+))"
+    r"|(?:(?:toutes?\s+les\s+)?factures?\s+(?:du\s+|de\s+la\s+)?(?:clients?\s+|fournisseurs?\s+))"
+    r"|(?:pour\s+(?:le\s+|la\s+)?(?:clients?\s+|fournisseurs?\s+|tiers\s+)?)"
+    r"|(?:(?:du|de|le|la|les|des)?\s*(?:clients?\s+|fournisseurs?\s+|sociétés?\s+))"
 )
 
 _PATTERN_NOM_CLIENT = re.compile(

@@ -1,5 +1,5 @@
-"""
-orchestrateur_general.py — Le Maître Orchestrateur Multi-Agents v9.3
+﻿"""
+orchestrateur_general.py — Le Maître Orchestrateur Multi-Agents v9.6
 ================================================================================
 v9.3 — 7 corrections appliquées :
   FIX 1 : Extraction article insensible à la casse ([A-Za-z] + .upper())
@@ -30,6 +30,30 @@ v9.5 — CORRECTIONS DE BUGS (session de debug) :
              (async def) : tous les appels (~10 sites) sont désormais awaités.
   BUGFIX 3 : code_fournisseur ajouté au TypedDict CopilotState et à _etat_initial
              pour que LangGraph ne le supprime plus silencieusement entre les nœuds.
+================================================================================
+v9.6 — CORRECTIONS DOCS_PERIODE / PALMARES_ARTICLES (session de debug) :
+  PATCH L : _RX_ARTICLES_VENDUS_PERIODE — "articles les plus vendus" + un
+            marqueur temporel (ce mois / cette semaine / en AAAA) route
+            désormais vers NL2SQL_LIBRE (qui applique le vrai filtre de
+            date via _gen_articles_plus_vendus), au lieu de PALMARES_ARTICLES
+            qui l'ignorait complètement.
+  PATCH M : nouveau pattern générique DOCS_PERIODE pour
+            "documents/factures/bl du client X entre DATE et DATE" — les
+            anciens patterns exigeaient que "entre" suive immédiatement
+            "documents"/"factures", ce qui ratait toute mention d'un
+            client entre les deux.
+  PATCH N : le fast-path regex de _noeud_classifier_impl (ÉTAPE 0) n'extrayait
+            JAMAIS date_debut/date_fin pour DOCS_PERIODE — ces champs restaient
+            à "" (valeur initiale), ce qui garantissait 0 résultat quelle que
+            soit la période demandée. Extraction ajoutée + ambigue=True si les
+            dates ne peuvent pas être extraites (au lieu d'exécuter une requête
+            vide silencieusement).
+  PATCH O : garde-fou sur l'extraction de quantité (fast-path) — un nombre à
+            4 chiffres précédé de "en" (ex: "en 2025") n'est plus confondu
+            avec une quantité/un top_n (cause du label absurde
+            "Top 2025 articles" observé en prod).
+  PATCH P : override ÉTAPE 3 pour DOCS_PERIODE étendu aux mots "document"/
+            "documents" (il ne testait auparavant que "facture(s)"/"bl").
 """
 from datetime import datetime
 import asyncio
@@ -52,6 +76,13 @@ import warnings
 import shelve
 import hashlib
 import itertools
+from pathlib import Path
+
+# Ajout du dossier parent au PYTHONPATH pour trouver les modules (formatting, graph, etc.)
+_ROOT = Path(__file__).parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import formatting.formatters
 from graph.draft_flow import (
     SCHEMAS_DOCUMENTS, est_confirmation_stricte, est_annulation_stricte,
@@ -118,6 +149,13 @@ if _db_path is not None and (not _db_path.exists() or _db_path.stat().st_size < 
     print("🗄️  [DB] Initialisation automatique...")
     _init_db(str(_db_path))
     print("✅ [DB] Base initialisée.")
+else:
+    # Si c'est MSSQL, on lance l'init des migrations MSSQL
+    try:
+        from database.init_db_complet import init_database_mssql
+        init_database_mssql()
+    except Exception as e:
+        print(f"⚠️  [DB] Erreur initialisation MSSQL : {e}")
 
 from typing import TypedDict, Optional
 from langchain_ollama import ChatOllama  # noqa: F401  (gardé pour retour arrière rapide)
@@ -148,18 +186,22 @@ from api.graph_nodes import (
     noeud_modification as _noeud_modification,
     noeud_modification_confirmation as _noeud_modification_confirmation,
 )
+from api.graph_nodes.creation_article import noeud_creation_article as _noeud_creation_article
+from api.graph_nodes.nomenclature import noeud_nomenclature as _noeud_nomenclature
+from api.graph_nodes.modification_nomenclature import noeud_modification_nomenclature as _noeud_modification_nomenclature
+
 
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────
 FALLBACK_URL   = os.getenv("LLM_FALLBACK_URL",   "https://api.groq.com/openai/v1")
 FALLBACK_KEY   = (os.getenv("LLM_FALLBACK_KEY", "") or "").strip()
-FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-oss-120b")
 
 GROQ_URL     = os.getenv("GROQ_URL", FALLBACK_URL)
 GROQ_KEY     = (os.getenv("GROQ_KEY", "") or FALLBACK_KEY).strip()
-MODELE_FAST  = os.getenv("GROQ_FAST",  "llama-3.1-8b-instant")
-MODELE_SMART = os.getenv("GROQ_SMART", "llama-3.3-70b-versatile")
+MODELE_FAST  = os.getenv("GROQ_FAST",  "openai/gpt-oss-20b")
+MODELE_SMART = os.getenv("GROQ_SMART", "openai/gpt-oss-120b")
 
 OLLAMA_TIMEOUT_FAST   = float(os.getenv("OLLAMA_TIMEOUT_FAST",   "120"))
 OLLAMA_TIMEOUT_SMART  = float(os.getenv("OLLAMA_TIMEOUT_SMART",  "300"))
@@ -218,6 +260,7 @@ _MOTS_OUI = {
     "d'accord", "daccord", "volontiers", "affirmatif",
     "faites", "faites-le", "lance", "crée", "créer",
     "génère", "genere", "fais-le", "fais le",
+    "confirmer", "valider", "valide", "confirm",
 }
 _MOTS_NON = {
     "n", "non", "no", "nope", "pas", "annuler", "annule",
@@ -225,9 +268,10 @@ _MOTS_NON = {
     "pas maintenant", "plus tard", "skip", "ignore",
 }
 def _est_oui(texte: str) -> bool:
-    return texte.lower().strip().rstrip("!.") in _MOTS_OUI
+    t = "".join(c for c in texte if c.isalnum() or c.isspace() or c == "'").lower().strip()
+    return t in _MOTS_OUI
 def _est_non(texte: str) -> bool:
-    t = texte.lower().strip().rstrip("!.")
+    t = "".join(c for c in texte if c.isalnum() or c.isspace() or c == "'").lower().strip()
     return t in _MOTS_NON or any(m in t for m in _MOTS_NON)
 # ─────────────────────────────────────────────────────────────────────
 # CACHE DISQUE
@@ -539,6 +583,43 @@ def _get_vanna_sync():
     if _vanna_load_tried:
         return _vanna_client
     _vanna_load_tried = True
+    from api.mcp_actions_sage import _is_mssql
+
+    # ── Phase 1A — Garde-fou neutralité DB ────────────────────────────
+    # Vanna est entraîné sur le schéma Sage100 par défaut (F_DOCENTETE,
+    # DO_Piece, etc.). Si db_config.json pointe sur un schéma différent
+    # (autre ERP, base de test, multi-schéma), les SQL générés par Vanna
+    # contiendraient des noms physiques incorrects et casseraient toutes
+    # les requêtes. On désactive Vanna automatiquement dans ce cas.
+    # Pour forcer Vanna avec un schéma personnalisé, implémentez
+    # l'Option B du plan (DDL/exemples générés depuis table()/col()).
+    try:
+        from adaptation.db_adapter import table as _ta, col as _co
+        if _ta('doc_entete') != 'F_DOCENTETE' or _co('doc_entete', 'piece') != 'DO_Piece':
+            print("⚠️  [Vanna] db_config.json ne correspond pas au schéma Sage100 par défaut "
+                  "sur lequel Vanna est entraîné → Vanna désactivé pour cette base.")
+            print("      (Pour utiliser Vanna avec un schéma personnalisé, implémentez l'Option B)")
+            _vanna_client = None
+            return None
+    except Exception as _e_schema:
+        print(f"⚠️  [Vanna] Impossible de vérifier le schéma : {_e_schema} → Vanna désactivé par précaution.")
+        _vanna_client = None
+        return None
+    # ── Fin garde-fou neutralité DB ────────────────────────────────────
+
+    # ── Phase 1B — Neutraliser la télémétrie PostHog de ChromaDB ───────
+    import os
+    os.environ["ANONYMIZED_TELEMETRY"] = "False"
+    # ── Supprimer les warnings "Add of existing embedding ID" de ChromaDB ──
+    import logging
+    logging.getLogger("chromadb").setLevel(logging.ERROR)
+    logging.getLogger("chromadb.segment").setLevel(logging.ERROR)
+    try:
+        import posthog
+        posthog.capture = lambda *args, **kwargs: None
+    except ImportError:
+        pass
+
     try:
         from vanna.openai import OpenAI_Chat
         from vanna.chromadb import ChromaDB_VectorStore
@@ -550,21 +631,71 @@ def _get_vanna_sync():
                 OpenAI_Chat.__init__(self, client=client, config=config)
 
         _groq_client = _OpenAIClient(api_key=GROQ_KEY, base_url=GROQ_URL)
+
+        vanna_config = {"model": MODELE_FAST, "path": "./vanna_erp_db"}
+        try:
+            from chromadb.utils import embedding_functions
+            import os
+            _hf_cache = os.path.join(
+                os.environ.get("HF_HOME", os.path.join(os.path.expanduser("~"), ".cache", "huggingface")),
+                "hub", "models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2"
+            )
+            if os.path.isdir(_hf_cache):
+                # Modèle déjà en cache local → on l'utilise, mode offline
+                os.environ.setdefault("HF_HUB_OFFLINE", "1")
+                vanna_config["embedding_function"] = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="paraphrase-multilingual-MiniLM-L12-v2"
+                )
+                print("   ℹ️  [Vanna] Embedding multilingue (cache local) configuré")
+            else:
+                # Pas de cache local → on utilise l'embedding intégré ChromaDB (aucun téléchargement)
+                print("   ℹ️  [Vanna] Embedding ChromaDB par défaut (aucun téléchargement requis)")
+        except Exception as e:
+            print(f"   ⚠️  [Vanna] Embedding multilingue non disponible: {_safe_str(e)}")
+
         vn = VannaERP(
-            config={"model": MODELE_SMART, "path": "./vanna_erp_db"},
+            config=vanna_config,
             client=_groq_client,
         )
         try:
             existing = vn.get_training_data()
             nb_existing = len(existing) if existing is not None else 0
-        except Exception:
+            print(f"   ℹ️  [Vanna] get_training_data() → {nb_existing} lignes, type={type(existing)}")
+        except Exception as e:
+            print(f"   ⚠️  [Vanna] get_training_data() a échoué : {_safe_str(e)}")
             nb_existing = 0
 
-        if nb_existing == 0:
+        # Compute training content hash for conditional retrain
+        from vanna_training_neutral import (
+            construire_exemples_entrainement, calculer_hash_entrainement,
+            doit_reentrainer, marquer_entrainement_fait,
+        )
+        from adaptation.db_adapter import table as _t_hash, col as _c_hash
+        _exemples_hash = construire_exemples_entrainement(_is_mssql(), table=_t_hash, col=_c_hash)
+        _doc_str_hash = ""  # documentation string built inside _vanna_entrainer_schema
+        hash_actuel = calculer_hash_entrainement(
+            [] if nb_existing > 0 else [],  # DDL not yet known here; use [] as placeholder
+            _doc_str_hash,
+            _exemples_hash,
+        )
+        if nb_existing > 0 and doit_reentrainer(vn, hash_actuel):
+            try:
+                existing_data = vn.get_training_data()
+                if existing_data is not None and not existing_data.empty:
+                    for _id in existing_data["id"].tolist():
+                        vn.remove_training_data(_id)
+                    print(f"   🗑️  [Vanna] {len(existing_data)} entrées purgées avant ré-entraînement.")
+            except Exception as e:
+                print(f"⚠️  [Vanna] Purge avant ré-entraînement échouée : {e}")
             _vanna_entrainer_schema(vn)
+            marquer_entrainement_fait(hash_actuel)
+            print("✅ [Vanna] Ré-entraîné sur le nouveau schéma/exemples.")
+        elif nb_existing == 0:
+            _vanna_entrainer_schema(vn)
+            marquer_entrainement_fait(hash_actuel)
             print("✅ [Vanna] Initialisé (Groq) et entraîné sur le schéma Sage 100.")
         else:
-            print(f"   ℹ️  [Vanna] {nb_existing} exemples déjà en base → entraînement ignoré")
+            print(f"   ℹ️  [Vanna] {nb_existing} exemples déjà en base, contenu inchangé → entraînement ignoré")
             print("      (tapez 'vanna_retrain' pour forcer un ré-entraînement propre)")
 
         _vanna_client = vn
@@ -592,8 +723,26 @@ async def _get_vanna_async():
         if result:
             print(f"   ✅ [Vanna] Prêt en {time.perf_counter() - t0:.1f}s")
         return result
-def _vanna_entrainer_schema(vn):
+_vanna_train_count = 0
+
+def _vanna_entrainer_schema(vn, *args, **kwargs):
+    global _vanna_client, _vanna_train_count
+
+    if isinstance(vn, str):
+        # On-the-fly training disabled to prevent caching hallucinations
+        # question = vn
+        # sql = args[0] if args else ""
+        return
+
+    _vanna_train_count += 1
+    if _vanna_train_count > 1:
+        print(f"   ⚠️ [Vanna] _vanna_entrainer_schema ignoré (appel dupliqué #{_vanna_train_count})")
+        import traceback
+        traceback.print_stack()
+        return
+
     from api.mcp_actions_sage import _is_mssql, _get_conn
+    from adaptation.db_adapter import table as _t, col as _c
     
     if _is_mssql():
         from generer_ddl_vanna import generer_ddl_tables, TABLES_UTILISEES
@@ -606,7 +755,6 @@ def _vanna_entrainer_schema(vn):
         # Génère le DDL dynamiquement via table()/col() pour ne jamais avoir
         # de décalage entre les exemples Vanna et le schéma neutre utilisé
         # partout dans le projet.
-        from adaptation.db_adapter import table as _t, col as _c
         tables_ddl = [
             f"""CREATE TABLE {_t('clients_fournisseurs')} (
                 {_c('clients_fournisseurs','code')}      TEXT PRIMARY KEY,
@@ -664,6 +812,16 @@ def _vanna_entrainer_schema(vn):
       - pièce         : {_c('doc_entete','piece')}
       - domaine       : {_c('doc_entete','domaine')}
       - type document : {_c('doc_entete','type')}
+    
+    RÈGLE ANTI-HALLUCINATION CRITIQUE :
+      - N'utilise JAMAIS un nom de colonne qui n'apparaît pas explicitement 
+        dans les CREATE TABLE ci-dessus. Si une information demandée ne 
+        correspond à aucune colonne existante, explique-le plutôt que 
+        d'inventer un nom de colonne plausible.
+    
+    INSTRUCTIONS DE STYLE SQL :
+      - Prefer simple JOINs over CTEs or subqueries when the same result can 
+        be achieved, since simpler SQL is easier to validate and less error-prone.
       - date          : {_c('doc_entete','date')}
       - code tiers    : {_c('doc_entete','code_tiers')}
     Types de documents ({_c('doc_entete','type')} / {_c('doc_entete','domaine')}) :
@@ -682,316 +840,60 @@ def _vanna_entrainer_schema(vn):
       - type (0=client,1=fourn) : {_c('clients_fournisseurs','type_tiers')}
     Table articles : {_t('articles')}  |  stock : {_t('stock')}
     Table lignes   : {_t('doc_ligne')} |  règlements : {_t('reglements')}
+
+    RÈGLE IMPORTANTE : les montants de documents (HT, TTC) ne sont JAMAIS
+    stockés sur une colonne d'entête. Ils doivent TOUJOURS être calculés par :
+    SUM(doc_ligne.qte * doc_ligne.prix_unitaire)
+    en joignant doc_entete à doc_ligne sur la pièce.
+
+    RÈGLES MÉTIER SUPPLÉMENTAIRES :
+      - Une facture impayée est une pièce de vente (type=6, domaine=0) dont la
+        pièce n'apparaît PAS dans la table reglements.
+      - "Achat" correspond toujours à domaine=1 et "vente" à domaine=0.
+      - "Client actif" signifie validite != 'BLOQUE'.
+      - "Encours" est la somme des factures non réglées d'un client, pas une
+        colonne directement stockée dans doc_entete.
+      - Le code tiers dans doc_entete.code_tiers identifie un client ou un
+        fournisseur selon doc_entete.domaine.
+      - Un bon de livraison est type=3 domaine=0, un bon de commande client est
+        type=1 domaine=0, un ordre de fabrication est type=25 domaine=2.
+
+    SYNONYMES MÉTIER UTILES :
+      - "commande" peut désigner un bon de commande OU une facture selon le
+        contexte ; privilégier le BC si le mot "commande" est explicite.
+      - "réception" désigne un BL_ACHAT côté fournisseur.
+      - "impayé", "non réglé", "en souffrance" et "en attente" peuvent être
+        synonymes dans le contexte des factures.
+      - "CA" et "chiffre d'affaires" sont équivalents.
 """)
 
-    # Colonnes physiques résolues une seule fois pour les exemples
-    _te   = _t('doc_entete');      _ce_p  = _c('doc_entete','piece')
-    _ce_d = _c('doc_entete','date'); _ce_ti = _c('doc_entete','code_tiers')
-    _ce_ty= _c('doc_entete','type'); _ce_do = _c('doc_entete','domaine')
-    _tl   = _t('doc_ligne');       _cl_p  = _c('doc_ligne','piece')
-    _cl_q = _c('doc_ligne','qte');  _cl_pu = _c('doc_ligne','prix_unitaire')
-    _cl_a = _c('doc_ligne','ref_article')
-    _tc   = _t('clients_fournisseurs'); _cc_id = _c('clients_fournisseurs','code')
-    _cc_n = _c('clients_fournisseurs','nom'); _cc_ty = _c('clients_fournisseurs','type_tiers')
-    _cc_e = _c('clients_fournisseurs','encours')
-    _ta   = _t('articles');        _ca_r  = _c('articles','ref')
-    _ca_d = _c('articles','designation')
-    _ca_pv= _c('articles','prix_vente'); _ca_pa = _c('articles','prix_achat')
-    _ts   = _t('stock');           _cs_r  = _c('stock','ref')
-    _cs_q = _c('stock','qte_stock'); _cs_c  = _c('stock','qte_commande')
-    _tr   = _t('reglements');      _cr_p  = _c('reglements','piece')
+    # Exemples dialect-aware, dédupliqués — générés par vanna_training_neutral
+    from vanna_training_neutral import construire_exemples_entrainement
+    from adaptation.db_adapter import table as _t, col as _c
+    exemples = construire_exemples_entrainement(_is_mssql(), table=_t, col=_c)
 
-    exemples = [
-    ("liste tous les articles du catalogue",
-     f"SELECT a.{_ca_r}, a.{_ca_d}, a.{_ca_pv}, COALESCE(s.{_cs_q},0) AS stock "
-     f"FROM {_ta} a LEFT JOIN {_ts} s ON a.{_ca_r}=s.{_cs_r} ORDER BY a.{_ca_r}"),
-
-    ("top 5 clients par chiffre d affaires",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_total "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY ca_total DESC"),
-
-    ("factures impayees non reglees",
-     f"SELECT e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d}, "
-     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
-     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
-
-    ("articles en rupture de stock",
-     f"SELECT a.{_ca_r}, a.{_ca_d}, COALESCE(s.{_cs_q},0) AS stock "
-     f"FROM {_ta} a LEFT JOIN {_ts} s ON a.{_ca_r}=s.{_cs_r} "
-     f"WHERE COALESCE(s.{_cs_q},0)<=0 ORDER BY a.{_ca_r}"),
-
-    ("chiffre d affaires global total",
-     f"SELECT COUNT(DISTINCT e.{_ce_p}) AS nb_factures, COUNT(DISTINCT e.{_ce_ti}) AS nb_clients, "
-     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0"),
-
-    ("clients bloqués",
-     f"SELECT {_cc_id}, {_cc_n}, {_cc_e} FROM {_tc} "
-     f"WHERE {_cc_ty}=0 AND {_c('clients_fournisseurs','sommeil')}=1 ORDER BY {_cc_n}"),
-
-    ("stock de l article ECRAN4K",
-     f"SELECT a.{_ca_r}, a.{_ca_d}, COALESCE(s.{_cs_q},0) AS stock, COALESCE(s.{_cs_c},0) AS en_commande "
-     f"FROM {_ta} a LEFT JOIN {_ts} s ON a.{_ca_r}=s.{_cs_r} "
-     f"WHERE UPPER(a.{_ca_r})='ECRAN4K'"),
-
-    ("factures du client CLI001",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht, "
-     f"CASE WHEN EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
-     f"THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut "
-     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_ti}='CLI001' "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
-
-    ("CA mensuel par mois",
-     f"SELECT STRFTIME('%Y-%m', e.{_ce_d}) AS mois, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
-     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"GROUP BY STRFTIME('%Y-%m', e.{_ce_d}) ORDER BY mois DESC LIMIT 12"),
-
-    ("marge brute par article rentabilite",
-     f"SELECT l.{_cl_a}, a.{_ca_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_vente, "
-     f"SUM(l.{_cl_q}*a.{_ca_pa}) AS cout_achat, "
-     f"SUM(l.{_cl_q}*l.{_cl_pu})-SUM(l.{_cl_q}*a.{_ca_pa}) AS marge_brute "
-     f"FROM {_tl} l JOIN {_te} e ON l.{_cl_p}=e.{_ce_p} "
-     f"LEFT JOIN {_ta} a ON l.{_cl_a}=a.{_ca_r} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"GROUP BY l.{_cl_a}, a.{_ca_d} ORDER BY marge_brute DESC"),
-
-    ("encours client CLI002",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, COALESCE(c.{_cc_e},0) AS encours_autorise, "
-     f"COALESCE(SUM(l.{_cl_q}*l.{_cl_pu}),0) AS encours_utilise "
-     f"FROM {_tc} c LEFT JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=6 "
-     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE c.{_cc_id}='CLI002' GROUP BY c.{_cc_id}, c.{_cc_n}, c.{_cc_e}"),
-
-    ("clients inactifs depuis 6 mois",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, MAX(e.{_ce_d}) AS derniere_commande "
-     f"FROM {_tc} c LEFT JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=6 "
-     f"WHERE c.{_cc_ty}=0 GROUP BY c.{_cc_id}, c.{_cc_n} "
-     f"HAVING MAX(e.{_ce_d}) IS NULL OR MAX(e.{_ce_d}) < DATE('now','-180 days') "
-     f"ORDER BY derniere_commande ASC"),
-
-    ("liste des bons de livraison du client CLI001",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=3 AND e.{_ce_do}=0 AND e.{_ce_ti}='CLI001' "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti} ORDER BY e.{_ce_d} DESC"),
-
-    ("clients ayant des factures superieures a 1000",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS total_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"GROUP BY e.{_ce_ti}, c.{_cc_n} HAVING SUM(l.{_cl_q}*l.{_cl_pu}) > 1000 ORDER BY total_ht DESC"),
-
-    ("tous les bons de livraison",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=3 AND e.{_ce_do}=0 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n} ORDER BY e.{_ce_d} DESC"),
-
-    ("factures fournisseur",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, e.{_ce_p}, e.{_ce_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=16 AND e.{_ce_do}=1 AND c.{_cc_ty}=1 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
-
-    ("bons de reception fournisseur",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, e.{_ce_p}, e.{_ce_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=13 AND e.{_ce_do}=1 AND c.{_cc_ty}=1 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
-
-    ("clients qui ont passe plus de 3 commandes",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
-     f"COALESCE(SUM(l.{_cl_q}*l.{_cl_pu}),0) AS ca_total "
-     f"FROM {_tc} c JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE c.{_cc_ty}=0 GROUP BY c.{_cc_id}, c.{_cc_n} "
-     f"HAVING COUNT(DISTINCT e.{_ce_p}) > 3 ORDER BY nb_factures DESC"),
-
-    ("articles dont le prix de vente depasse 500",
-     f"SELECT {_ca_r}, {_ca_d}, {_ca_pv} AS prix_vente, {_ca_pa} AS prix_achat, "
-     f"ROUND({_ca_pv} - {_ca_pa}, 2) AS marge "
-     f"FROM {_ta} WHERE {_ca_pv} > 500 ORDER BY {_ca_pv} DESC"),
-
-    ("factures du mois de juin",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n}, "
-     f"COALESCE(SUM(l.{_cl_q}*l.{_cl_pu}),0) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 AND STRFTIME('%m', e.{_ce_d}) = '06' "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n} ORDER BY e.{_ce_d} DESC"),
-
-    ("factures du mois 3",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n}, "
-     f"COALESCE(SUM(l.{_cl_q}*l.{_cl_pu}),0) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 AND STRFTIME('%m', e.{_ce_d}) = '03' "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n} ORDER BY e.{_ce_d} DESC"),
-
-    ("clients avec moins de 2 factures",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, COUNT(DISTINCT e.{_ce_p}) AS nb_factures "
-     f"FROM {_tc} c LEFT JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"WHERE c.{_cc_ty}=0 GROUP BY c.{_cc_id}, c.{_cc_n} "
-     f"HAVING COUNT(DISTINCT e.{_ce_p}) < 2 ORDER BY nb_factures ASC"),
-
-    ("liste des fournisseurs",
-     f"SELECT {_cc_id}, {_cc_n} FROM {_tc} WHERE {_cc_ty} = 1 ORDER BY {_cc_n}"),
-
-    ("top 5 fournisseurs par montant d achat",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS total_achat "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=16 AND e.{_ce_do}=1 AND c.{_cc_ty}=1 "
-     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY total_achat DESC"),
-
-    ("fournisseurs bloques",
-     f"SELECT {_cc_id}, {_cc_n}, {_cc_e} FROM {_tc} "
-     f"WHERE {_cc_ty}=1 AND {_c('clients_fournisseurs','sommeil')}=1 ORDER BY {_cc_n}"),
-
-    ("bons de commande fournisseur",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, e.{_ce_p}, e.{_ce_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=11 AND e.{_ce_do}=1 AND c.{_cc_ty}=1 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
-
-    ("fournisseurs inactifs depuis 6 mois",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, MAX(e.{_ce_d}) AS derniere_commande "
-     f"FROM {_tc} c LEFT JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=16 AND e.{_ce_do}=1 "
-     f"WHERE c.{_cc_ty}=1 GROUP BY c.{_cc_id}, c.{_cc_n} "
-     f"HAVING MAX(e.{_ce_d}) IS NULL OR MAX(e.{_ce_d}) < DATE('now','-180 days') "
-     f"ORDER BY derniere_commande ASC"),
-
-    ("encours fournisseur FOUR001",
-     f"SELECT c.{_cc_id}, c.{_cc_n}, COALESCE(c.{_cc_e},0) AS encours_autorise, "
-     f"COALESCE(SUM(l.{_cl_q}*l.{_cl_pu}),0) AS encours_utilise "
-     f"FROM {_tc} c LEFT JOIN {_te} e ON c.{_cc_id}=e.{_ce_ti} AND e.{_ce_ty}=16 AND e.{_ce_do}=1 "
-     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE c.{_cc_id}='FOUR001' GROUP BY c.{_cc_id}, c.{_cc_n}, c.{_cc_e}"),
-
-    ("fournisseurs ayant des factures superieures a 5000",
-     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS total_ht "
-     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"WHERE e.{_ce_ty}=16 AND e.{_ce_do}=1 "
-     f"GROUP BY e.{_ce_ti}, c.{_cc_n} HAVING SUM(l.{_cl_q}*l.{_cl_pu}) > 5000 ORDER BY total_ht DESC"),
-
-    ("liste des ordres de fabrication OF",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, SUM(l.{_cl_q}) AS qte_totale "
-     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=25 AND e.{_ce_do}=2 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti} ORDER BY e.{_ce_d} DESC"),
-
-    ("liste des bons de fabrication BF",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, SUM(l.{_cl_q}) AS qte_totale "
-     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=26 AND e.{_ce_do}=2 "
-     f"GROUP BY e.{_ce_p}, e.{_ce_d}, e.{_ce_ti} ORDER BY e.{_ce_d} DESC"),
-
-    ("liste des factures de vente",
-     f"SELECT e.{_ce_p}, e.{_ce_d}, e.{_ce_ti}, c.{_cc_n}, "
-     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
-     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
-     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
-     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
-     f"GROUP BY e.{_ce_p} ORDER BY e.{_ce_d} DESC"),
-]
     for question, sql in exemples:
         vn.train(question=question, sql=sql)
     print(f"   📚 [Vanna] {len(exemples)} exemples + schéma entraînés.")
 
-
 def _vanna_generer_sql(question: str) -> tuple[str | None, float]:
-    import threading
-
-    vn = _vanna_client
-    if vn is None:
-        return None, 0.0
-
-    # Index 0: sql, Index 1: exception, Index 2: nb_similaires
-    result_container = [None, None, 0]
-
-    def _run():
-        try:
-            original_get = getattr(vn, "get_similar_question_sql", None)
-            if original_get:
-                def _get_limited(q, **kw):
-                    results = original_get(q, **kw)
-                    result_container[2] = len(results) if results else 0
-                    return results[:3] if results else []
-                vn.get_similar_question_sql = _get_limited
-
-            sql = vn.generate_sql(question)
-
-            if original_get:
-                vn.get_similar_question_sql = original_get
-
-            result_container[0] = sql
-        except Exception as e:
-            result_container[1] = e
-
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-    t.join(timeout=VANNA_GENERATE_TIMEOUT)
-
-    if t.is_alive():
-        print(f"   ⚠️  [Vanna] Timeout {VANNA_GENERATE_TIMEOUT}s → fallback patterns")
-        return None, 0.0
-
-    if result_container[1] is not None:
-        print(f"   ⚠️  [Vanna] {_safe_str(result_container[1])}")
-        return None, 0.0
-
-    sql = result_container[0]
-    nb_similaires = result_container[2]
-
-    if not sql or not sql.strip().upper().startswith("SELECT"):
-        return None, 0.0
-
-    # Détection dynamique du dialecte pour sqlglot
+    """Délègue à generer_sql_thread_safe (vanna_training_neutral).
+    Phase 3 : passe table()/col() pour activer la validation des colonnes connues.
+    Phase 5 : l'Event de concurrence est géré dans generer_sql_thread_safe."""
+    from vanna_training_neutral import generer_sql_thread_safe
     from api.mcp_actions_sage import _is_mssql
-    dialect_target = "tsql" if _is_mssql() else "sqlite"
-
-    try:
-        import sqlglot
-        sqlglot.parse_one(sql, dialect=dialect_target)
-        score = 0.55 + min(0.35, nb_similaires * 0.12)
-        print(f"   ✅ [Vanna] SQL valide ({dialect_target}), nb_similaires={nb_similaires}, score={score:.2f}")
-    except ImportError as e:
-        print(f"   ❌ [Vanna] sqlglot non installé: {e}")
-        score = 0.35
-    except Exception as e:
-        print(f"   ❌ [Vanna] Erreur parsing SQL ({dialect_target}): {e}")
-        score = 0.35
-
-    return sql.strip(), score
+    from adaptation.db_adapter import table as _t_gen, col as _c_gen
+    return generer_sql_thread_safe(
+        _vanna_client, question, VANNA_GENERATE_TIMEOUT, _is_mssql(),
+        table=_t_gen, col=_c_gen,
+    )
 
 def _valider_sql(sql: str) -> tuple[bool, str]:
-    try:
-        import sqlglot
-        sqlglot.parse_one(sql, dialect="sqlite")
-        return True, ""
-    except ImportError:
-        return True, ""
-    except Exception as e:
-        return False, str(e)
+    """Délègue à valider_sql_dialecte (vanna_training_neutral) — dialecte correct."""
+    from vanna_training_neutral import valider_sql_dialecte
+    from api.mcp_actions_sage import _is_mssql
+    ok, _score = valider_sql_dialecte(sql, _is_mssql())
+    return ok, "" if ok else "parse error"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1018,6 +920,7 @@ ACTIONS_LECTURE = {
     "TOUTES_FACTURES_CLIENT", "VERIFIER_STOCK", "FICHE_CLIENT",
     "DOCS_PERIODE", "RENTABILITE", "SAISONNALITE", "DSO", "RFM", "STATUT_CLIENT",
     "LISTE_FOURNISSEURS", "FICHE_FOURNISSEUR", "TOP_FOURNISSEURS",
+    "AFFICHER_NOMENCLATURE",
 }
 ACTIONS_NL2SQL   = {"NL2SQL_LIBRE", "LISTE_FACTURES"}
 ACTIONS_EXPORT   = {
@@ -1025,7 +928,7 @@ ACTIONS_EXPORT   = {
     "BALANCE_AGEE_EXCEL", "DASHBOARD_EXCEL",
 }
 ACTIONS_ECRITURE = {
-    "CREER_CLIENT", "CREER_FOURNISSEUR", "MODIFIER_STATUT", "MODIFIER_ARTICLE", "MODIFIER_CLIENT", "MODIFIER_FOURNISSEUR", "GENERER_DOC",
+    "CREER_CLIENT", "CREER_FOURNISSEUR", "CREER_ARTICLE", "CREER_NOMENCLATURE", "MODIFIER_STATUT", "MODIFIER_ARTICLE", "MODIFIER_CLIENT", "MODIFIER_FOURNISSEUR", "GENERER_DOC",
     "TRANSFORMER_DOC", "CREER_AVOIR", "REGLEMENT",
     "MOUVEMENT_STOCK", "PROPOSITION_ACHAT", "OFFRE_PRIX",
 }
@@ -1060,7 +963,7 @@ MOTS_REFERENCE_DOCUMENT = (
     "celui-ci", "celle-ci", "ce document", "ce bl", "cette facture",
 )
 _TYPES_DOC_INVALIDES_COMME_ARTICLE = {
-    "OF", "BF", "BL", "BL_ACHAT", "FA_ACHAT", "FA", "FC", "BC", "FACTURE", "AVOIR", "AV",
+    "OF", "BF", "BL", "BL_ACHAT", "FA_ACHAT", "FA", "FC", "BC", "BC_ACHAT", "FACTURE", "AVOIR", "AV",
 }
 TYPES_DOC_FABRICATION = {"OF", "BF"}
 _EXPRESSIONS_FR_EXCLUES = {
@@ -1101,23 +1004,27 @@ _MOTS_GENERIQUES_NER = {
     "client", "tiers", "le", "la", "les", "un", "une", "des",
     "pour", "avec", "article", "produit", "référence", "ref",
     "piece", "pièce", "unité", "unite", "quantite", "quantité",
-    "société", "societe", "entreprise",
+    "société", "societe", "entreprise", "volume", "achat", "achats", "par",
 }
 _MARQUEURS_NL2SQL_FORCE = {
-    "mois par mois", "par mois", "évolution", "tendance",
-    "uniquement", "seulement", "n'ont pas", "aucune commande",
-    "depuis plus de", "inactifs", "croisement", "en commun",
+    "mois par mois", "évolution", "tendance",
+    "uniquement", "seulement", 
+    "croisement", "en commun",
     "meilleurs clients", "top.*client.*fourni", "vendus à un seul",
     "having", "ratio", "panier moyen", "taux de",
     "par nombre de commandes", "nombre de commandes",
     "commandés ce mois", "commandé ce mois",
     "inférieur au seuil", "stock insuffisant", "trier par commandes",
     "classement", "classé",
-    # PATCH H : réintégration de "classe" (impératif) — ne matche pas
-    # "déclaration" car _MARQUEURS_NL2SQL_FORCE_RE compile chaque motif
-    # avec des frontières de mot \b...\b.
     "classe", "classer", "classés", "classee", "classees",
 }
+
+_MOTS_QUALIFICATIFS_FILTRAGE = (
+    "impayé", "impayés", "ne paient pas", "plus de", "moins de",
+    "supérieur", "supérieures", "inférieur", "avec des", "qui ont",
+    "par ca", "par chiffre", "top", "meilleurs", "plus gros",
+    "inactif", "bloqué", "encours",
+)
 
 CAPACITES_SYSTEME = """Ce que je sais faire sur votre ERP Sage 100 :
   📊 Lecture & Analyse  : liste clients/articles, top clients CA, palmarès, CA global, saisonnalité, rentabilité, DSO, RFM
@@ -1151,12 +1058,11 @@ def _clean(v: str) -> str:
 
 
 # ═════════════════════════════════════════════════════════════════════
-# PRÉ-CLASSIFICATION REGEX — v9.4 (patchée)
+# PRÉ-CLASSIFICATION REGEX — v9.6 (patchée)
 # ═════════════════════════════════════════════════════════════════════
 _PATTERNS_PRECLASS = [
-    # ══════════════════════════════════════════════════════════════
-    # FIX 2 : TRANSFORMER_DOC — PRIORITÉ ABSOLUE (avant GENERER_DOC)
-    # ══════════════════════════════════════════════════════════════
+        (r"marge\s+(?:brute\s+)?(?:sur|de|pour)\s+(?:l['\u2019]article\s+)?[A-Za-z0-9\-]+", "NL2SQL_LIBRE"),
+    (r"liste[s\s]*(?:de[s\s]*)?(?:bf|of|bl|factures?|bc)\b", "NL2SQL_LIBRE"),
     (r"transform[e\s]+.{0,60}\bof\b.{0,60}\bbf\b",            "TRANSFORMER_DOC"),
     (r"transform[e\s]+.{0,60}\bbl\b.{0,60}facture",           "TRANSFORMER_DOC"),
     (r"transform[e\s]+.{0,30}\bbc\b.{0,20}\bbl\b",            "TRANSFORMER_DOC"),
@@ -1167,66 +1073,66 @@ _PATTERNS_PRECLASS = [
     (r"facturer\s+(?:le\s+)?bl\b",                             "TRANSFORMER_DOC"),
     (r"passer\s+(?:le\s+)?(?:bl|of)\b.{0,20}en\b",            "TRANSFORMER_DOC"),
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:la\s+|une\s+|le\s+|un\s+)?bf\s+(?:pour|de|à\s+partir\s+de)\s+.{0,10}\bof[a-z0-9]*\d+", "TRANSFORMER_DOC"),
-    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:la\s+|une\s+|le\s+|un\s+)?facture\s+(?:pour|de|à\s+partir\s+de)\s+.{0,10}\bbl[a-z0-9]*\d+", "TRANSFORMER_DOC"),
-    # ── GÉNÉRATION DOCUMENTS — ordre : BL_ACHAT > TRANSFORMER > GENERER
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:la\s+|une\s+|le\s+|un\s+)?facture(?:\s*(?:d['’]achat|d'achat|achat|fournisseur))?\s+(?:pour|de|à\s+partir\s+de)\s+.{0,15}\b(?:OF|BL|BC|BF|FA|BR|FBL)[0-9A-Z]{5,9}\b", "TRANSFORMER_DOC"),
+    (r"(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\s+.{0,30}(?:bons?\s+de\s+r[eé]ception|r[eé]ceptions?\s+fournisseur|livraisons?\s+fournisseur|bl\s+achat)", "NL2SQL_LIBRE"),
     (r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur|livraison\s+fournisseur", "GENERER_DOC"),
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+.{0,20}bl\s+achat", "GENERER_DOC"),
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+.{0,20}r[eé]ception\s+fournisseur", "GENERER_DOC"),
-    # Priorité absolue : REGLEMENT (avant TOUTES_FACTURES_CLIENT)
     (r"r[eé]gler?\s+(la\s+|une\s+|les\s+)?(?:facture|fa)\s+[A-Z0-9]+",   "REGLEMENT"),
     (r"r[eé]glement\s+(?:de\s+la\s+)?(?:facture|fa)\s+[A-Z0-9]+",        "REGLEMENT"),
     (r"change.{0,30}(?:statut|status).{0,30}(?:facture|fa)\s+[A-Z0-9]+",  "REGLEMENT"),
     (r"marquer?\s+(?:la\s+)?(?:facture|fa)\s+[A-Z0-9]+.{0,30}r[eé]gl[eé]","REGLEMENT"),
     (r"(?:facture|fa)\s+([A-Z0-9]{3,})\s+.{0,20}r[eé]gl[eé]e?",          "REGLEMENT"),
-    # BL — avec ou sans article 'un'
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bl\b", "GENERER_DOC"),
     (r"\bbl\s+(pour|client|cli|de\s+\d)",                  "GENERER_DOC"),
-    # OF — avec ou sans article
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?of\b", "GENERER_DOC"),
     (r"ordre\s+de\s+fabrication",                           "GENERER_DOC"),
-    # BF
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bf\b", "GENERER_DOC"),
-    # FACTURE
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t)|[eé]tabli[rs])\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?facture", "GENERER_DOC"),
-    # BC
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bc\b", "GENERER_DOC"),
     (r"bon\s+de\s+commande",                                "GENERER_DOC"),
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?bon\b", "GENERER_DOC"),
-
-    # ── ÉCRITURE CLIENTS ──────────────────────────────────────────
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?client", "CREER_CLIENT"),
     (r"enregistr(?:er?|ez?)\s+(?:un\s+|le\s+)?(?:nouveau\s+)?client",   "CREER_CLIENT"),
     (r"saisi[rs]?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?client",             "CREER_CLIENT"),
     (r"nouveau\s+client",                                               "CREER_CLIENT"),
     (r"ajouter?\s+(un\s+)?client",                                      "CREER_CLIENT"),
-    # ── CREER_FOURNISSEUR ──
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?fournisseur", "CREER_FOURNISSEUR"),
     (r"enregistr(?:er?|ez?)\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur", "CREER_FOURNISSEUR"),
     (r"saisi[rs]?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur",       "CREER_FOURNISSEUR"),
     (r"nouveau\s+fournisseur",                                             "CREER_FOURNISSEUR"),
     (r"ajouter?\s+(un\s+)?fournisseur",                                   "CREER_FOURNISSEUR"),
+    (r"modifier?\s+(?:le\s+|un\s+|mon\s+)?client",             "MODIFIER_CLIENT"),
+    (r"(?:changer?|mettre?\s+[\u00e0a]\s+jour|actualiser?|\u00e9diter?)\s+(?:le\s+|un\s+|mon\s+)?client", "MODIFIER_CLIENT"),
+    (r"modifier?\s+(?:le\s+|un\s+|mon\s+)?fournisseur",        "MODIFIER_FOURNISSEUR"),
+    (r"(?:changer?|mettre?\s+[\u00e0a]\s+jour|actualiser?|\u00e9diter?)\s+(?:le\s+|un\s+|mon\s+)?fournisseur", "MODIFIER_FOURNISSEUR"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|l['\u2019]|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?articles?", "CREER_ARTICLE"),
+    (r"enregistr(?:er?|ez?)\s+(?:un\s+|l['\u2019])?(?:nouveau\s+)?articles?", "CREER_ARTICLE"),
+    (r"saisi[rs]?\s+(?:un\s+|l['\u2019])?(?:nouveau\s+)?articles?",           "CREER_ARTICLE"),
+    (r"nouveau\s+articles?",                                             "CREER_ARTICLE"),
+    (r"ajouter?\s+(un\s+)?articles?",                                    "CREER_ARTICLE"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\s+(?:une\s+)?nomenclature",   "CREER_NOMENCLATURE"),
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\s+(?:des\s+)?composants?",    "CREER_NOMENCLATURE"),
+(r"(?:affiche|montre|donne|voir|consulter|liste)\s+(?:la\s+)?nomenclature\s+(?:de|du|pour|d['\u2019])\s+.+", "AFFICHER_NOMENCLATURE"),
+(r"nomenclature\s+(?:de|du|pour|d['\u2019])\s+.+", "AFFICHER_NOMENCLATURE"),
+    # ── MODIFIER_NOMENCLATURE ────────────────────────────────────────────────
+    (r"modifier?\s+(?:la\s+)?nomenclature",                                "MODIFIER_NOMENCLATURE"),
+    (r"[eé]diter?\s+(?:la\s+)?nomenclature",                               "MODIFIER_NOMENCLATURE"),
+    (r"g[eé]rer?\s+(?:la\s+)?nomenclature",                                "MODIFIER_NOMENCLATURE"),
+    (r"supprimer?\s+(?:un\s+)?composant\s+de",                             "MODIFIER_NOMENCLATURE"),
+    (r"retirer?\s+(?:un\s+)?composant\s+de",                               "MODIFIER_NOMENCLATURE"),
+    (r"changer?\s+(?:la\s+)?nomenclature",                                 "MODIFIER_NOMENCLATURE"),
     (r"bloquer?\s+(le\s+)?client",                          "MODIFIER_STATUT"),
-    (r"d[eé]bloquer?\s+(le\s+)?client",                     "MODIFIER_STATUT"),
-    (r"r[eé]activer?\s+(le\s+)?client",                     "MODIFIER_STATUT"),
+    (r"d[e\u00e9]bloquer?\s+(le\s+)?client",                     "MODIFIER_STATUT"),
+    (r"r[e\u00e9]activer?\s+(le\s+)?client",                     "MODIFIER_STATUT"),
     (r"bloquer?\s+(le\s+)?fournisseur",                     "MODIFIER_STATUT"),
-    (r"d[eé]bloquer?\s+(le\s+)?fournisseur",                "MODIFIER_STATUT"),
-    (r"r[eé]activer?\s+(le\s+)?fournisseur",                "MODIFIER_STATUT"),
+    (r"d[e\u00e9]bloquer?\s+(le\s+)?fournisseur",                "MODIFIER_STATUT"),
+    (r"r[e\u00e9]activer?\s+(le\s+)?fournisseur",                "MODIFIER_STATUT"),
     (r"modifier?\s+(le\s+)?statut",                         "MODIFIER_STATUT"),
-
-    # ── MODIFIER_ARTICLE (fiche article : désignation/prix/type) ──
-    # Priorité absolue avant MODIFIER_STATUT / LISTE_ARTICLES, car sans
-    # ces patterns le LLM (qui n'a pas MODIFIER_ARTICLE dans son énumération)
-    # retombe soit sur MODIFIER_STATUT (exige à tort code_client), soit
-    # sur LISTE_ARTICLES (affiche le catalogue au lieu de modifier).
     (r"modifier?\s+(l['\u2019]|un\s+|une\s+|le\s+)?articles?\b",              "MODIFIER_ARTICLE"),
     (r"(?:changer?|mettre?\s+[àa]\s+jour|actualiser?)\s+(l['\u2019]|un\s+|une\s+|le\s+)?articles?\b", "MODIFIER_ARTICLE"),
     (r"modifier?\s+(la\s+|le\s+)?(d[eé]signation|prix\s+(?:d['\u2019]\s*achat|de\s+vente|achat|vente)|type)\s+.{0,20}articles?", "MODIFIER_ARTICLE"),
-    # Cas "modifier <REF>" sans le mot "article" (ex: "modifier ecran4k") :
-    # on exige l'absence de tout mot-clé client/statut/fournisseur/document
-    # pour ne pas capturer "modifier le statut client X" etc.
     (r"^modifier?\s+(?!.*\b(?:statut|client|fournisseur|facture|bl|bc|of|bf|commande)\b)[a-z][a-z0-9\-]{2,}\s*$", "MODIFIER_ARTICLE"),
-
-    # ── AVOIR / RÈGLEMENT ─────────────────────────────────────────
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|fai(?:s|re|t))\s+(?:d['\u2019]|de\s+|un\s+|une\s+|le\s+|la\s+)?avoir", "CREER_AVOIR"),
     (r"r[eé]gler?\s+(la\s+|une\s+|les\s+)?factures?",       "REGLEMENT"),
     (r"r[eé]glement\s+(d.une\s+|de\s+la\s+)?facture",       "REGLEMENT"),
@@ -1234,18 +1140,10 @@ _PATTERNS_PRECLASS = [
     (r"payer?\s+(?:la\s+)?(?:facture\s+)?(?:FA|BL|BC|BF)\d+","REGLEMENT"),
     (r"paiement\s+(d.une\s+|de\s+la\s+)?facture",           "REGLEMENT"),
     (r"change.{0,20}statut.{0,20}facture.{0,20}r[eé]gl[eé]","REGLEMENT"),
-
-
-
-(r"fiche\s+technique\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
-(r"caract[eé]ristiques?\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
-(r"r[eé]clamations?\s+.{0,20}articles?",      "RECHERCHE_PROCEDURE"),                          
-(r"articles?\s+.{0,20}r[eé]clamations?",  "RECHERCHE_PROCEDURE"),
-# ══════════════════════════════════════════════════════════════
-    # PATCH KB-A : vocabulaire qui n'existe QUE dans la base documentaire
-    # (jamais dans F_ARTICLE/F_COMPTET/F_DOCENTETE) → routage KB direct,
-    # avant tout essai NL2SQL (cf. diagnostic cas 6,9,10,11,12,13,5,3)
-    # ══════════════════════════════════════════════════════════════
+    (r"fiche\s+technique\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
+    (r"caract[eé]ristiques?\s+(?:du|de\s+la|de\s+l['\u2019]|de|d['\u2019])\s+\S+", "RECHERCHE_PROCEDURE"),
+    (r"r[eé]clamations?\s+.{0,20}articles?",      "RECHERCHE_PROCEDURE"),                          
+    (r"articles?\s+.{0,20}r[eé]clamations?",  "RECHERCHE_PROCEDURE"),
     (r"r[eé]clamations?",                                    "RECHERCHE_PROCEDURE"),
     (r"motifs?\s+de\s+r[eé]clamation",                       "RECHERCHE_PROCEDURE"),
     (r"\bd[eé]fauts?\b",                                     "RECHERCHE_PROCEDURE"),
@@ -1262,17 +1160,9 @@ _PATTERNS_PRECLASS = [
     (r"conditions?\s+(commerciales?|n[eé]goci[eé]es?)",      "RECHERCHE_PROCEDURE"),
     (r"command[eé]e?s?\s+par\s+email",                       "RECHERCHE_PROCEDURE"),
     (r"email\s+de\s+commande",                                "RECHERCHE_PROCEDURE"),                              
-    # ══════════════════════════════════════════════════════════════
-    # PATCH D : STATUT_CLIENT avec code client — priorité absolue,
-    # AVANT tout autre pattern client (bloqué/actif/etc.)
-    # ══════════════════════════════════════════════════════════════
     (r"\bclient\b.{0,25}\best[\s-]il\s+bloqu[eé]",              "STATUT_CLIENT"),
     (r"\bclient\b.{0,25}\best[\s-]il\s+(?:actif|valide|suspect)","STATUT_CLIENT"),
     (r"le\s+client\s+[A-Z0-9]+\s+est[\s-]il",                    "STATUT_CLIENT"),
-
-    # ══════════════════════════════════════════════════════════════
-    # FIX 4 : DOCUMENTS PAR TYPE → NL2SQL_LIBRE (avant LISTE_CLIENTS)
-    # ══════════════════════════════════════════════════════════════
     (r"(?:liste|donne|affiche|montre).{0,30}bons?\s+de\s+livraison",   "NL2SQL_LIBRE"),
     (r"(?:liste|donne|affiche|montre).{0,20}\bbl\b.{0,20}client",      "NL2SQL_LIBRE"),
     (r"(?:liste|donne|affiche|montre).{0,30}\bbl\b",                   "NL2SQL_LIBRE"),
@@ -1282,12 +1172,15 @@ _PATTERNS_PRECLASS = [
     (r"(?:liste|donne|affiche|montre|quels?).{0,20}\bof\b", "NL2SQL_LIBRE"),
     (r"bons?\s+de\s+livraison\s+(?:du\s+|de\s+)?client",               "NL2SQL_LIBRE"),
     (r"\bbl\b.{0,30}(?:du\s+|de\s+)?client",                           "NL2SQL_LIBRE"),
-    # PATCH H2 : BL + période (mois/date) → NL2SQL_LIBRE
     (r"(?:liste|donne|affiche|montre).{0,20}\bbl\b.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)", "NL2SQL_LIBRE"),
     (r"\bbl\b.{0,20}(?:du\s+mois|de\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre))", "NL2SQL_LIBRE"),
     (r"bons?\s+de\s+livraison.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)", "NL2SQL_LIBRE"),
-    # ── REQUÊTES ANALYTIQUES AVEC FILTRE ─────────────────────────
-    # PATCH #4 : articles + comparatif de prix numérique → NL2SQL avant PALMARES
+    (r"top\s*\d*\s*clients?\s+par\s+(?:ca|chiffre)", "TOP_CLIENTS"),
+    (r"meilleurs?\s+clients?\s+par\s+ca\b", "TOP_CLIENTS"),
+    (r"clients?\s+avec\s+des\s+impay[eé]s?", "NL2SQL_LIBRE"),
+    (r"clients?\s+qui\s+ne\s+paient\s+pas", "NL2SQL_LIBRE"),
+    (r"clients?\s+qui\s+ont\s+pass[eé]\s+plus\s+de\s+\d+\s+commandes?", "NL2SQL_LIBRE"),
+    (r"clients?\s+ayant\s+des\s+factures?\s+sup[eé]rieures?\s+[àa]\s+\d+", "NL2SQL_LIBRE"),
     (r"articles?\s+(?:qui\s+)?co[uû]tent\s+(?:plus|moins)\s+(?:de|que)\s*\d+", "NL2SQL_LIBRE"),
     (r"articles?\s+(?:dont|avec).{0,20}prix.{0,20}(?:sup[eé]r|inf[eé]r|plus|moins|>|<)\s*\d+", "NL2SQL_LIBRE"),
     (r"factures?\s+(?:sup[eé]rieure?s?\s+[àa]|plus\s+(?:de|que)|>\s*)\s*\d+",  "NL2SQL_LIBRE"),
@@ -1300,39 +1193,29 @@ _PATTERNS_PRECLASS = [
     (r"articles?.{0,20}stock.{0,20}(?:inf[eé]r|sup[eé]r|<|>)\s*\d+",       "NL2SQL_LIBRE"),
     (r"articles?\s+(?:vendus?|achet[eé]s?)\s+(?:plus|moins)\s+(?:de|que)\s+\d+","NL2SQL_LIBRE"),
     (r"top\s+\d+\s+(?!clients?)(?:articles?|produits?|références?)",              "NL2SQL_LIBRE"),
-    (r"(?:liste|donne|affiche|montre)\s+.{0,40}(?:o[ùu]|mais|dont|sauf|seulement|uniquement|filtre)", "NL2SQL_LIBRE"),
-
-    # ── FACTURES PAR PÉRIODE (avant tout) ────────────────────────
+    (r"(?:liste|donne|affiche|montre)\s+.{0,40}\b(?:o[ùu]|mais|dont|sauf|seulement|uniquement|filtre)\b", "NL2SQL_LIBRE"),
     (r"factures?\s+(?:du\s+|de\s+|d['\u2019]?\s*)?(?:mois\s+(?:de\s+)?)?(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|jan|fév|mar|avr|jun|jul|aoû|sep|oct|nov|déc)", "NL2SQL_LIBRE"),
     (r"factures?\s+(?:du\s+)?mois\s+\d{1,2}",              "NL2SQL_LIBRE"),
     (r"factures?\s+(?:de\s+)?(?:l['\u2019]ann[eé]e|\d{4})", "NL2SQL_LIBRE"),
     (r"factures?\s+(?:d\s+|de\s+)?(?:trimestre|semestre)", "NL2SQL_LIBRE"),
     (r"(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:mois|ann[eé]e|p[eé]riode|semaine)", "NL2SQL_LIBRE"),
     (r"(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)", "NL2SQL_LIBRE"),
-    # ── ARTICLES AVEC FILTRE PRIX / QUANTITÉ ─────────────────────
     (r"articles?\s+(?:dont|avec|au|ayant).{0,30}(?:prix|tarif|co[uû]t).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\>|\<)", "NL2SQL_LIBRE"),
     (r"articles?\s+(?:dont|avec).{0,30}prix.{0,30}\d+",    "NL2SQL_LIBRE"),
     (r"(?:prix|tarif)\s+(?:de\s+vente|d['\u2019]achat).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\>|\<)", "NL2SQL_LIBRE"),
     (r"articles?\s+(?:dont|avec).{0,30}(?:marge|rentabilit)", "NL2SQL_LIBRE"),
-    # ── CLIENTS AVEC FILTRE QUANTITATIF ──────────────────────────
     (r"clients?\s+(?:qui\s+ont|ayant|avec).{0,30}(?:plus\s+de|plus\s+qu[e'\u2019]|au\s+moins)\s+\d+\s+(?:commandes?|factures?|achats?)", "NL2SQL_LIBRE"),
     (r"clients?\s+(?:qui\s+ont|ayant|avec).{0,30}(?:moins\s+de|moins\s+qu[e'\u2019])\s+\d+\s+(?:commandes?|factures?|achats?)", "NL2SQL_LIBRE"),
-    (r"clients?\s+(?:qui\s+n['\u2019]ont\s+pas|sans|aucune?)\s+(?:commandes?|factures?)", "NL2SQL_LIBRE"),
     (r"clients?\s+(?:pass[eé]|effectu[eé]).{0,20}(?:plus\s+de|au\s+moins)\s+\d+\s+(?:commandes?|achats?)", "NL2SQL_LIBRE"),
-    # ── CLASSEMENT PAR NOMBRE DE COMMANDES ───────────────────────
     (r"clas(?:se|sement|s[eé])\s+.{0,30}clients?.{0,30}(?:nombre|nb)\s+(?:de\s+)?commandes?", "NL2SQL_LIBRE"),
     (r"clients?.{0,30}(?:tri[eé]s?|class[eé]s?|ordonn[eé]s?|rang[eé]s?).{0,30}(?:nombre|nb).{0,20}commandes?", "NL2SQL_LIBRE"),
     (r"clients?.{0,30}par\s+(?:nombre|nb)\s+(?:de\s+)?commandes?",    "NL2SQL_LIBRE"),
     (r"(?:nombre|nb)\s+(?:de\s+)?commandes?\s+(?:par\s+)?client",     "NL2SQL_LIBRE"),
     (r"qui\s+(?:commande|achète|a\s+achet[eé])\s+le\s+plus",           "NL2SQL_LIBRE"),
-    # PATCH H : "classe(r) les clients selon/par leur CA" → NL2SQL_LIBRE
     (r"clas(?:se|ser|s[eé]s?)\s+les\s+clients?\s+.{0,30}(?:chiffre|ca\b)", "NL2SQL_LIBRE"),
-    # ── ARTICLES STOCK SEUIL + COMMANDÉS ─────────────────────────
-    # ── VERIFIER_STOCK ──
     (r"(?:articles?|produits?)\s+(?:sans\s+stock|en\s+rupture)", "NL2SQL_LIBRE"),
     (r"stock\s+(?:disponible|actuel|restant|nul|à\s+z[ée]ro)", "NL2SQL_LIBRE"),
     (r"(?:articles?|produits?).{0,20}stock.{0,20}(?:inf[ée]r|nul|z[ée]ro|<\s*0)", "NL2SQL_LIBRE"),
-    # Stock avec référence article explicite (ne pas capturer "STOCK" comme ref)
     (r"stock\s+(?:disponible|actuel|restant)\s+de\s+l['\u2019]article", "VERIFIER_STOCK"),
     (r"stock\s+de\s+l['\u2019]article",                        "VERIFIER_STOCK"),
     (r"quel\s+est\s+le\s+stock",                               "VERIFIER_STOCK"),
@@ -1340,7 +1223,6 @@ _PATTERNS_PRECLASS = [
     (r"articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)", "NL2SQL_LIBRE"),
     (r"articles?.{0,30}(?:stock\s+(?:faible|bas|insuffisant|inf[eé]r|critique)|sous.{0,10}seuil).{0,40}(?:command[eé]|achet[eé])", "NL2SQL_LIBRE"),
     (r"rupture.{0,20}command[eé]|command[eé].{0,20}rupture",           "NL2SQL_LIBRE"),
-    # ── CLIENTS AVEC FILTRE QUANTITATIF SUR FACTURES + ENCOURS (NL2SQL_LIBRE) ─
     (
         r"clients?\s+(?:actifs?|avec|ayant|dont).{0,80}(?:factures?\s+impay[eé]es?|encours|ca\b)",
         "NL2SQL_LIBRE"
@@ -1348,64 +1230,78 @@ _PATTERNS_PRECLASS = [
     (
         r"clients?.{0,50}(?:encours\s+sup[eé]r|encours\s+>\s*\d+|encours\s+plus)",
         "NL2SQL_LIBRE"
-    ),
-    # ── CLIENTS BLOQUÉS / INACTIFS (avant LISTE_CLIENTS) ─────────
+    ),    (r"factures?\s+entre\s+(?:le\s+)?\d{4}-\d{2}-\d{2}\s+et\s+(?:le\s+)?\d{4}-\d{2}-\d{2}", "DOCS_PERIODE"),
+    (r"documents?\s+entre\s+(?:le\s+)?\d{4}-\d{2}-\d{2}\s+et\s+(?:le\s+)?\d{4}-\d{2}-\d{2}", "DOCS_PERIODE"),
+    # PATCH M : pattern générique — couvre "documents/factures/bl DU CLIENT X
+    # entre DATE et DATE", que les 2 patterns ci-dessus ratent car ils exigent
+    # que "entre" suive immédiatement "documents"/"factures".
+    (r"(?:documents?|factures?|bls?)\b.{0,60}\bentre\s+(?:le\s+)?\d{4}-\d{2}-\d{2}\s+(?:et|au)\s+(?:le\s+)?\d{4}-\d{2}-\d{2}", "DOCS_PERIODE"),
     (r"clients?\s+bloqu[eé]s?",                             "NL2SQL_LIBRE"),
     (r"bloqu[eé]s?\s+clients?",                             "NL2SQL_LIBRE"),
     (r"quels?\s+clients?.{0,30}bloqu[eé]",                  "NL2SQL_LIBRE"),
-    (r"clients?\s+inactifs?",                               "NL2SQL_LIBRE"),
-    (r"clients?\s+sans\s+commande",                         "NL2SQL_LIBRE"),
-    # ── ENCOURS CLIENT ────────────────────────────────────────────
+    (r"clients?\s+inactifs?",                               "CLIENTS_INACTIFS"),
+    (r"clients?\s+sans\s+commande",                         "CLIENTS_INACTIFS"),
+    (r"(?:clients?|qui)\s+(?:sont\s+)?en\s+baisse\s+(?:de\s+)?(?:ca|chiffre)", "CLIENTS_BAISSE"),
+    (r"baisse\s+(?:de\s+)?(?:ca|chiffre|revenu)",           "CLIENTS_BAISSE"),
     (r"encours\s+(du\s+|de\s+|d['\u2019]?\s*)?client",     "NL2SQL_LIBRE"),
     (r"cr[eé]dit\s+(du\s+)?client",                        "NL2SQL_LIBRE"),
     (r"solde\s+(du\s+)?client",                             "NL2SQL_LIBRE"),
     (r"limite\s+(du\s+)?client",                            "NL2SQL_LIBRE"),
-    # Fournisseurs
-(r"liste\s+(tous\s+)?(les\s+)?fournisseurs?",   "LISTE_FOURNISSEURS"),
-(r"(tous|toutes)\s+(les\s+)?fournisseurs?",      "LISTE_FOURNISSEURS"),
-(r"affiche\s+(les\s+)?fournisseurs?",            "LISTE_FOURNISSEURS"),
-(r"montre\s+(moi\s+)?(les\s+)?fournisseurs?",    "LISTE_FOURNISSEURS"),
-(r"donne\s+(moi\s+)?(les\s+)?fournisseurs?",     "LISTE_FOURNISSEURS"),
-(r"fiche\s+(du\s+|de\s+)?fournisseur",           "FICHE_FOURNISSEUR"),
-(r"info\w*\s+(sur\s+)?(le\s+)?fournisseur",      "FICHE_FOURNISSEUR"),
-(r"fournisseurs?\s+actifs?",                     "LISTE_FOURNISSEURS"),
-(r"quels?\s+fournisseurs?",                      "LISTE_FOURNISSEURS"),
-(r"top\s*\d*\s*fournisseurs?",                   "TOP_FOURNISSEURS"),
-(r"meilleurs?\s+fournisseurs?",                  "TOP_FOURNISSEURS"),
-(r"achats?\s+(par\s+)?fournisseur",              "TOP_FOURNISSEURS"),
-(r"commandes?\s+(chez|aupres|auprès)\s+",        "NL2SQL_LIBRE"),
-(r"bons?\s+de\s+commande\s+(du\s+|de\s+)?fournisseur", "NL2SQL_LIBRE"),
-    # ── LISTE_CLIENTS (générique) ─────────────────────────────────
-    (r"liste\s+(tous\s+)?(les\s+|des\s+)?clients?",         "LISTE_CLIENTS"),
-    (r"(tous|toutes)\s+(les\s+)?clients?",                  "LISTE_CLIENTS"),
-    (r"affiche\s+(les\s+)?clients?",                        "LISTE_CLIENTS"),
-    (r"montre\s+(moi\s+)?(les\s+)?clients?",                "LISTE_CLIENTS"),
-    (r"donne\s+(moi\s+)?(les\s+)?clients?",                 "LISTE_CLIENTS"),
-    (r"clients?\s+actifs?",                                 "LISTE_CLIENTS"),
-    (r"quels?\s+clients?",                                  "LISTE_CLIENTS"),
-    # ── TOP_CLIENTS ───────────────────────────────────────────────
+    (r"encours\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"cr[eé]dit\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"solde\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"limite\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"liste\s+les?\s+fournisseurs",                 "LISTE_FOURNISSEURS"),
+    (r"liste\s+(tous\s+)?(les\s+)?fournisseurs?",   "LISTE_FOURNISSEURS"),
+    (r"(tous|toutes)\s+(les\s+)?fournisseurs?",      "LISTE_FOURNISSEURS"),
+    (r"affiche\s+(les\s+)?fournisseurs?",            "LISTE_FOURNISSEURS"),
+    (r"montre\s+(moi\s+)?(les\s+)?fournisseurs?",    "LISTE_FOURNISSEURS"),
+    (r"donne\s+(moi\s+)?(les\s+)?fournisseurs?",     "LISTE_FOURNISSEURS"),
+    (r"fiche\s+(du\s+|de\s+)?fournisseur",           "FICHE_FOURNISSEUR"),
+    (r"info\w*\s+(sur\s+)?(le\s+)?fournisseur",      "FICHE_FOURNISSEUR"),
+    (r"fournisseurs?\s+actifs?",                     "LISTE_FOURNISSEURS"),
+    (r"quels?\s+fournisseurs?",                      "LISTE_FOURNISSEURS"),
+    (r"top\s*\d*\s*fournisseurs?",                   "TOP_FOURNISSEURS"),
+    (r"meilleurs?\s+fournisseurs?",                  "TOP_FOURNISSEURS"),
+    (r"achats?\s+(par\s+)?fournisseur",              "TOP_FOURNISSEURS"),
+    (r"commandes?\s+(chez|aupres|auprès)\s+",        "NL2SQL_LIBRE"),
+    (r"bons?\s+de\s+commande\s+(du\s+|de\s+)?fournisseur", "NL2SQL_LIBRE"),
+    # Garde NL2SQL_LIBRE : questions clients avec qualificatifs — AVANT les patterns génériques LISTE_CLIENTS
+    (r"top\s*\d*\s*clients?\s+par\s+(?:ca|chiffre)", "TOP_CLIENTS"),
+    (r"meilleurs?\s+clients?\s+par\s+ca\b", "TOP_CLIENTS"),
+    (r"clients?\s+avec\s+des\s+impay[eé]s?", "NL2SQL_LIBRE"),
+    (r"clients?\s+qui\s+ne\s+paient\s+pas", "NL2SQL_LIBRE"),
+    (r"clients?\s+qui\s+ont\s+pass[eé]\s+plus\s+de\s+\d+\s+commandes?", "NL2SQL_LIBRE"),
+    (r"clients?\s+ayant\s+des\s+factures?\s+sup[eé]rieures?\s+[àa]\s+\d+", "NL2SQL_LIBRE"),
+    (r"clients?.{0,60}(?:impay[eé]|non\s+r[eé]gl[eé]|encours|ca\b|chiffre\s+d.affaires|ne\s+pa(?:ient?|yer)|plus\s+de\s+\d+\s+factures?|moins\s+de\s+\d+\s+factures?)",  "NL2SQL_LIBRE"),
+    (r"(?:impay[eé]|non\s+r[eé]gl[eé]).{0,40}clients?",  "NL2SQL_LIBRE"),
+    (r"quel\s+client.{0,30}(?:plus\s+gros|plus\s+grand|meilleur|plus\s+haut|maximum|encours|ca\b|chiffre\s+d.affaires)",  "NL2SQL_LIBRE"),
+    (r"liste\s+(tous\s+)?(les\s+|des\s+)?clients?\s*$",         "LISTE_CLIENTS"),
+    (r"(tous|toutes)\s+(les\s+)?clients?\s*$",                  "LISTE_CLIENTS"),
+    (r"affiche\s+(les\s+)?clients?\s*$",                        "LISTE_CLIENTS"),
+    (r"montre\s+(moi\s+)?(les\s+)?clients?\s*$",                "LISTE_CLIENTS"),
+    (r"donne\s+(moi\s+)?(les\s+)?clients?\s*$",                 "LISTE_CLIENTS"),
+    (r"clients?\s+actifs?\s*$",                                 "LISTE_CLIENTS"),
     (r"top\s*\d*\s*clients?",                               "TOP_CLIENTS"),
     (r"meilleurs?\s+clients?",                              "TOP_CLIENTS"),
     (r"clients?\s+(par\s+)?ca\b",                           "TOP_CLIENTS"),
-    # ── FICHE_CLIENT ──────────────────────────────────────────────
     (r"fiche\s+(du\s+|de\s+|d['\u2019]?\s*)?client",       "FICHE_CLIENT"),
     (r"info\w*\s+(sur\s+)?(le\s+)?client",                 "FICHE_CLIENT"),
     (r"d[eé]tail\s+(du\s+)?client",                        "FICHE_CLIENT"),
     (r"profil\s+(du\s+)?client",                           "FICHE_CLIENT"),
-    # ── STATUT_CLIENT ─────────────────────────────────────────────
     (r"statut\s+(du\s+|de\s+)?client",                     "STATUT_CLIENT"),
     (r"client\s+est.il\s+bloqu[eé]",                       "STATUT_CLIENT"),
-    # ── LISTE_ARTICLES ────────────────────────────────────────────
+    (r"produits?\s+finis?|articles?\s+finis?",              "NL2SQL_LIBRE"),
+    (r"mati[èe]res?\s+premi[eè]res?|mati[èe]re\s+premi[eè]re", "NL2SQL_LIBRE"),
+    (r"prix\s+de\s+(?:l['\u2019]article\s+)?[A-Za-z0-9\-]+", "VERIFIER_STOCK"),
     (r"liste\s+(tous\s+)?(les\s+)?articles?",              "LISTE_ARTICLES"),
     (r"(tous|toutes)\s+(les\s+)?articles?",                "LISTE_ARTICLES"),
     (r"catalogue\s*(articles?|produits?)?",                "LISTE_ARTICLES"),
     (r"tous\s+(les\s+)?produits?",                         "LISTE_ARTICLES"),
     (r"affiche\s+(les\s+)?articles?",                      "LISTE_ARTICLES"),
     (r"liste\s+(les\s+)?produits?",                        "LISTE_ARTICLES"),
-    # ── VERIFIER_STOCK ────────────────────────────────────────────
     (r"articles?\s+en\s+rupture",                              "VERIFIER_STOCK"),
     (r"rupture\s+de\s+stock",                                  "VERIFIER_STOCK"),
-    # Stock avec référence article explicite (ne pas capturer "STOCK" comme ref)
     (r"stock\s+(?:disponible|actuel|restant)\s+de\s+l['\u2019]article", "VERIFIER_STOCK"),
     (r"stock\s+de\s+l['\u2019]article",                        "VERIFIER_STOCK"),
     (r"quel\s+est\s+le\s+stock",                               "VERIFIER_STOCK"),
@@ -1413,66 +1309,54 @@ _PATTERNS_PRECLASS = [
     (r"combien\s+(?:de\s+)?stock",                             "VERIFIER_STOCK"),
     (r"anomalies?\s+.{0,20}stocks?",                           "NL2SQL_LIBRE"),
     (r"stock\s+n[eé]gatif",                                    "NL2SQL_LIBRE"),
-    # ── CLIENTS AVEC FILTRE TEMPOREL (avant LISTE_CLIENTS) ───────
-    (r"clients?.{0,50}n['\u2019]ont\s+pas\s+command[eé]",     "NL2SQL_LIBRE"),
-    (r"clients?.{0,30}(?:pas\s+command[eé]|pas\s+achet[eé]).{0,30}(?:depuis|\d+\s+mois)", "NL2SQL_LIBRE"),
-    (r"quels?\s+clients?.{0,50}(?:depuis\s+\d+|depuis\s+(?:un|une|deux|trois|\d+)\s+mois)", "NL2SQL_LIBRE"),
-    (r"clients?.{0,20}inactifs?.{0,20}(?:depuis|mois|\d+)",   "NL2SQL_LIBRE"),
+    (r"clients?.{0,50}n['\u2019]ont\s+pas\s+command[eé]",     "CLIENTS_INACTIFS"),
+    (r"clients?.{0,30}(?:pas\s+command[eé]|pas\s+achet[eé]).{0,30}(?:depuis|\d+\s+mois)", "CLIENTS_INACTIFS"),
+    (r"quels?\s+clients?.{0,50}(?:depuis\s+\d+|depuis\s+(?:un|une|deux|trois|\d+)\s+mois)", "CLIENTS_INACTIFS"),
+    (r"clients?.{0,20}inactifs?.{0,20}(?:depuis|mois|\d+)",   "CLIENTS_INACTIFS"),
     (r"ca\s+(global|total)",                               "CA_GLOBAL"),
     (r"chiffre\s+d.affaires?\s+(global|total)",            "CA_GLOBAL"),
     (r"chiffre\s+d.affaires?\s+global",                    "CA_GLOBAL"),
-    # ── SAISONNALITE ──────────────────────────────────────────────
     (r"ca\s+(par\s+)?mois",                                "SAISONNALITE"),
     (r"ca\s+mensuel",                                      "SAISONNALITE"),
     (r"chiffre\s+d.affaires?\s+(par\s+)?mois",             "SAISONNALITE"),
-    # ── FACTURES_NON_REGLEES_FOURN ─────────────────────────────────
     (r"factures?\s+(non\s+r[eé]gl[eé]es?|impay[eé]es?|en\s+attente).{0,30}fournisseur", "FACTURES_NON_REGLEES_FOURN"),
     (r"fournisseur.{0,30}factures?\s+(non\s+r[eé]gl[eé]es?|impay[eé]es?|en\s+attente)", "FACTURES_NON_REGLEES_FOURN"),
     (r"impay[eé]es?.{0,20}fournisseur",  "FACTURES_NON_REGLEES_FOURN"),
     (r"fournisseur.{0,20}impay[eé]es?",  "FACTURES_NON_REGLEES_FOURN"),
     (r"achats?\s+(non\s+r[eé]gl[eé]s?|impay[eé]s?)", "FACTURES_NON_REGLEES_FOURN"),
-    # ── FACTURES_NON_REGLEES ──────────────────────────────────────
     (r"factures?\s+(non\s+r[eé]gl|impay|en\s+attente)",    "FACTURES_NON_REGLEES"),
     (r"(impay[eé]es?|non\s+r[eé]gl[eé]es?)",               "FACTURES_NON_REGLEES"),
-    # ── LISTE GLOBALE FACTURES (sans mention de client spécifique) ───
     (r"listes?\s+(toutes?\s+)?(des\s+|les\s+)?factures?(?:\s+compl[eè]tes?)?\s*$", "LISTE_FACTURES"),
     (r"(?:affiche|montre|donne)\s+(toutes?\s+)?(des\s+|les\s+)?factures?(?:\s+compl[eè]tes?)?$", "LISTE_FACTURES"),
     (r"toutes?\s+(des\s+|les\s+)?factures?(?:\s+compl[eè]tes?)?$", "LISTE_FACTURES"),
     (r"listes?\s+(des\s+|les\s+)?factures?\s+d[\s']un\s+fournisseur\s+pr[eé]cis", "NL2SQL_LIBRE"),
     (r"toutes?\s+les?\s+factures?\s+(du\s+|de\s+)?fournisseur", "NL2SQL_LIBRE"),
     (r"factures?\s+(du\s+|de\s+)?fournisseur",                  "NL2SQL_LIBRE"),
-    # ── TOUTES_FACTURES_CLIENT ────────────────────────────────────
     (r"toutes?\s+les?\s+factures?\s+(du\s+|de\s+)?client", "TOUTES_FACTURES_CLIENT"),
     (r"factures?\s+du\s+client",                           "TOUTES_FACTURES_CLIENT"),
-    # ── DSO ───────────────────────────────────────────────────────
     (r"(d[eé]lai|dso|retard)\s+(de\s+)?paiement",         "DSO"),
     (r"\bdso\b",                                           "DSO"),
-    # ── RFM ───────────────────────────────────────────────────────
     (r"\brfm\b",                                           "RFM"),
     (r"analyse\s+rfm",                                     "RFM"),
     (r"segmentation\s+clients?",                           "RFM"),
     (r"d[eé]claration\s*(fiscale|tva|mensuelle)?", "DECLARATION_EXCEL"),
     (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\w*|exporte?(?:r|z)?)\s+.{0,15}d[eé]claration", "DECLARATION_EXCEL"),
-    # ── DASHBOARD_EXCEL ───────────────────────────────────────────
     (r"tableau\s+de\s+bord",                               "DASHBOARD_EXCEL"),
     (r"\bdashboard\b",                                     "DASHBOARD_EXCEL"),
     (r"\bkpi\b",                                           "DASHBOARD_EXCEL"),
     (r"r[eé]sum[eé]\s+(g[eé]n[eé]ral|global)?",            "DASHBOARD_EXCEL"),
-    # ── PALMARES_ARTICLES (patché : exclut les comparatifs de prix) ──
     (r"palm[aà]r[eè]s",                                    "PALMARES_ARTICLES"),
     (r"articles?\s+les?\s+plus?\s+vendus?",                "PALMARES_ARTICLES"),
     (r"meilleurs?\s+articles?",                            "PALMARES_ARTICLES"),
-    # ── RENTABILITE ───────────────────────────────────────────────
     (r"marge\s+(brute\s+)?par\s+article",                  "RENTABILITE"),
     (r"rentabilit[eé]\s+(des?\s+)?articles?",              "RENTABILITE"),
     (r"taux\s+de\s+marge",                                 "RENTABILITE"),
-    # ── CLIENTS_BAISSE ────────────────────────────────────────────
     (r"clients?\s+en\s+baisse",                            "CLIENTS_BAISSE"),
     (r"clients?\s+baisse\s+ca",                            "CLIENTS_BAISSE"),
-    # ── DOCS_PERIODE ──────────────────────────────────────────────
     (r"documents?\s+entre\s+\d{4}",                       "DOCS_PERIODE"),
     (r"documents?\s+du\s+\d{4}",                          "DOCS_PERIODE"),
-    # ── BON DE LIVRAISON / FABRICATION générique (après NL2SQL) ──
+    (r"factures?\s+du\s+mois\s+d.{1,10}(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)", "DOCS_PERIODE"),
+    (r"(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\s+.{0,30}(?:bons?\s+de\s+livraison|bons?\s+de\s+fabrication)(?!\s+(?:pour|client|cli))", "NL2SQL_LIBRE"),
     (r"bon\s+de\s+livraison",                               "GENERER_DOC"),
     (r"bon\s+de\s+fabrication",                             "GENERER_DOC"),
 ]
@@ -1483,8 +1367,26 @@ _MARQUEURS_NL2SQL_FORCE_RE = [
     for m in _MARQUEURS_NL2SQL_FORCE
 ]
 
+# ── PATCH L ──────────────────────────────────────────────────────────
+# "articles les plus vendus" + un marqueur temporel (ce mois / cette
+# semaine / en AAAA / du mois) doit être traité par NL2SQL_LIBRE, dont
+# _gen_articles_plus_vendus() applique le vrai filtre de date. Le pattern
+# PALMARES_ARTICLES du _PATTERNS_PRECLASS matche sinon en premier et
+# ignore complètement la période (analyser_palmares_articles n'a pas de
+# paramètre de date), d'où des résultats non filtrés voire des labels
+# absurdes du type "Top 2025 articles" (2025 confondu avec top_n).
+_RX_ARTICLES_VENDUS_PERIODE = re.compile(
+    r"(articles?\s+les?\s+plus?\s+vendus?|meilleurs?\s+articles?|palmar[eè]s)"
+    r".{0,40}(ce\s+mois|cette\s+semaine|cette\s+ann[eé]e|en\s+\d{4}|du\s+mois)"
+    r"|(ce\s+mois|cette\s+semaine|cette\s+ann[eé]e|en\s+\d{4}|du\s+mois)"
+    r".{0,40}(articles?\s+les?\s+plus?\s+vendus?|meilleurs?\s+articles?|palmar[eè]s)",
+    re.IGNORECASE,
+)
+
 def _pre_classifier(question: str) -> str | None:
     q = question.lower().strip()
+    if _RX_ARTICLES_VENDUS_PERIODE.search(q):
+        return "NL2SQL_LIBRE"
     if any(p.search(q) for p in _MARQUEURS_NL2SQL_FORCE_RE):
         return "NL2SQL_LIBRE"
     for pattern, action in _PATTERNS_PRECLASS:
@@ -1512,9 +1414,7 @@ class CopilotState(TypedDict):
     ambigue:               bool
     score_confiance:       float
     code_client:           str
-    code_fournisseur:      str   # ← AJOUT : sans cette clé, LangGraph
-                                  #   supprime silencieusement ce champ
-                                  #   entre le classifier et la confirmation.
+    code_fournisseur:      str
     ref_article:           str
     quantite:              float
     num_piece:             str
@@ -1543,30 +1443,33 @@ class CopilotState(TypedDict):
     pending_document: dict
     attente_complements: bool
     document_draft:   dict
-    statut_draft:     str   # "" | "COLLECTE" | "PREVIEW"
+    statut_draft:     str
     pdf_path:         str
     num_of_resolu: str
     dernier_action_classifiee:    str
     derniere_question_classifiee: str
-    # PATCH J : persistance de la confirmation d'écriture entre les tours
     statut_confirmation: str
     ct_validite: str
     ct_encours_max: float
     numero_piece_paiement: str
-    # Cycle de modification (lecture entité → question champ/valeur → confirmation)
     modification_en_cours: dict
     attente_confirmation: bool
-    # ★ FIX : ces 3 champs étaient utilisés dans les nœuds (ex: noeud_collecte_draft
-    # pour l'offre de prix) mais n'étaient PAS déclarés dans le schéma CopilotState.
-    # LangGraph construit ses "channels" uniquement à partir des clés déclarées
-    # dans le TypedDict : toute clé absente du schéma est silencieusement perdue
-    # entre les nœuds, même si le code Python l'assigne correctement.
-    # C'est pour ça que les boutons Confirmer/Annuler n'apparaissaient jamais,
-    # dès le premier message, quel que soit le contenu de orchestrateur_general.py.
     draft_status: str
     action_buttons: list
     suggestions: list
-
+    intitule: str
+    adresse: str
+    complement: str
+    code_postal: str
+    ville: str
+    pays: str
+    contact: str
+    telephone: str
+    email: str
+    site: str
+    creation_article_en_cours: dict
+    nomenclature_en_cours: dict
+    modification_nomenclature_en_cours: dict
 
 def _etat_initial(demande: str, contexte_session: dict | None = None) -> CopilotState:
     ctx = contexte_session or {}
@@ -1577,7 +1480,9 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         demande_brute=demande,
         intention="", action="",
         ambigue=False, score_confiance=1.0,
-        code_client="", code_fournisseur="", ref_article="", quantite=0.0,
+        code_client=ctx.get("code_client", ""),
+        code_fournisseur=ctx.get("code_fournisseur", ""),
+        ref_article="", quantite=0.0,
         num_piece="", type_doc="", type_doc_code=0,
         date_debut="", date_fin="", mode_paiement="Virement",
         validation_ok=False, hub_validation="", reponse_brute="",
@@ -1593,14 +1498,13 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         suggestion_en_attente={},
         pending_action=ctx.get("pending_action", {}),
         document_draft={}, statut_draft="", pdf_path="",
-        pending_document={},
+        pending_document=ctx.get("pending_document", {}),
         attente_complements=False,
-        ct_encours_max =ctx.get("ct_encours_max", 0.0),
+        ct_encours_max=ctx.get("ct_encours_max", 0.0),
         ct_validite=ctx.get("ct_validite", "VALIDE"),
         num_of_resolu="",
         dernier_action_classifiee=ctx.get("dernier_action_classifiee", ""),
         derniere_question_classifiee=ctx.get("derniere_question_classifiee", ""),
-        # PATCH J
         statut_confirmation=ctx.get("statut_confirmation", ""),
         numero_piece_paiement="",
         modification_en_cours=ctx.get("modification_en_cours", {}),
@@ -1608,20 +1512,38 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         draft_status="",
         action_buttons=[],
         suggestions=[],
+        intitule=ctx.get("intitule", ""),
+        adresse=ctx.get("adresse", ""),
+        complement=ctx.get("complement", ""),
+        code_postal=ctx.get("code_postal", ""),
+        ville=ctx.get("ville", ""),
+        pays=ctx.get("pays", ""),
+        contact=ctx.get("contact", ""),
+        telephone=ctx.get("telephone", ""),
+        email=ctx.get("email", ""),
+        site=ctx.get("site", ""),
+        creation_article_en_cours=ctx.get("creation_article_en_cours", {}),
+        nomenclature_en_cours=ctx.get("nomenclature_en_cours", {}),
+        modification_nomenclature_en_cours=ctx.get("modification_nomenclature_en_cours", {}),
     )
 
 def verifier_document_incomplet(state):
     doc = state.get("pending_document", {})
     type_doc = doc.get("type_doc")
 
-    if type_doc == "BL_ACHAT":
+    if type_doc in ("BL_ACHAT", "FA_ACHAT"):
         champs = ["code_fournisseur", "ref_article", "quantite", "prix_unitaire"]
     elif type_doc == "BL":
         champs = ["code_client", "ref_article", "quantite"]
     elif type_doc == "CLIENT_CREATION":
-        champs = ["nom_client_brut", "ct_validite", "ct_encours_max"]   # ← AJOUT des 2 champs
+        champs = ["nom_client_brut", "intitule", "ct_validite", "ct_encours_max",
+                  "adresse", "complement", "code_postal", "ville", "pays",
+                  "contact", "telephone", "email", "site"]
     elif type_doc == "FOURNISSEUR_CREATION":
-        champs = ["nom_client_brut"]
+        champs = ["nom_client_brut", "intitule", "ct_validite", "ct_encours_max",
+                  "adresse", "complement", "code_postal", "ville", "pays",
+                  "contact", "telephone", "email", "site"]
+    
     elif type_doc == "REGLEMENT_INFOS":
         champs = ["mode_paiement"]
         _mode_actuel = str(doc.get("mode_paiement") or "").strip().capitalize()
@@ -1629,7 +1551,11 @@ def verifier_document_incomplet(state):
             champs.append("numero_piece_paiement")
     else:
         return None
-    return [c for c in champs if not doc.get(c) and doc.get(c) != 0]   # ← il manquait aussi le return !
+    champs_saisis = doc.get("_champs_saisis", set())
+    return [
+        c for c in champs
+        if c not in champs_saisis and not doc.get(c) and doc.get(c) != 0
+    ]
 async def noeud_complements(state):
     manquants = verifier_document_incomplet(state)
     if not manquants:
@@ -1643,9 +1569,19 @@ async def noeud_complements(state):
         "ref_article":      "Quelle référence article ?",
         "quantite":         "Quelle quantité ?",
         "prix_unitaire":    "Quel prix unitaire ?",
-        "nom_client_brut":  "Quel est le nom / raison sociale à créer ?",
-        "ct_validite":      "Quel statut pour ce client ? (VALIDE / SUSPECT / BLOQUE)",   # ← AJOUT
-        "ct_encours_max":   "Quel encours maximum autorisé (en DT) ?",                    # ← AJOUT
+        "nom_client_brut":  "Quel est le nom à créer ?",
+        "intitule":         "Quelle est la raison sociale ?",
+        "ct_validite":      "Quel statut pour ce client ? (VALIDE / SUSPECT / BLOQUE)",
+        "ct_encours_max":   "Quel encours maximum autorisé (en DT) ?",
+        "adresse":          "Quelle est l'adresse postale ?",
+        "complement":       "Complément d'adresse (si applicable) ?",
+        "code_postal":      "Quel est le code postal ?",
+        "ville":            "Quelle est la ville ?",
+        "pays":             "Quel est le pays ?",
+        "contact":          "Qui est le contact principal ?",
+        "telephone":        "Quel est le numéro de téléphone ?",
+        "email":            "Quelle est l'adresse e-mail ?",
+        "site":             "Quel est le site web (si applicable) ?",
         "mode_paiement":         "Quel mode de paiement ? (Virement / Cheque / Traite / Especes / CB)",
         "numero_piece_paiement": "Quel est le numéro du chèque / de la traite ?",
     }
@@ -1663,7 +1599,22 @@ async def _corriger_ref_article(ref: str) -> str:
 
 async def _rechercher_client_par_nom(nom: str) -> str:
     return await _rechercher_client_par_nom_impl(nom, mcp_pool)
-def injecter_complement(state):
+
+_VALEURS_VIDES = {"", ".", "-", "--", "n/a", "na", "none", "aucun", "aucune"}
+
+def _est_reponse_vide(texte: str) -> bool:
+    return str(texte).strip().lower() in _VALEURS_VIDES
+async def _verifier_nom_tiers_existe_mcp(nom: str, type_tiers: int) -> bool:
+    if not nom:
+        return False
+    try:
+        raw = await mcp_pool.call("actions", "verifier_nom_tiers_existe",
+                                   {"intitule": nom, "type_tiers": type_tiers})
+        return bool(_parse_mcp_response(raw).get("existe"))
+    except Exception as e:
+        print(f"⚠️ [Vérif nom tiers] {e}")
+        return False
+async def injecter_complement(state):
     if not state.get("attente_complements"):
         return state
 
@@ -1692,18 +1643,85 @@ def injecter_complement(state):
             doc["quantite"] = float(m.group(1).replace(",", "."))
     elif not doc.get("ref_article") and doc.get("type_doc") in ("BL_ACHAT", "BL"):
         doc["ref_article"] = texte
-    elif not doc.get("code_fournisseur") and doc.get("type_doc") == "BL_ACHAT":
+    elif not doc.get("code_fournisseur") and doc.get("type_doc") in ("BL_ACHAT", "FA_ACHAT"):
+        err = await _verifier_fournisseur_draft(texte)
+        if err:
+            state["attente_complements"] = False
+            state["pending_document"] = {}
+            state["reponse_finale"] = err
+            return state
         doc["code_fournisseur"] = texte
     elif not doc.get("code_client") and doc.get("type_doc") == "BL":
+        err = await _verifier_client_draft(texte)
+        if err:
+            state["attente_complements"] = False
+            state["pending_document"] = {}
+            state["reponse_finale"] = err
+            return state
         doc["code_client"] = texte
-    elif not doc.get("nom_client_brut") and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
-        doc["nom_client_brut"] = texte
-    elif not doc.get("ct_validite") and doc.get("type_doc") == "CLIENT_CREATION":    # ← AJOUT
+    elif "nom_client_brut" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("nom_client_brut")
+        t = texte.strip()
+        if _est_reponse_vide(t):
+            doc["nom_client_brut"] = ""
+        else:
+            type_tiers = 0 if doc["type_doc"] == "CLIENT_CREATION" else 1
+            if await _verifier_nom_tiers_existe_mcp(t, type_tiers):
+                state["attente_complements"] = True
+                state["pending_document"] = {}
+                state["reponse_finale"] = f"❌ '{val_intitule}' existe déjà. Impossible de le recréer."
+                return state
+            doc["nom_client_brut"] = t
+    elif "intitule" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("intitule")
+        val_intitule = "" if _est_reponse_vide(texte) else texte.strip()
+        if val_intitule:
+            type_tiers = 0 if doc["type_doc"] == "CLIENT_CREATION" else 1
+            if await _verifier_nom_tiers_existe_mcp(val_intitule, type_tiers):
+                state["attente_complements"] = False
+                state["pending_document"] = {}
+                state["_creation_annulee"] = True
+                state["reponse_finale"] = f"❌ '{val_intitule}' existe déjà. Impossible de le recréer."
+                return state
+        doc["intitule"] = val_intitule
+    elif "ct_validite" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("ct_validite")
         v = texte.strip().upper()
         doc["ct_validite"] = v if v in ("VALIDE", "SUSPECT", "BLOQUE") else "VALIDE"
-    elif not doc.get("ct_encours_max") and doc.get("type_doc") == "CLIENT_CREATION": # ← AJOUT
+    elif "ct_encours_max" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("ct_encours_max")
         m = re.search(r"(\d+(?:[.,]\d+)?)", texte)
         doc["ct_encours_max"] = float(m.group(1).replace(",", ".")) if m else 0.0
+    elif "adresse" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("adresse")
+        doc["adresse"] = "" if _est_reponse_vide(texte) else texte.strip()
+    elif "complement" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("complement")
+        doc["complement"] = "" if _est_reponse_vide(texte) else texte.strip()
+    elif "code_postal" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("code_postal")
+        m = re.search(r"(\d{2,10})", texte)
+        doc["code_postal"] = m.group(1) if m else ("" if _est_reponse_vide(texte) else texte.strip())
+    elif "ville" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("ville")
+        doc["ville"] = "" if _est_reponse_vide(texte) else texte.strip()
+    elif "pays" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("pays")
+        doc["pays"] = "" if _est_reponse_vide(texte) else texte.strip()
+    elif "contact" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("contact")
+        doc["contact"] = "" if _est_reponse_vide(texte) else texte.strip()
+    elif "telephone" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("telephone")
+        m = re.search(r"(\+?\d[\d\s\-().]{4,}\d)", texte)
+        doc["telephone"] = m.group(1).strip() if m else ("" if _est_reponse_vide(texte) else texte.strip())
+    elif "email" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("email")
+        m = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", texte)
+        doc["email"] = m.group(0) if m else ("" if _est_reponse_vide(texte) else texte.strip())
+    elif "site" not in doc.get("_champs_saisis", set()) and doc.get("type_doc") in ("CLIENT_CREATION", "FOURNISSEUR_CREATION"):
+        doc.setdefault("_champs_saisis", set()).add("site")
+        doc["site"] = "" if _est_reponse_vide(texte) else texte.strip()
     elif not doc.get("mode_paiement") and doc.get("type_doc") == "REGLEMENT_INFOS":
         t = texte.strip().lower()
         _MODE_MAP = {
@@ -1758,6 +1776,10 @@ async def _verifier_rag(question):
     return None
 
 
+_RX_PIECE_HEX = r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[0-9A-F]{5,9})\b"
+_RX_PIECE_DOC = re.compile(r"\b((?:OF|BL|BC|BF|FA|BR)[0-9A-F]{5,9})\b", re.IGNORECASE)
+_RX_PIECES_REGLEMENT = re.compile(_RX_PIECE_HEX, re.IGNORECASE)
+
 def _extraire_dernier_document(final_state: dict) -> dict | None:
     if final_state.get("action") != "GENERER_DOC":
         return None
@@ -1775,7 +1797,7 @@ def _extraire_dernier_document(final_state: dict) -> dict | None:
             }
     except Exception:
         pass
-    m = re.search(r"\b([A-Z]{2,4}\d{3,})\b", rb)
+    m = _RX_PIECE_DOC.search(rb)
     if not m:
         return None
     return {
@@ -1875,13 +1897,9 @@ Réponds UNIQUEMENT avec ce JSON :
     except Exception:
         return [{"demande": demande, "sequentiel": False, "index": 0}]
 
-_RX_PIECES_REGLEMENT = re.compile(
-    r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[A-Z0-9]{2,}\d{2,})\b", re.IGNORECASE
-)
+
 
 def _decouper_reglement_multiple(demande: str) -> list[str] | None:
-    """PROB 4d : 'règle FA1 et FA2' → une sous-demande par pièce,
-    au lieu de ne garder que pieces_trouvees[-1]."""
     if not re.search(r"r[eé]gl|paye?r?|paiement", demande, re.IGNORECASE):
         return None
     pieces = list(dict.fromkeys(
@@ -1900,7 +1918,8 @@ def _decouper_reglement_multiple(demande: str) -> list[str] | None:
 # ─────────────────────────────────────────────────────────────────────
 _REFS_CONTEXTUELLES = re.compile(
     r"\b(ce|cet|cette|celui-ci|celle-ci|ce\s+bl|cette\s+facture|"
-    r"ce\s+document|le\s+même|la\s+même|ce\s+of|ce\s+bon)\b",
+    r"ce\s+document|le\s+même|la\s+même|ce\s+of|ce\s+bon|"
+    r"(?:son|sa|ses|leur|leurs)\s+(?:encours|statut|stock|solde|chiffre|ca|historique|dernier|dernière|facture|commande|bl)|lui)\b",
     re.IGNORECASE
 )
 
@@ -1936,11 +1955,16 @@ async def _hub_resoudre_type_doc(libelle: str) -> dict:
 
 async def _hub_valider_demande(type_action: str, payload: dict) -> dict:
     try:
-        text = await mcp_pool.call("hub", "valider_demande_metier", {
-            "type_action": type_action,
-            "payload": json.dumps(payload, ensure_ascii=False),
-        })
+        text = await asyncio.wait_for(
+            mcp_pool.call("hub", "valider_demande_metier", {
+                "type_action": type_action,
+                "payload": json.dumps(payload, ensure_ascii=False),
+            }),
+            timeout=15.0,
+        )
         return json.loads(text)
+    except asyncio.TimeoutError:
+        return {"valide": True, "message": "⚠️ Validation hub non disponible (timeout), poursuite sans blocage."}
     except Exception as e:
         return {"valide": False, "message": _safe_str(e)}
 
@@ -1992,36 +2016,58 @@ def _parse_mcp_response(raw: str | dict) -> dict:
 
 
 async def _mcp_workflow_bl_achat(
-    code_fournisseur: str, ref_article: str, quantite: float, prix_unitaire: float = 0.0
+    code_fournisseur: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+    date_doc: str | None = None,
 ) -> dict:
-    raw = await mcp_pool.call("actions", "workflow_bl_achat", {
+    payload = {
         "code_fournisseur": code_fournisseur,
         "ref_article":      ref_article,
         "quantite":         quantite,
         "prix_unitaire":    prix_unitaire,
-    })
+    }
+    if date_doc:
+        payload["date_doc"] = date_doc
+    raw = await mcp_pool.call("actions", "workflow_bl_achat", payload)
     return _parse_mcp_response(raw)
+
 async def _mcp_workflow_facture(
-    code_client: str, ref_article: str, quantite: float, prix_unitaire: float = 0.0
+    code_client: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+    date_doc: str | None = None,
 ) -> dict:
-    raw = await mcp_pool.call("actions", "generer_document_sage", {
+    payload = {
         "type_doc":      "FACTURE",
         "code_client":   code_client,
         "ref_article":   ref_article,
         "qte":           quantite,
         "prix_unitaire": prix_unitaire,
-    })
+    }
+    if date_doc:
+        payload["date_doc"] = date_doc
+    raw = await mcp_pool.call("actions", "generer_document_sage", payload)
     return _parse_mcp_response(raw)
 
 async def _mcp_workflow_bl(
-    code_client: str, ref_article: str, quantite: float, prix_unitaire: float = 0.0
+    code_client: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+    date_doc: str | None = None,
 ) -> dict:
-    raw = await mcp_pool.call("actions", "workflow_bl", {
+    payload = {
         "code_client":   code_client,
         "ref_article":   ref_article,
         "quantite":      quantite,
         "prix_unitaire": prix_unitaire,
-    })
+    }
+    if date_doc:
+        payload["date_doc"] = date_doc
+    raw = await mcp_pool.call("actions", "workflow_bl", payload)
     return _parse_mcp_response(raw)
 
 
@@ -2054,7 +2100,6 @@ async def _mcp_transformer_document(num_piece_source: str, type_destination: str
     return _parse_mcp_response(raw)
 
 async def _enrichir_draft_client_article(draft: dict) -> dict:
-    """Complète le draft avec l'intitulé client et le prix de vente de l'article."""
     code_client = draft.get("code_client", "")
     ref_article = draft.get("ref_article", "")
 
@@ -2063,9 +2108,10 @@ async def _enrichir_draft_client_article(draft: dict) -> dict:
             txt = await mcp_pool.call(
                 "nl2sql", "rechercher_fiche_client", {"code_client": code_client}
             )
-            data = json.loads(txt)
-            if data.get("CT_Intitule"):
-                draft["intitule_client"] = data["CT_Intitule"]
+            if txt and txt.strip():
+                data = json.loads(txt)
+                if data.get("CT_Intitule"):
+                    draft["intitule_client"] = data["CT_Intitule"]
         except Exception as e:
             print(f"   ⚠️  [Enrichissement] intitulé client : {_safe_str(e)}")
 
@@ -2078,36 +2124,24 @@ async def _enrichir_draft_client_article(draft: dict) -> dict:
                     "description": f"Prix de vente de {ref_article}",
                 },
             )
-            data = json.loads(txt)
-            rows = data.get("resultats") or data.get("rows") or []
-            if rows and isinstance(rows, list):
-                prix = rows[0].get("AR_PrixVen")
-                if prix is not None:
-                    draft["prix_unitaire"] = float(prix)
+            if txt and txt.strip():
+                data = json.loads(txt)
+                rows = data.get("resultats") or data.get("rows") or []
+                if rows and isinstance(rows, list):
+                    prix = rows[0].get("AR_PrixVen")
+                    if prix is not None:
+                        draft["prix_unitaire"] = float(prix)
         except Exception as e:
             print(f"   ⚠️  [Enrichissement] prix article : {_safe_str(e)}")
 
     return draft
-# ─────────────────────────────────────────────────────────────────────
-# VALIDATIONS DRAFT — 100% via MCP (aucun accès SQL direct depuis
-# l'orchestrateur). Toute la logique métier reste dans mcp_sage.py.
-# ─────────────────────────────────────────────────────────────────────
 
 async def _resoudre_tiers_mcp(code_ou_nom: str) -> dict:
-    """Résout un tiers (client/fournisseur/interne) via MCP, sans restriction de type."""
     raw = await mcp_pool.call("actions", "resoudre_tiers", {"code_ou_nom": code_ou_nom})
     return _parse_mcp_response(raw)
 
 
 async def _verifier_client_draft(code_client: str) -> str:
-    """
-    Vérifie l'existence et le statut (bloqué/sommeil) d'un client via MCP.
-    Auto-crée le tiers technique PROD-INT s'il n'existe pas encore (remplace
-    l'appel direct à _assurer_tiers_interne qui existait auparavant dans
-    l'orchestrateur).
-    Retourne un message d'erreur non vide si le document doit être bloqué,
-    chaîne vide sinon.
-    """
     data = await _resoudre_tiers_mcp(code_client)
     if data.get("statut") != "SUCCES" and code_client.upper() == "PROD-INT":
         await mcp_pool.call("actions", "assurer_tiers_interne", {"code_client": code_client})
@@ -2116,6 +2150,11 @@ async def _verifier_client_draft(code_client: str) -> str:
     if data.get("statut") != "SUCCES":
         return (
             f"🚫 Client **'{code_client}'** introuvable dans la base. "
+            f"Vérifiez le code et réessayez."
+        )
+    if data.get("CT_Type") != 0:
+        return (
+            f"🚫 **'{code_client}'** existe mais n'est pas un client (c'est un fournisseur). "
             f"Vérifiez le code et réessayez."
         )
 
@@ -2130,24 +2169,35 @@ async def _verifier_client_draft(code_client: str) -> str:
 
 
 async def _verifier_fournisseur_draft(code_fournisseur: str) -> str:
-    """
-    Vérifie l'existence d'un fournisseur via MCP (existence uniquement,
-    fidèle au comportement d'origine qui ne vérifiait pas le CT_Type).
-    """
     data = await _resoudre_tiers_mcp(code_fournisseur)
     if data.get("statut") != "SUCCES":
         return (
             f"🚫 Fournisseur **'{code_fournisseur}'** introuvable dans la base. "
             f"Vérifiez le code et réessayez."
         )
+    if data.get("CT_Type") != 1:
+        return (
+            f"🚫 **'{code_fournisseur}'** existe mais n'est pas un fournisseur (c'est un client). "
+            f"Vérifiez le code et réessayez."
+        )
     return ""
 
 
+async def _verifier_client_des_saisie(draft: dict) -> tuple[bool, str]:
+    for champ in ("code_client", "code_fournisseur"):
+        code = (draft or {}).get(champ)
+        if not code:
+            continue
+        if champ == "code_client":
+            err = await _verifier_client_draft(code)
+        else:
+            err = await _verifier_fournisseur_draft(code)
+        if err:
+            return False, err
+    return True, ""
+
+
 async def _lire_article_draft(ref_article: str) -> tuple[dict | None, str]:
-    """
-    Lit un article via MCP (outil 'lire_article').
-    Retourne (data, "") si trouvé, (None, message_erreur) sinon.
-    """
     raw = await mcp_pool.call("actions", "lire_article", {"ref_article": ref_article})
     data = _parse_mcp_response(raw)
     if data.get("statut") != "SUCCES":
@@ -2157,25 +2207,12 @@ async def _lire_article_draft(ref_article: str) -> tuple[dict | None, str]:
         )
     return data, ""
 async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
-    """
-    Construit/complète le draft. Si CONFIRM/ANNULER reçu alors qu'un draft
-    est déjà en PREVIEW, route directement vers l'exécution ou l'annulation.
-
-    v4.2 : toutes les vérifications (client, fournisseur, article, stock,
-    encours) passent désormais par le pool MCP ('actions'), au lieu d'un
-    accès sqlite3 direct + import de fonctions privées de mcp_sage.py.
-    Plus aucune logique métier dupliquée entre l'orchestrateur et le
-    serveur MCP.
-    """
     demande = state["demande_brute"]
     draft_existant = state.get("document_draft") or {}
 
     def _to_float(v) -> float:
         return float(v) if v is not None else 0.0
 
-    # ══════════════════════════════════════════════════════════════
-    # BLOC OFFRE_PRIX (inchangé)
-    # ══════════════════════════════════════════════════════════════
     if state.get("action") == "OFFRE_PRIX":
         statut_offre_actuel = draft_existant.get("statut_offre", "")
 
@@ -2219,9 +2256,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
                     state["document_draft"] = {}
             return state
 
-    # ══════════════════════════════════════════════════════════════
-    # PREVIEW existant → CONFIRM/ANNULER (inchangé)
-    # ══════════════════════════════════════════════════════════════
     if draft_existant and state.get("statut_draft") == "PREVIEW":
         if est_confirmation_stricte(demande) or _est_oui(demande):
             state["statut_draft"] = "CONFIRME"
@@ -2244,7 +2278,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
         premier_champ = champ_avant[0] if champ_avant else None
         draft = injecter_reponse_dans_draft(draft_existant.get("type_doc", ""), draft_existant, demande)
 
-        # ── Vérification immédiate après saisie du client (via MCP) ──
         if premier_champ == "code_client" and draft.get("code_client"):
             err = await _verifier_client_draft(draft["code_client"])
             if err:
@@ -2253,7 +2286,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
                 state["document_draft"] = {}
                 return state
 
-        # ── Vérification immédiate après saisie du fournisseur (via MCP) ──
         if premier_champ == "code_fournisseur" and draft.get("code_fournisseur"):
             err = await _verifier_fournisseur_draft(draft["code_fournisseur"])
             if err:
@@ -2262,7 +2294,6 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
                 state["document_draft"] = {}
                 return state
 
-        # ── Vérification immédiate après saisie de l'article (via MCP) ──
         if premier_champ == "ref_article" and draft.get("ref_article"):
             _, err = await _lire_article_draft(draft["ref_article"])
             if err:
@@ -2275,23 +2306,32 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
     else:
         state["document_draft"] = construire_draft_depuis_state(state)
 
+        draft_type = (state["document_draft"].get("type_doc") or "").upper()
+        if draft_type == "BF" and not state["document_draft"].get("num_of"):
+            num_of_candidat = (
+                state.get("num_piece")
+                or state["document_draft"].get("num_piece_source")
+                or state.get("dernier_num_piece")
+            )
+            if num_of_candidat and num_of_candidat.upper().startswith("OF"):
+                state["document_draft"]["num_of"] = num_of_candidat
+
     state["document_draft"] = await _enrichir_draft_client_article(state["document_draft"])
     from graph.draft_flow import _enrichir_facture_depuis_bl, _enrichir_bf_depuis_of
     state["document_draft"] = _enrichir_facture_depuis_bl(state["document_draft"])
     state["document_draft"] = _enrichir_bf_depuis_of(state["document_draft"])
-    manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
-    if manquants:
-        state["statut_draft"] = "COLLECTE"
-        state["reponse_finale"] = question_pour_champ(state["document_draft"]["type_doc"], manquants[0])
-        return state
 
-    # ══════════════════════════════════════════════════════════════
-    # TOUTES LES INFOS SONT LÀ : validations finales — 100% via MCP
-    # ══════════════════════════════════════════════════════════════
     draft = state["document_draft"]
     type_doc = (draft.get("type_doc") or "").upper()
 
     try:
+        ok_saisie, err_saisie = await _verifier_client_des_saisie(draft)
+        if not ok_saisie:
+            state["reponse_finale"] = err_saisie
+            state["statut_draft"] = ""
+            state["document_draft"] = {}
+            return state
+
         # ── 0. Existence + statut client ───────────────────────────
         if draft.get("code_client"):
             err = await _verifier_client_draft(draft["code_client"])
@@ -2319,6 +2359,20 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
                 state["statut_draft"] = ""
                 state["document_draft"] = {}
                 return state
+
+    except Exception as e:
+        logger.error(f"Erreur inattendue lors de la vérification initiale : {e}")
+
+    manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
+    if manquants:
+        state["statut_draft"] = "COLLECTE"
+        state["reponse_finale"] = question_pour_champ(state["document_draft"]["type_doc"], manquants[0])
+        return state
+
+    # ══════════════════════════════════════════════════════════════
+    # TOUTES LES INFOS SONT LÀ : validations finales — 100% via MCP
+    # ══════════════════════════════════════════════════════════════
+    try:
 
         # ── 2. Stock insuffisant (BL uniquement) ───────────────────
         if type_doc == "BL" and article_data and draft.get("quantite"):
@@ -2436,7 +2490,14 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
             "params": sugg,
         }
         rapport.append("\n💡 Tapez **ok** pour préparer le brouillon de la facture correspondante.")
-
+    if type_doc == "BL_ACHAT" and resultat.get("suggestion_facture_achat"):
+        sugg = resultat["suggestion_facture_achat"]
+        state["suggestion_en_attente"] = {
+            "type": "DRAFT_FACTURE_ACHAT_DEPUIS_BL",
+            "description": f"Créer la facture d'achat pour le BL {sugg['num_br']}",
+            "params": sugg,
+        }
+        rapport.append("\n💡 Tapez **ok** pour préparer la facture d'achat correspondante.")
     if type_doc == "OF":
         rapport.append(
             f"\n💡 Pour finaliser, indiquez la quantité réellement produite : "
@@ -2451,7 +2512,7 @@ async def noeud_execution_draft(state: CopilotState) -> CopilotState:
     state["document_draft"] = {}
     return state
 # ─────────────────────────────────────────────────────────────────────
-# NŒUD CLASSIFIER — v9.4
+# NŒUD CLASSIFIER — v9.6
 # ─────────────────────────────────────────────────────────────────────
 async def noeud_classifier(state: CopilotState) -> CopilotState:
     demande_actuelle = state["demande_brute"]
@@ -2486,6 +2547,12 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
         state["intention"] = "ERP"
         return state
 
+    if state.get("creation_article_en_cours"):
+        state["intention"] = "ERP"
+        return state
+    if state.get("nomenclature_en_cours"):          # ← AJOUT
+        state["intention"] = "ERP"
+        return state
     # ══════════════════════════════════════════════════════════════
     # COURT-CIRCUIT PRIORITAIRE : confirmation en attente
     # ══════════════════════════════════════════════════════════════
@@ -2530,6 +2597,20 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                 print(f"⏭️ [Classifier] Brouillon annulé implicitement par un nouveau message.")
                 state["document_draft"] = {}
                 state["statut_draft"] = ""
+            else:
+                # ✅ FIX : confirmation ("CONFIRMER"/"oui") ou annulation ("ANNULER"/"non")
+                # explicite pendant un PREVIEW → il faut bypasser la classification et
+                # renvoyer vers collecte_draft, sinon le message repart dans tout le
+                # pipeline de classification et on boucle sans jamais exécuter/annuler
+                # le document en attente.
+                action_bypass = state.get("dernier_action_classifiee") or "GENERER_DOC"
+                print(f"⏭️ [Classifier] Confirmation/annulation brouillon en PREVIEW → bypass classification ({action_bypass})")
+                state["intention"] = "ERP"
+                state["action"] = action_bypass
+                state["ambigue"] = False
+                state["score_confiance"] = 1.0
+                return state
+
         elif statut_draft_bypass == "COLLECTE":
             pre_act = _pre_classifier(demande_b)
             cmd_verb = any(demande_b.lower().strip().startswith(v) for v in ["crée", "cree", "créer", "creer", "génère", "genere", "générer", "exporte", "exporter", "liste", "lister", "affiche", "afficher", "combien", "quel", "quelle", "quels", "quelles", "règle", "regle", "payer"])
@@ -2558,8 +2639,13 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
     # ══════════════════════════════════════════════════════════════
     # Compléments
     # ══════════════════════════════════════════════════════════════
-    state = injecter_complement(state)
-
+    state = await injecter_complement(state)
+    if state.pop("_creation_annulee", False):
+        state["attente_complements"] = False
+        state["intention"] = "ERP"
+        state["action"] = state.get("dernier_action_classifiee") or "CREER_CLIENT"
+        state["ambigue"] = False
+        return state
     if state.get("attente_complements"):
         manquants = verifier_document_incomplet(state)
 
@@ -2571,9 +2657,14 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                 pd = state["pending_document"]
 
                 state["nom_client_brut"] = pd.get("nom_client_brut", "")
+                state["intitule"] = pd.get("intitule", "")
                 state["code_client"] = await _generer_code_client(state["nom_client_brut"])
                 state["ct_validite"] = pd.get("ct_validite", "VALIDE")
                 state["ct_encours_max"] = pd.get("ct_encours_max", 0.0)
+
+                for _champ in ("adresse", "complement", "code_postal", "ville", "pays",
+                               "contact", "telephone", "email", "site"):
+                    state[_champ] = pd.get(_champ, "")
 
                 state["action"] = "CREER_CLIENT"
                 state["intention"] = "ERP"
@@ -2584,7 +2675,14 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                 pd = state["pending_document"]
 
                 state["nom_client_brut"] = pd.get("nom_client_brut", "")
+                state["intitule"] = pd.get("intitule", "")
                 state["code_client"] = await _generer_code_fournisseur(state["nom_client_brut"])
+                state["ct_validite"] = pd.get("ct_validite", "VALIDE")
+                state["ct_encours_max"] = pd.get("ct_encours_max", 0.0)
+
+                for _champ in ("adresse", "complement", "code_postal", "ville", "pays",
+                               "contact", "telephone", "email", "site"):
+                    state[_champ] = pd.get(_champ, "")
 
                 state["action"] = "CREER_FOURNISSEUR"
                 state["intention"] = "ERP"
@@ -2613,9 +2711,19 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
             "ref_article": "Quelle référence article ?",
             "quantite": "Quelle quantité ?",
             "prix_unitaire": "Quel prix unitaire ?",
-            "nom_client_brut": "Quel est le nom / raison sociale à créer ?",
+            "nom_client_brut": "Quel est le nom à créer ?",
+            "intitule": "Quelle est la raison sociale ?",
             "ct_validite": "Quel statut pour ce client ? (VALIDE / SUSPECT / BLOQUE)",
             "ct_encours_max": "Quel encours maximum autorisé (en DT) ?",
+            "adresse":          "Quelle est l'adresse postale ?",
+            "complement":       "Complément d'adresse (si applicable) ?",
+            "code_postal":      "Quel est le code postal ?",
+            "ville":            "Quelle est la ville ?",
+            "pays":             "Quel est le pays ?",
+            "contact":          "Qui est le contact principal ?",
+            "telephone":        "Quel est le numéro de téléphone ?",
+            "email":            "Quelle est l'adresse e-mail ?",
+            "site":             "Quel est le site web (si applicable) ?",
             "mode_paiement":         "Quel mode de paiement ? (Virement / Cheque / Traite / Especes / CB)",
             "numero_piece_paiement": "Quel est le numéro du chèque / de la traite ?",
         }
@@ -2662,10 +2770,10 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                         if _fam2 != _fam1:
                             _sem_top2_action = _a
                             break
-                SEUIL_SEM_MIN = 0.80  # jamais en dessous, quel que soit le calcul adaptatif interne
+                SEUIL_SEM_MIN = 0.80  # ne rejette que si le score réel est trop bas
 
-                if decision_sem.statut == "ACCEPTE" and decision_sem.seuil_haut < SEUIL_SEM_MIN:
-                    print(f"   🚫 [Sémantique] Seuil adaptatif trop bas ({decision_sem.seuil_haut:.2f}) → rejeté par garde-fou orchestrateur")
+                if decision_sem.statut == "ACCEPTE" and decision_sem.score < SEUIL_SEM_MIN and decision_sem.seuil_haut < SEUIL_SEM_MIN:
+                    print(f"   🚫 [Sémantique] Score {decision_sem.score:.2f} sous le plancher absolu → rejeté")
                     decision_sem.statut = "ZONE_GRISE"
                 if decision_sem.statut == "ACCEPTE":
                     # GARDE-FOU : rejette l'acceptation sémantique si la
@@ -2677,7 +2785,11 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                         "LISTE_CLIENTS", "TOP_CLIENTS", "FICHE_CLIENT",
                         "STATUT_CLIENT", "TOUTES_FACTURES_CLIENT",
                     )
-                    if _action_est_client and not any(w in question.lower() for w in _mots_domaine_client):
+                    q_lower = question.lower()
+                    if decision_sem.action == "LISTE_CLIENTS" and any(w in q_lower for w in _MOTS_QUALIFICATIFS_FILTRAGE):
+                        print(f"   🚫 [Sémantique] LISTE_CLIENTS rejeté : question contient un qualificatif de filtrage/tri")
+                        decision_sem.statut = "ZONE_GRISE"
+                    elif _action_est_client and not any(w in q_lower for w in _mots_domaine_client):
                         print(f"   🚫 [Sémantique] Rejeté malgré score={decision_sem.score:.3f} : "
                               f"aucun mot-clé client dans la question")
                     else:
@@ -2707,6 +2819,8 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
         _regex_code, _nom_regex = _extraire_code_ou_nom_depuis_texte(question)
         _ner_client = entites_ner.get("client", "")
 
+        _extraction_explicite = bool(_regex_code or _ner_client or _nom_regex)
+
         if _regex_code:
             state["code_client"]     = _regex_code
             state["nom_client_brut"] = ""
@@ -2716,7 +2830,13 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
         elif _nom_regex:
             state["nom_client_brut"] = _nom_regex
             state["code_client"]     = ""
-
+        else:
+            _a_reference_contextuelle = bool(_REFS_CONTEXTUELLES.search(state["demande_brute"]))
+            if state.get("nom_client_brut") and _a_reference_contextuelle:
+                pass # on hérite
+            elif not _a_reference_contextuelle:
+                state["nom_client_brut"] = ""
+                state["code_client"] = ""
         if state.get("nom_client_brut") and not state.get("code_client"):
             code_trouve = await _rechercher_client_par_nom(state["nom_client_brut"])
             if code_trouve:
@@ -2730,9 +2850,7 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                 if _nom_up and state.get("ref_article", "").upper() == _nom_up:
                     state["ref_article"] = ""
                 print(f"   🔧 [CREER_FOURNISSEUR] Nouveau fournisseur → code généré : '{state['code_client']}'")
-        _piece_tokens_q = [t.upper() for t in re.findall(
-            r"\b(?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,}\b", question, re.IGNORECASE
-        )]
+        _piece_tokens_q = [t.upper() for t in _RX_PIECE_DOC.findall(question)]
         def _est_sous_chaine_piece(cand: str) -> bool:
             return any(cand in pt for pt in _piece_tokens_q)
         # FIX 1 + PATCH G : extraction article insensible à la casse,
@@ -2765,7 +2883,13 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                     all(len(p) >= 2 for p in mot_upper.split("-")) and
                     any(len(p) >= 3 for p in mot_upper.split("-")) and
                     mot_upper not in _EXPRESSIONS_FR_EXCLUES)
-                is_piece_ref = bool(re.match(r"^(?:OF|BL|BC|BF|FA)\d", mot_upper))
+                # Exclure les numéros de pièces (BL..., BC..., FA..., OF..., BF..., etc.)
+                # Double garde : regex directe ET appartenance à _piece_tokens_q
+                is_piece_ref = (
+                    bool(_RX_PIECE_DOC.match(mot_upper))
+                    or _est_sous_chaine_piece(mot_upper)
+                    or bool(re.match(r"^(?:BL|BC|BF|FA|OF|FF|AV|BR|AF)[0-9A-F]{4,}", mot_upper, re.IGNORECASE))
+                )
                 if (has_digit or has_dash_ref) and mot_upper not in _EXCL_ARTICLE and mot_upper not in _EXPRESSIONS_FR_EXCLUES and not mot_upper.startswith("CLI") and not is_piece_ref:
                     _ref_article_trouvee = mot_upper
                     print(f"   🔎 [PreClass] ref_article (ref ERP) : '{mot_upper}'")
@@ -2790,24 +2914,73 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                     print(f"   🔎 [PreClass] ref_article (après quantité) : '{cand}'")
         state["ref_article"] = _ref_article_trouvee
         state["ref_article"] = await _corriger_ref_article(state["ref_article"])
+        
+        if (state.get("code_client") and state.get("ref_article")
+                and state["code_client"].upper() == state["ref_article"].upper()):
+            print(f"   🧹 [Classifier] '{state['code_client']}' détecté comme code_client ET ref_article → code_client vidé")
+            state["code_client"] = ""
+
+        # Garde priorité pièce : si ref_article == num_piece, vider ref_article.
+        # Un préfixe BL/BC/FA/OF/BF sur le token indique toujours un n° de pièce.
+        _art = state.get("ref_article", "")
+        _piece = state.get("num_piece", "")
+        if _art and (_art == _piece or _RX_PIECE_DOC.match(_art)):
+            state["ref_article"] = ""
+            print(f"   🧹 [PreClass] ref_article '{_art}' effacé (= numéro de pièce document)")
         if action_preclass in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
             nom_up = (state.get("nom_client_brut") or "").upper()
             if nom_up and state.get("ref_article", "").upper() == nom_up:
                 state["ref_article"] = ""
                 print(f"   🧹 [CREER_CLIENT] ref_article '{nom_up}' effacé (= nom client)")
-
+        # ── AFFICHER_NOMENCLATURE : extraction du nom/référence produit ──
+        if action_preclass == "AFFICHER_NOMENCLATURE":
+            m_nom = re.search(
+                r"nomenclature\s+(?:de|du|pour|d['\u2019])\s+(?:l['\u2019]article\s+)?(.+?)(?:\s*[?.,;!]|\s*$)",
+                question, re.IGNORECASE
+            )
+            if m_nom and m_nom.group(1).strip():
+                state["ref_article"] = m_nom.group(1).strip().upper()
+                state["ref_article"] = await _corriger_ref_article(state["ref_article"])
+            if not state.get("ref_article"):
+                state["ambigue"] = True
+        # PATCH O : garde-fou — un nombre à 4 chiffres précédé de "en"
+        # (ex: "en 2025") ressemble à une année, pas à une quantité/un
+        # top_n. Évite le bug "articles les plus vendus en 2025" →
+        # top_n=2025 → label "Top 2025 articles" avec tous les résultats.
         m_q = re.search(
             r"(?:quantit[eé]s?\s*[=:>]?\s*|qte\s*[=:]?\s*|\b)(\d+(?:[.,]\d+)?)\s*(?:pièces?|pieces?|unités?|u\.?\b)?",
             question, re.IGNORECASE
         )
         if m_q:
-            val = float(m_q.group(1).replace(",", "."))
-            if val > 0:
+            val_str = m_q.group(1)
+            val = float(val_str.replace(",", "."))
+            _ressemble_annee = bool(re.match(r"^(19|20)\d{2}$", val_str))
+            _precede_par_en  = bool(re.search(rf"\ben\s+{re.escape(val_str)}\b", question, re.IGNORECASE))
+            _dans_date_iso   = bool(re.search(rf"\b{re.escape(val_str)}-\d{{2}}-\d{{2}}\b", question))
+            if val > 0 and not (_ressemble_annee and (_precede_par_en or _dans_date_iso)):
+                state["quantite"] = val
+            if val > 0 and not (_ressemble_annee and _precede_par_en):
                 state["quantite"] = val
 
         if action_preclass == "GENERER_DOC" and not state.get("type_doc"):
             q_lower = question.lower()
-            if re.search(r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur", q_lower):
+            if re.search(r"facture\s*(?:d['\u2019]|de\s+)?achat|facture\s+fournisseur", q_lower):
+                state["type_doc"] = "FA_ACHAT"
+                m_four = re.search(r"fournisseur\s+([A-Z0-9]+)", question, re.IGNORECASE)
+                m_art  = re.search(r"article\s+([A-Z0-9]+)", question, re.IGNORECASE)
+                m_qte  = re.search(r"quantit[eé]s?\s*[=:>]?\s*(\d+(?:[.,]\d+)?)", question, re.IGNORECASE)
+                m_prix = re.search(r"prix\s*[=:>]?\s*(\d+(?:[.,]\d+)?)", question, re.IGNORECASE)
+                doc = state.get("pending_document", {})
+                if m_four: doc["code_fournisseur"] = m_four.group(1).upper()
+                if m_art:  doc["ref_article"]      = m_art.group(1).upper()
+                if m_qte:  doc["quantite"]         = float(m_qte.group(1).replace(",", "."))
+                if m_prix: doc["prix_unitaire"]    = float(m_prix.group(1).replace(",", "."))
+                doc["type_doc"] = "FA_ACHAT"
+                state["pending_document"] = doc
+                if doc.get("code_fournisseur"): state["code_client"] = doc["code_fournisseur"]
+                if doc.get("ref_article"):      state["ref_article"] = doc["ref_article"]
+                if doc.get("quantite"):         state["quantite"]    = doc["quantite"]
+            elif re.search(r"bl\s+achat|bon\s+de\s+r[eé]ception|r[eé]ception\s+fournisseur", q_lower):
                 state["type_doc"] = "BL_ACHAT"
                 m_four = re.search(r"fournisseur\s+([A-Z0-9]+)", question, re.IGNORECASE)
                 m_art  = re.search(r"article\s+([A-Z0-9]+)", question, re.IGNORECASE)
@@ -2832,9 +3005,7 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
             else:                                                          state["type_doc"] = "BL"
 
         if action_preclass == "TRANSFORMER_DOC":
-            m_piece = re.search(
-    r"\b((?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,})\b", question, re.IGNORECASE
-)
+            m_piece = _RX_PIECE_DOC.search(question)
             if m_piece:
                 state["num_piece"] = m_piece.group(1).upper()
                 print(f"   🔎 [Fix3] num_piece extrait : '{state['num_piece']}'")
@@ -2845,14 +3016,39 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
             if re.search(r"\bbf\b|bon\s+de\s+fabrication", q_lower):
                 state["type_doc"] = "BF"
             elif re.search(r"facture|facturer", q_lower):
-                state["type_doc"] = "FACTURE"
+                if re.search(r"achat|fournisseur", q_lower):
+                    state["type_doc"] = "FA_ACHAT"
+                else:
+                    state["type_doc"] = "FACTURE"
             elif re.search(r"\bbl\b|bon\s+de\s+livraison", q_lower):
                 state["type_doc"] = "BL"
             elif re.search(r"\bbc\b|bon\s+de\s+commande", q_lower):
                 state["type_doc"] = "BC"
             if not state.get("num_piece"):
                 state["ambigue"] = True
+        if action_preclass == "DOCS_PERIODE":
+            m_client_periode = re.search(
+            r"(?:documents?|factures?|bls?)\s+(?:du\s+client\s+)?([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9\s\-&']{1,40}?)\s+entre",
+        question, re.IGNORECASE
+    )
+            if m_client_periode:
+                nom_candidat = m_client_periode.group(1).strip()
+                if _est_nom_valide(nom_candidat):
+                    code_trouve = await _rechercher_client_par_nom(nom_candidat)
+                    state["nom_client_brut"] = nom_candidat
+                    state["code_client"] = code_trouve or ""
+                    if not code_trouve:
+                        state["ambigue"] = True
 
+            m_dates = re.search(
+        r"(\d{4}-\d{2}-\d{2})\s+(?:et|au)\s+(?:le\s+)?(\d{4}-\d{2}-\d{2})",
+        question, re.IGNORECASE
+    )
+            if m_dates:
+                state["date_debut"] = m_dates.group(1)
+                state["date_fin"]   = m_dates.group(2)
+            if not state.get("date_debut") or not state.get("date_fin"):
+                state["ambigue"] = True
         if action_preclass == "MODIFIER_STATUT":
             q_lower = question.lower()
             if re.search(r"d[eé]bloquer?|r[eé]activer?|valider?|activer?", q_lower):
@@ -2860,19 +3056,48 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
             else:
                 state["type_doc"] = "BLOQUE"
             
-            _RX_CODE_TIERS = re.compile(r"\b([A-Z]{2,6}\d{2,})\b", re.IGNORECASE)
+            _RX_CODE_TIERS = re.compile(r"\b([A-Z]{2,8}\d{0,})\b", re.IGNORECASE)
+            _EXCLUES_CODES = {"CLIENT", "FOURNISSEUR", "BLOQUER", "DEBLOQUER", "ACTIVER", "STATUT", "MODIFIER", "CLIENTS", "FOURNISSEURS", "VALIDE", "BLOQUE"}
 
             if re.search(r"fournisseur", q_lower):
                 if not state.get("code_fournisseur"):
                     m = _RX_CODE_TIERS.search(question)
-                    if m:
+                    if m and m.group(1).upper() not in _EXCLUES_CODES:
                         state["code_fournisseur"] = m.group(1).upper()
             else:
                 # Ne pas écraser un code_client déjà correctement extrait
                 if not state.get("code_client"):
                     m = _RX_CODE_TIERS.search(question)
-                    if m:
+                    if m and m.group(1).upper() not in _EXCLUES_CODES:
                         state["code_client"] = m.group(1).upper()
+
+            # Fallback par nom de client
+            if not state.get("code_client") and not state.get("code_fournisseur"):
+                nom_brut = state.get("nom_client_brut")
+                if nom_brut:
+                    code_trouve = await _rechercher_client_par_nom(nom_brut)
+                    if code_trouve:
+                        state["code_client"] = code_trouve
+
+        # ── PATCH N : extraction date_debut / date_fin pour DOCS_PERIODE ──
+        # Sans ce bloc, le fast-path regex classifiait bien DOCS_PERIODE
+        # mais ne remplissait JAMAIS date_debut/date_fin (ils restaient à
+        # "" — valeur initiale de _etat_initial). La requête MCP partait
+        # alors avec des dates vides → 0 résultat garanti, quelle que soit
+        # la période réellement demandée.
+        if action_preclass == "DOCS_PERIODE":
+            m_dates = re.search(
+                r"(\d{4}-\d{2}-\d{2})\s+(?:et|au)\s+(?:le\s+)?(\d{4}-\d{2}-\d{2})",
+                question, re.IGNORECASE
+            )
+            if m_dates:
+                state["date_debut"] = m_dates.group(1)
+                state["date_fin"]   = m_dates.group(2)
+            if not state.get("date_debut") or not state.get("date_fin"):
+                # On préfère demander une clarification plutôt que
+                # d'exécuter silencieusement une requête vouée à ne
+                # renvoyer aucun résultat.
+                state["ambigue"] = True
 
         state["action"]          = action_preclass
         state["score_confiance"] = 1.0
@@ -2910,11 +3135,15 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
         # exploitable (pas juste un code auto-généré depuis rien) avant
         # de considérer la demande comme non ambiguë.
         if action_preclass == "CREER_CLIENT":
+            # Toujours repartir de zéro : ces champs ne doivent jamais être
+            # hérités d'une action précédente (client ou fournisseur).
+            for _cle in ("code_client", "nom_client_brut", "intitule", "ct_validite",
+                         "ct_encours_max", "adresse", "complement", "code_postal",
+                         "ville", "pays", "contact", "telephone", "email", "site"):
+                state.pop(_cle, None)
             nom_brut = state.get("nom_client_brut") or ""
-            if not state.get("code_client") and nom_brut:
-                state["code_client"] = await _generer_code_client(nom_brut)
-                print(f"   🔧 [CREER_CLIENT] Code généré depuis nom '{nom_brut}' → '{state['code_client']}'")
-            if not state.get("code_client"):
+
+            if not nom_brut:
                 m_cli = re.search(
                     r"(?:cr[eé][eé]?|nouveau|ajouter?)\s+(?:le\s+|un\s+)?(?:client|tiers)\s+([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ0-9\s\-&'.]{1,60}?)(?:\s*[?.,;!]|\s*$)",
                     question, re.IGNORECASE
@@ -2932,28 +3161,42 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                     if (nom_extrait.lower() not in _invalides_cli
                             and len(nom_extrait) >= 2
                             and _est_nom_valide(nom_extrait)):
-                        state["nom_client_brut"] = nom_extrait
-                        state["code_client"] = await _generer_code_client(nom_extrait)
-                        print(f"   🔧 [CREER_CLIENT] Nom extrait: '{nom_extrait}' → Code: '{state['code_client']}'")
-                if not state.get("code_client") and state.get("ref_article"):
-                    nom_secours = state["ref_article"]
-                    state["nom_client_brut"] = nom_secours
-                    state["code_client"] = await _generer_code_client(nom_secours)
+                        nom_brut = nom_extrait
+                        print(f"   🔧 [CREER_CLIENT] Nom extrait: '{nom_extrait}'")
+
+                if not nom_brut and state.get("ref_article"):
+                    nom_brut = state["ref_article"]
                     state["ref_article"] = ""
-                    print(f"   🔧 [CREER_CLIENT] Nom depuis ref_article: '{nom_secours}' → Code: '{state['code_client']}'")
-                # PATCH K : sans nom exploitable → ambigu, ne PAS confirmer
-                # la création d'un client fantôme "Nouveau Client"
-                if not state.get("code_client") or not state.get("nom_client_brut"):
-                    state["pending_document"] = {"type_doc": "CLIENT_CREATION"}
-                    state["attente_complements"] = True
-                    state["ambigue"] = False
-            
+                    print(f"   🔧 [CREER_CLIENT] Nom depuis ref_article: '{nom_brut}'")
+            if nom_brut and await _verifier_nom_tiers_existe_mcp(nom_brut, 1):
+                state["reponse_finale"] = f"❌ Le fournisseur **'{nom_brut}'** existe déjà. Impossible de le recréer."
+                state["pending_document"] = {}
+                state["attente_complements"] = True
+                state["ambigue"] = False
+                state["code_client"] = ""
+                state["nom_client_brut"] = ""
+                return state
+            pending = {"type_doc": "CLIENT_CREATION"}
+            if nom_brut:
+                state["nom_client_brut"] = nom_brut
+                pending["nom_client_brut"] = nom_brut
+                pending["intitule"] = nom_brut
+                pending["_champs_saisis"] = {"nom_client_brut", "intitule"}
+
+            state["pending_document"] = pending
+            state["attente_complements"] = True
+            state["ambigue"] = False
+            state["code_client"] = ""
         if action_preclass == "CREER_FOURNISSEUR":
+            # Toujours repartir de zéro : ces champs ne doivent jamais être
+            # hérités d'une action précédente (client ou fournisseur).
+            for _cle in ("code_client", "nom_client_brut", "intitule", "ct_validite",
+                         "ct_encours_max", "adresse", "complement", "code_postal",
+                         "ville", "pays", "contact", "telephone", "email", "site"):
+                state.pop(_cle, None)
             nom_brut = state.get("nom_client_brut") or ""
-            if not state.get("code_client") and nom_brut:
-                state["code_client"] = await _generer_code_fournisseur(nom_brut)
-                print(f"   🔧 [CREER_FOURNISSEUR] Code généré depuis nom '{nom_brut}' → '{state['code_client']}'")
-            if not state.get("code_client"):
+
+            if not nom_brut:
                 m_fourn = re.search(
                     r"(?:cr[eé][eé]?|nouveau|ajouter?)\s+(?:le\s+|un\s+)?fournisseur\s+([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ0-9\s\-&'.]{1,60}?)(?:\s*[?.,;!]|\s*$)",
                     question, re.IGNORECASE
@@ -2967,27 +3210,39 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
                     nom_extrait = m_fourn.group(1).strip()
                     _invalides = {"le","la","les","du","de","un","une","des","pour","avec","sur"}
                     if nom_extrait.lower() not in _invalides and len(nom_extrait) >= 2 and _est_nom_valide(nom_extrait):
-                        state["nom_client_brut"] = nom_extrait
-                        state["code_client"] = await _generer_code_fournisseur(nom_extrait)
+                        nom_brut = nom_extrait
                         if state.get("ref_article", "").upper() == nom_extrait.upper():
                             state["ref_article"] = ""
-                        print(f"   🔧 [CREER_FOURNISSEUR] Nom extrait: '{nom_extrait}' → Code: '{state['code_client']}'")
-                if not state.get("code_client") and state.get("ref_article"):
-                    nom_secours = state["ref_article"]
-                    state["nom_client_brut"] = nom_secours
-                    state["code_client"] = await _generer_code_fournisseur(nom_secours)
+                        print(f"   🔧 [CREER_FOURNISSEUR] Nom extrait: '{nom_extrait}'")
+
+                if not nom_brut and state.get("ref_article"):
+                    nom_brut = state["ref_article"]
                     state["ref_article"] = ""
-                    print(f"   🔧 [CREER_FOURNISSEUR] Nom depuis ref_article: '{nom_secours}' → Code: '{state['code_client']}'")
-                if not state.get("code_client") or not state.get("nom_client_brut"):
-                    state["pending_document"] = {"type_doc": "FOURNISSEUR_CREATION"}
-                    state["attente_complements"] = True
-                    state["ambigue"] = False
+                    print(f"   🔧 [CREER_FOURNISSEUR] Nom depuis ref_article: '{nom_brut}'")
+            if nom_brut and await _verifier_nom_tiers_existe_mcp(nom_brut, 0):
+                state["reponse_finale"] = f"❌ Le client **'{nom_brut}'** existe déjà. Impossible de le recréer."
+                state["pending_document"] = {}
+                state["attente_complements"] = True
+                state["ambigue"] = False
+                state["code_client"] = ""
+                state["nom_client_brut"] = ""
+                return state
+
+            pending = {"type_doc": "FOURNISSEUR_CREATION"}
+            if nom_brut:
+                state["nom_client_brut"] = nom_brut
+                state["intitule"] = nom_brut
+                pending["nom_client_brut"] = nom_brut
+                pending["intitule"] = nom_brut
+                pending["_champs_saisis"] = {"nom_client_brut", "intitule"}
+
+            state["pending_document"] = pending
+            state["attente_complements"] = True
+            state["ambigue"] = False
+            state["code_client"] = ""
 
         if action_preclass == "REGLEMENT":
-            pieces_trouvees = re.findall(
-                r"\b((?:FA|BL|BC|BF|FF|AV|BR|AF)[A-Z0-9]{2,}\d{2,})\b",
-                question, re.IGNORECASE
-            )
+            pieces_trouvees = re.findall(_RX_PIECE_HEX, question, re.IGNORECASE)
             if pieces_trouvees:
                 state["num_piece"]   = pieces_trouvees[-1].upper()
                 state["code_client"] = ""
@@ -3178,6 +3433,8 @@ date_fin:VALEUR_OU_INCONNU"""
         if _est_nom_valide(llm_client) or re.match(r"^[A-Z]{2,6}\d{2,}$", llm_client, re.IGNORECASE):
             _llm_client_clean = llm_client
 
+    _extraction_explicite = bool(_regex_code or _ner_client or _nom_regex or _llm_client_clean)
+
     if _regex_code:
         state["code_client"]     = _regex_code
         state["nom_client_brut"] = ""
@@ -3195,8 +3452,12 @@ date_fin:VALEUR_OU_INCONNU"""
         state["code_client"]     = ""
         print(f"   ✅ [Client] LLM : '{_llm_client_clean}'")
     else:
-        if state.get("nom_client_brut"):
-            print(f"   🔗 [Client] Hérité session : '{state['nom_client_brut']}'")
+        _a_reference_contextuelle = bool(_REFS_CONTEXTUELLES.search(state["demande_brute"]))
+        if state.get("nom_client_brut") and _a_reference_contextuelle:
+            print(f"   🔗 [Client] Hérité session (référence contextuelle détectée) : '{state['nom_client_brut']}'")
+        elif not _a_reference_contextuelle:
+            state["nom_client_brut"] = ""
+            state["code_client"] = ""
 
     if state.get("nom_client_brut") and not state.get("code_client"):
         code_trouve = await _rechercher_client_par_nom(state["nom_client_brut"])
@@ -3310,6 +3571,7 @@ date_fin:VALEUR_OU_INCONNU"""
     # ── Détection type_doc ─────────────────────────────────────────
     if not state["type_doc"]:
         _TDM = {
+            r"facture\s*(?:d['\u2019]|de\s+)?achat|facture\s+fournisseur": "FA_ACHAT",
             r"facture|facturer":                                  "FACTURE",
             r"bl achat|bon de r[eé]ception|r[eé]ception fournisseur": "BL_ACHAT",
             r"bon de livraison|\bbl\b":                           "BL",
@@ -3360,7 +3622,7 @@ date_fin:VALEUR_OU_INCONNU"""
     # ══════════════════════════════════════════════════════════════
     if re.search(r"transform", n) and re.search(r"\bof\b.{0,20}\bbf\b|\bbl\b.{0,20}facture|\bbc\b.{0,20}\bbl\b", n):
         raw_action = "TRANSFORMER_DOC"
-        m_piece = re.search(r"\b((?:OF|BL|BC|BF)\d[A-Z0-9]{2,}|FA\d[A-Z0-9]{2,})\b", db, re.IGNORECASE)
+        m_piece = _RX_PIECE_DOC.search(db)
         if m_piece and not state.get("num_piece"):
             state["num_piece"] = m_piece.group(1).upper()
     # PATCH D/E : "client X est-il bloqué/actif" → STATUT_CLIENT, priorité
@@ -3388,7 +3650,10 @@ date_fin:VALEUR_OU_INCONNU"""
     elif any(w in n for w in ("facture","factures")) and any(w in n for w in ("client","tiers","pour","de","ses","son","sa","leur")):
         raw_action = "TOUTES_FACTURES_CLIENT"
     elif (
-        any(w in n for w in ("facture", "factures")) or re.search(r"\bbl\b", n)
+        # PATCH P : "document"/"documents" étaient absents de ce test —
+        # "documents du client CARAT entre DATE et DATE" tombait donc
+        # ailleurs et jamais sur DOCS_PERIODE via cet override.
+        any(w in n for w in ("facture", "factures", "document", "documents")) or re.search(r"\bbl\b", n)
     ) and (
         any(w in n for w in ("période", "periode", "mois", "année", "annee", "entre"))
         or re.search(r"\bdu\b", n) or re.search(r"\bau\b", n)
@@ -3485,7 +3750,7 @@ date_fin:VALEUR_OU_INCONNU"""
             state["code_client"] = "PROD-INT"
         elif not re.match(r"^([A-Z]{2,6}\d+|PROD)", ca, re.IGNORECASE):
             state["code_client"] = "PROD-INT"
-
+    
     # ── Références contextuelles ───────────────────────────────────
     if state["action"] in ("TRANSFORMER_DOC", "CREER_AVOIR", "REGLEMENT") and not state["num_piece"]:
         ref_det = any(m in n for m in MOTS_REFERENCE_DOCUMENT)
@@ -3510,6 +3775,11 @@ date_fin:VALEUR_OU_INCONNU"""
         if state["quantite"] <= 0.0:
             state["ambigue"] = True
     if state["action"] in ("TRANSFORMER_DOC","CREER_AVOIR","REGLEMENT") and not state["num_piece"]:
+        state["ambigue"] = True
+    # PATCH N (LLM path) : DOCS_PERIODE atteint via l'override ÉTAPE 3
+    # doit aussi exiger des dates exploitables, sinon on repart sur une
+    # requête vide silencieuse.
+    if state["action"] == "DOCS_PERIODE" and not (state.get("date_debut") and state.get("date_fin")):
         state["ambigue"] = True
     # PATCH K : CREER_CLIENT via le chemin LLM aussi soumis à l'exigence
     # d'un nom_client_brut valide
@@ -3601,9 +3871,15 @@ def _construire_detail_confirmation(state: "CopilotState") -> str:
     parts: list[str] = []
 
     if "client" in champs or "client_nom" in champs:
-        # Special handling for MODIFIER_STATUT: show "Fournisseur:" if code_fournisseur is present
         if act == "MODIFIER_STATUT" and state.get("code_fournisseur"):
             code = state.get("code_fournisseur", "")
+            nom  = state.get("nom_client_brut", "")
+            txt  = f"Fournisseur: {code}" if code else "Fournisseur: —"
+            if nom:
+                txt += f" ({nom})"
+            parts.append(txt)
+        elif act == "CREER_FOURNISSEUR":
+            code = state.get("code_client", "")
             nom  = state.get("nom_client_brut", "")
             txt  = f"Fournisseur: {code}" if code else "Fournisseur: —"
             if nom:
@@ -3637,6 +3913,29 @@ def _construire_detail_confirmation(state: "CopilotState") -> str:
             parts.append(f"N° pièce: {state['numero_piece_paiement']}")
 
     detail = (" | " + " | ".join(parts)) if parts else ""
+
+    if act in ("CREER_CLIENT", "CREER_FOURNISSEUR"):
+        if state.get("intitule"):
+            if state.get("nom_client_brut") and state.get("intitule") != state.get("nom_client_brut"):
+                detail += f" | Raison sociale: {state['intitule']}"
+            elif not state.get("nom_client_brut"):
+                detail += f" | Raison sociale: {state['intitule']}"
+
+        extras = []
+        for key, label in [
+            ("adresse", "Adresse"),
+            ("complement", "Complément"),
+            ("code_postal", "Code postal"),
+            ("ville", "Ville"),
+            ("pays", "Pays"),
+            ("contact", "Contact"),
+            ("telephone", "Téléphone"),
+            ("email", "Email"),
+            ("site", "Site"),
+        ]:
+            value = state.get(key, "")
+            extras.append(f"{label}: {value or '—'}")
+        detail += " | " + " | ".join(extras)
 
     if act == "CREER_CLIENT" and "statut_encours" in champs:
         detail += (
@@ -3773,9 +4072,10 @@ def _construire_graphe() -> object:
     g.add_node("synthese",      noeud_synthese)
     g.add_node("modification",  noeud_modification)
     g.add_node("modification_confirmation", noeud_modification_confirmation)
-    g.add_node(
-    "complements",
-    noeud_complements)
+    g.add_node("creation_article", _noeud_creation_article)
+    g.add_node("nomenclature", _noeud_nomenclature)
+    g.add_node("modification_nomenclature", _noeud_modification_nomenclature)
+    g.add_node("complements", noeud_complements)
     g.add_node("collecte_draft",    noeud_collecte_draft)
     g.add_node("preview_draft",     noeud_preview_draft)
     g.add_node("execution_draft",   noeud_execution_draft)
@@ -3787,6 +4087,13 @@ def _construire_graphe() -> object:
         # (doit être avant toute autre logique de routage)
         if state.get("modification_en_cours"):
             return "modification_confirmation"
+        
+        if state.get("creation_article_en_cours"):
+            return "creation_article"
+        if state.get("nomenclature_en_cours"):
+            return "nomenclature"
+        if state.get("modification_nomenclature_en_cours"):
+            return "modification_nomenclature"
         
         intention = state.get("intention", "ERP")
         if intention == "HORS_SUJET":
@@ -3809,6 +4116,12 @@ def _construire_graphe() -> object:
             return "nl2sql"
         if act == "TRANSFORMER_DOC":
             return "collecte_draft"
+        if act == "CREER_ARTICLE":
+            return "creation_article"
+        if act == "CREER_NOMENCLATURE":
+            return "nomenclature"
+        if act == "MODIFIER_NOMENCLATURE":
+            return "modification_nomenclature"
         if act in ("MODIFIER_ENTITE", "MODIFIER_CLIENT", "MODIFIER_FOURNISSEUR", "MODIFIER_ARTICLE"):
             return "modification"
         if act in ACTIONS_ECRITURE | ACTIONS_WORKFLOW:
@@ -3824,12 +4137,15 @@ def _construire_graphe() -> object:
         "clarification": "clarification",
         "lecture":       "lecture",
         "nl2sql":        "nl2sql",
-         "collecte_draft": "collecte_draft",
+        "collecte_draft": "collecte_draft",
         "confirmation":  "confirmation",
         "kb":            "kb",
         "complements":   "complements",
         "modification":  "modification",
         "modification_confirmation": "modification_confirmation",
+        "creation_article": "creation_article",
+        "nomenclature": "nomenclature",
+        "modification_nomenclature": "modification_nomenclature",
     })
     def _router_collecte(state: CopilotState) -> str:
         statut = state.get("statut_draft", "")
@@ -3885,6 +4201,9 @@ def _construire_graphe() -> object:
     
     # Modification confirmation goes to synthese after applying changes
     g.add_edge("modification_confirmation", "synthese")
+    g.add_edge("creation_article", "synthese")
+    g.add_edge("nomenclature", "synthese")
+    g.add_edge("modification_nomenclature", "synthese")
     g.add_edge("synthese", END)
 
     return g.compile()
@@ -3893,6 +4212,22 @@ def _construire_graphe() -> object:
 # ─────────────────────────────────────────────────────────────────────
 # POINT D'ENTRÉE PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────
+async def traiter_commande_speciale(demande: str) -> str | None:
+    """Traite les commandes spéciales (ex: vanna_retrain). Retourne la réponse ou None."""
+    if demande.strip().lower() == "vanna_retrain":
+        if _vanna_client is None:
+            return "⚠️  [Vanna] Client non initialisé — relancez le serveur avec ENABLE_VANNA=true."
+        try:
+            for item in _vanna_client.get_training_data().to_dict("records"):
+                _vanna_client.remove_training_data(item.get("id"))
+        except Exception as e:
+            print(f"⚠️  {e}")
+        global _vanna_train_count
+        _vanna_train_count = 0
+        _vanna_entrainer_schema(_vanna_client)
+        return "✅ Vanna ré-entraîné proprement."
+    return None
+
 async def main():
     
     vanna_status    = "ON ✨" if ENABLE_VANNA  else "OFF"
@@ -3902,12 +4237,12 @@ async def main():
 
     print(f"""
 ═════════════════════════════════════════════════════════════════
-🤖  COPILOT ERP SAGE 100 — v9.4 (patchée)
+🤖  COPILOT ERP SAGE 100 — v9.6 (patchée)
     Fast : {MODELE_FAST}  (timeout {OLLAMA_TIMEOUT_FAST}s)
     Smart: {MODELE_SMART} (timeout {OLLAMA_TIMEOUT_SMART}s)
     Fallback : {fallback_status}
     GLiNER: {gliner_status} | Vanna: {vanna_status} | Mem0: {mem0_status}
-    ✅ FIX1-7 (v9.3) + PATCH D/E/F/G/H/H2/#4/J/K (v9.4)
+    ✅ FIX1-7 (v9.3) + PATCH D/E/F/G/H/H2/#4/J/K (v9.4) + PATCH L/M/N/O/P (v9.6)
     (tapez 'aide', 'cache', 'warmup', 'reset', 'quitter')
 ═════════════════════════════════════════════════════════════════
 """)
@@ -3943,6 +4278,9 @@ async def main():
         "document_draft": {}, "statut_draft": "",
         "alertes_persistantes": [],
         "pending_action": {}, "statut_confirmation": "",
+        "modification_en_cours": {},
+        "creation_article_en_cours": {},
+        "nomenclature_en_cours": {},
     }
     demande_precedente = ""
 
@@ -3965,6 +4303,9 @@ async def main():
                     "document_draft": {}, "statut_draft": "",
                     "alertes_persistantes": [],
                     "pending_action": {}, "statut_confirmation": "",
+                    "modification_en_cours": {},
+                    "creation_article_en_cours": {},
+                    "nomenclature_en_cours": {},
                 }
                 demande_precedente = ""
                 print("🔄 Session réinitialisée.")
@@ -3983,14 +4324,8 @@ async def main():
                 print(f"\n{CAPACITES_SYSTEME}\n")
                 continue
             if demande.lower() == "vanna_retrain":
-                if _vanna_client is not None:
-                    try:
-                        for item in _vanna_client.get_training_data().to_dict("records"):
-                            _vanna_client.remove_training_data(item.get("id"))
-                    except Exception as e:
-                        print(f"⚠️  {e}")
-                    _vanna_entrainer_schema(_vanna_client)
-                    print("✅ Vanna ré-entraîné proprement.")
+                reponse = await traiter_commande_speciale("vanna_retrain")
+                print(reponse)
                 continue
             statut_conf_session = contexte_session.get("statut_confirmation")
             statut_draft_session = contexte_session.get("statut_draft")
@@ -4015,6 +4350,8 @@ async def main():
                 # attente, sans passer par noeud_classifier.
                 etat = _etat_initial("", contexte_session)
                 etat.update(pending)
+                if not etat.get("pending_document"):
+                    etat["pending_document"] = contexte_session.get("pending_document", {})  # ← filet de sécurité
                 etat["action"]               = pending.get("action", "")
                 etat["intention"]            = "ERP"
                 etat["statut_confirmation"]  = "CONFIRME"
@@ -4033,7 +4370,11 @@ async def main():
 
                 contexte_session["pending_action"]      = {}
                 contexte_session["statut_confirmation"] = ""
-
+                contexte_session["pending_document"]    = {} 
+                for _champ in ("intitule", "adresse", "complement", "code_postal", "ville",
+               "pays", "contact", "telephone", "email", "site",
+               "ct_validite", "ct_encours_max"):
+                    contexte_session[_champ] = "" if _champ != "ct_encours_max" else 0.0
                 if final_state.get("code_client"):
                     contexte_session["dernier_code_client"] = final_state["code_client"]
                 if final_state.get("ref_article"):
@@ -4042,7 +4383,12 @@ async def main():
                     contexte_session["dernier_quantite"] = final_state["quantite"]
                 if final_state.get("nom_client_brut"):
                     contexte_session["dernier_nom_client"] = final_state["nom_client_brut"]
-
+                for _champ in ("intitule", "adresse", "complement", "code_postal", "ville",
+               "pays", "contact", "telephone", "email", "site",
+               "ct_validite", "ct_encours_max", "code_fournisseur"):
+                    _val = final_state.get(_champ)
+                    if _val not in (None, "", 0.0):
+                        contexte_session[_champ] = _val
                 doc_extrait = _extraire_dernier_document(final_state)
                 if doc_extrait and doc_extrait.get("type_doc", "") not in ("OF", "BF"):
                     contexte_session["dernier_document"] = doc_extrait
@@ -4056,6 +4402,11 @@ async def main():
                 if final_state.get("attente_complements"):
                     contexte_session["attente_complements"] = True
                     contexte_session["pending_document"]    = final_state.get("pending_document", {})
+                elif final_state.get("statut_confirmation") == "ATTENTE":
+    # Une confirmation d'écriture (CREER_CLIENT, CREER_FOURNISSEUR, ...) est
+    # en attente : pending_document est encore nécessaire à l'exécution
+    # après le "oui" de l'utilisateur, on le conserve.
+                    contexte_session["attente_complements"] = False
                 else:
                     contexte_session["attente_complements"] = False
                     contexte_session["pending_document"]    = {}
@@ -4078,7 +4429,20 @@ async def main():
             else:
                 sugg = contexte_session.get("suggestion_en_attente", {})
                 if sugg:
-                    if _est_oui(demande):
+                    piece_ref = (
+                        sugg.get("params", {}).get("num_br")
+                        or sugg.get("params", {}).get("num_bl")
+                        or sugg.get("params", {}).get("num_of")
+                        or ""
+                    )
+                    demande_norm = demande.strip().lower()
+                    desc_norm = sugg.get("description", "").strip().lower()
+                    est_confirmation_sugg = (
+                        _est_oui(demande)
+                        or demande_norm == desc_norm
+                        or (piece_ref and piece_ref.lower() in demande_norm)
+                    )
+                    if est_confirmation_sugg:
                         reponse_sugg = await _executer_suggestion(sugg, contexte_session)
                         print(f"\n{'─'*65}\n📡 COPILOT ERP :\n{'─'*65}")
                         print(reponse_sugg)
@@ -4145,6 +4509,16 @@ async def main():
                     else:
                         contexte_session["pending_action"]      = {}
                         contexte_session["statut_confirmation"] = ""
+                        contexte_session["pending_document"]    = {}
+                        for _champ in ("intitule", "adresse", "complement", "code_postal", "ville",
+                                       "pays", "contact", "telephone", "email", "site",
+                                       "ct_validite", "ct_encours_max"):
+                            contexte_session[_champ] = "" if _champ != "ct_encours_max" else 0.0
+
+                    # Persistance modification_en_cours (flux guidé client/fournisseur)
+                    contexte_session["modification_en_cours"] = final_state.get("modification_en_cours", {})
+                    contexte_session["creation_article_en_cours"] = final_state.get("creation_article_en_cours", {})
+                    contexte_session["nomenclature_en_cours"] = final_state.get("nomenclature_en_cours", {})
 
                     if final_state.get("action") == "GENERER_DOC" and final_state.get("statut_draft") == "":
                         type_doc_genere = (final_state.get("type_doc") or "").upper()
@@ -4185,6 +4559,14 @@ async def main():
                 if final_state.get("nom_client_brut"):
                     contexte_session["dernier_nom_client"] = final_state["nom_client_brut"]
 
+                # ── AJOUT : persister les champs de fiche client/fournisseur ──
+                for _champ in ("intitule", "adresse", "complement", "code_postal", "ville",
+                               "pays", "contact", "telephone", "email", "site",
+                               "ct_validite", "ct_encours_max", "code_fournisseur"):
+                    _val = final_state.get(_champ)
+                    if _val not in (None, "", 0.0):
+                        contexte_session[_champ] = _val
+
                 doc_extrait = _extraire_dernier_document(final_state)
                 if doc_extrait and doc_extrait.get("type_doc", "") not in ("OF", "BF"):
                     contexte_session["dernier_document"] = doc_extrait
@@ -4208,9 +4590,18 @@ async def main():
                 if final_state.get("attente_complements"):
                     contexte_session["attente_complements"] = True
                     contexte_session["pending_document"]    = final_state.get("pending_document", {})
+                elif final_state.get("statut_confirmation") == "ATTENTE":
+                    # Confirmation en attente : on garde pending_document intact,
+                    # il sera encore nécessaire à l'exécution après le "oui".
+                    contexte_session["attente_complements"] = False
                 else:
                     contexte_session["attente_complements"] = False
                     contexte_session["pending_document"]    = {}
+
+                # Persistance modification_en_cours (flux guidé client/fournisseur)
+                contexte_session["modification_en_cours"] = final_state.get("modification_en_cours", {})
+                contexte_session["creation_article_en_cours"] = final_state.get("creation_article_en_cours", {})
+                contexte_session["nomenclature_en_cours"] = final_state.get("nomenclature_en_cours", {})
 
                 if final_state.get("ambigue"):
                     demande_precedente = demande_courante

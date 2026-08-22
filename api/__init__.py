@@ -20,7 +20,7 @@ from api.orchestrateur_general import (
     _construire_graphe, _est_oui, _est_non, _executer_suggestion,
     _resoudre_references, decouper_demande_composite, _fusionner_demandes,
     _etat_initial, _extraire_dernier_document, _safe_str,
-    formater_alertes_persistantes,
+    formater_alertes_persistantes, traiter_commande_speciale,
 )
 from classification.semantic_classifier import warmup_semantic_classifier
 from auth import (
@@ -264,9 +264,37 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
             origine_classification="",
         )
 
+    # Commandes spéciales partagées (ex: vanna_retrain)
+    resp_speciale = await traiter_commande_speciale(demande)
+    if resp_speciale:
+        return ChatResponse(
+            responses=[resp_speciale],
+            suggestions=[],
+            draft_status="",
+            confirmation_status="",
+            pdf_url=None,
+            alerts=[],
+            attente_complements=False,
+            score_confiance=0.0,
+            origine_classification="",
+        )
+
     sugg = contexte_session.get("suggestion_en_attente", {})
-    if sugg and (_est_oui(demande) or _est_non(demande)):
-        if _est_oui(demande):
+    if sugg:
+        piece_ref = (
+            sugg.get("params", {}).get("num_br")
+            or sugg.get("params", {}).get("num_bl")
+            or sugg.get("params", {}).get("num_of")
+            or ""
+        )
+        demande_norm = demande.strip().lower()
+        desc_norm = sugg.get("description", "").strip().lower()
+        est_confirmation_sugg = (
+            _est_oui(demande)
+            or demande_norm == desc_norm
+            or (piece_ref and piece_ref.lower() in demande_norm)
+        )
+        if est_confirmation_sugg:
             contexte_session["pdf_path"] = ""
             reponse_sugg = await _executer_suggestion(sugg, contexte_session)
             contexte_session["suggestion_en_attente"] = {}
@@ -280,9 +308,11 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
                 alerts=[alertes_txt] if alertes_txt else [],
                 attente_complements=contexte_session.get("attente_complements", False),
             )
-        else:
+        elif _est_non(demande):
             contexte_session["suggestion_en_attente"] = {}
             return ChatResponse(responses=["🛑 Suggestion annulée."], suggestions=[])
+        else:
+            contexte_session["suggestion_en_attente"] = {}
 
     try:
         demande_resolue = _resoudre_references(demande, contexte_session.get("dernier_document", {}))
@@ -308,6 +338,15 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
             if contexte_session.get("modification_en_cours"):
                 etat["modification_en_cours"] = contexte_session["modification_en_cours"]
                 logger.info(f"🔧 [Session] Restored modification_en_cours: {etat['modification_en_cours']}")
+            if contexte_session.get("creation_article_en_cours"):
+                etat["creation_article_en_cours"] = contexte_session["creation_article_en_cours"]
+                logger.info(f"🔧 [Session] Restored creation_article_en_cours étape: {etat['creation_article_en_cours'].get('etape')}")
+            if contexte_session.get("nomenclature_en_cours"):
+                etat["nomenclature_en_cours"] = contexte_session["nomenclature_en_cours"]
+                logger.info(f"🔧 [Session] Restored nomenclature_en_cours étape: {etat['nomenclature_en_cours'].get('etape')}")
+            if contexte_session.get("modification_nomenclature_en_cours"):
+                etat["modification_nomenclature_en_cours"] = contexte_session["modification_nomenclature_en_cours"]
+                logger.info(f"🔧 [Session] Restored modification_nomenclature_en_cours étape: {etat['modification_nomenclature_en_cours'].get('etape')}")
             if contexte_session.get("attente_confirmation"):
                 etat["attente_confirmation"] = contexte_session["attente_confirmation"]
                 logger.info(f"🔧 [Session] Restored attente_confirmation: {etat['attente_confirmation']}")
@@ -316,8 +355,12 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
                 etat["document_draft"] = contexte_session["document_draft"]
                 etat["statut_draft"] = contexte_session.get("statut_draft", "")
 
+            API_GRAPH_TIMEOUT = float(os.getenv("API_GRAPH_TIMEOUT", "90"))
             try:
-                final_state = await graphe.ainvoke(etat)
+                final_state = await asyncio.wait_for(graphe.ainvoke(etat), timeout=API_GRAPH_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout lors de l'appel du graphe pour session %s", session_id)
+                final_state = {**etat, "reponse_finale": "❌ Le graphe a dépassé le délai d'attente. Veuillez réessayer plus tard."}
             except Exception as e:
                 logger.exception("Erreur pendant l'exécution du graphe pour session %s", session_id)
                 final_state = {**etat, "reponse_finale": "❌ Une erreur système s'est produite. Veuillez réessayer."}
@@ -325,13 +368,36 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
             reponse = final_state.get("reponse_finale", "⚠️  Aucune réponse.")
 
             # ── Persistance du cycle modification ──
-            # Sauvegarder depuis final_state (après exécution du graphe)
             if final_state.get("modification_en_cours"):
                 contexte_session["modification_en_cours"] = final_state["modification_en_cours"]
                 logger.info(f"🔧 [Session] Saved modification_en_cours from final_state: {final_state['modification_en_cours']}")
             else:
                 contexte_session["modification_en_cours"] = {}
                 logger.info(f"🔧 [Session] Cleared modification_en_cours")
+
+            # ── Persistance du cycle création article ──
+            if final_state.get("creation_article_en_cours"):
+                contexte_session["creation_article_en_cours"] = final_state["creation_article_en_cours"]
+                logger.info(f"🔧 [Session] Saved creation_article_en_cours étape: {final_state['creation_article_en_cours'].get('etape')}")
+            else:
+                contexte_session["creation_article_en_cours"] = {}
+                logger.info(f"🔧 [Session] Cleared creation_article_en_cours")
+
+            # ── Persistance du cycle nomenclature ──
+            if final_state.get("nomenclature_en_cours"):
+                contexte_session["nomenclature_en_cours"] = final_state["nomenclature_en_cours"]
+                logger.info(f"🔧 [Session] Saved nomenclature_en_cours étape: {final_state['nomenclature_en_cours'].get('etape')}")
+            else:
+                contexte_session["nomenclature_en_cours"] = {}
+                logger.info(f"🔧 [Session] Cleared nomenclature_en_cours")
+
+            # ── Persistance du cycle modification nomenclature ──
+            if final_state.get("modification_nomenclature_en_cours"):
+                contexte_session["modification_nomenclature_en_cours"] = final_state["modification_nomenclature_en_cours"]
+                logger.info(f"🔧 [Session] Saved modification_nomenclature_en_cours étape: {final_state['modification_nomenclature_en_cours'].get('etape')}")
+            else:
+                contexte_session["modification_nomenclature_en_cours"] = {}
+                logger.info(f"🔧 [Session] Cleared modification_nomenclature_en_cours")
             
             if final_state.get("attente_confirmation"):
                 contexte_session["attente_confirmation"] = final_state["attente_confirmation"]

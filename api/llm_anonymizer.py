@@ -82,23 +82,48 @@ def _load_db_values() -> None:
             cur.execute(
                 f"SELECT {code_col}, {nom_col}, {type_col} FROM {clients_table}"
             )
+            raw_rows = cur.fetchall()
+            print(f"   [DEBUG] Lignes brutes tiers retournées par SQL : {len(raw_rows)}")
+            if raw_rows:
+                print(f"   [DEBUG] Exemple première ligne : {raw_rows[0]}")
+            
             clients, fournisseurs, noms = [], [], []
-            for ct_num, ct_intitule, ct_type in cur.fetchall():
-                if ct_num and ct_num.upper() not in ("PROD-INT", ""):
-                    if ct_type == 0:
-                        clients.append(ct_num)
-                    elif ct_type == 1:
-                        fournisseurs.append(ct_num)
-                if ct_intitule and len(ct_intitule.strip()) >= 3:
-                    noms.append(ct_intitule.strip())
+            for row in raw_rows:
+                # Handle both dict-like and tuple-like rows
+                if isinstance(row, dict) or hasattr(row, 'keys'):
+                    def _get_val(r, col_name):
+                        if col_name in r: return r[col_name]
+                        if col_name.lower() in r: return r[col_name.lower()]
+                        if col_name.upper() in r: return r[col_name.upper()]
+                        return None
+                    ct_num = _get_val(row, code_col)
+                    ct_intitule = _get_val(row, nom_col)
+                    ct_type = _get_val(row, type_col)
+                else:
+                    ct_num, ct_intitule, ct_type = row[0], row[1], row[2]
+                
+                if ct_num and str(ct_num).upper() not in ("PROD-INT", ""):
+                    # Traiter ct_type en toute sécurité (0 est falsy en Python)
+                    if str(ct_type).strip() == "0" or ct_type == 0:
+                        clients.append(str(ct_num))
+                    elif str(ct_type).strip() == "1" or ct_type == 1:
+                        fournisseurs.append(str(ct_num))
+                if ct_intitule and len(str(ct_intitule).strip()) >= 3:
+                    noms.append(str(ct_intitule).strip())
 
             # Références articles
             cur.execute(f"SELECT {ref_col} FROM {articles_table}")
-            articles = [r[0] for r in cur.fetchall() if r[0]]
+            articles = []
+            for row in cur.fetchall():
+                val = row.get(ref_col) if (isinstance(row, dict) or hasattr(row, 'keys')) else row[0]
+                if val: articles.append(str(val))
 
             # Numéros de pièce
             cur.execute(f"SELECT DISTINCT {piece_col} FROM {doc_entete_table}")
-            pieces = [r[0] for r in cur.fetchall() if r[0]]
+            pieces = []
+            for row in cur.fetchall():
+                val = row.get(piece_col) if (isinstance(row, dict) or hasattr(row, 'keys')) else row[0]
+                if val: pieces.append(str(val))
         finally:
             con.close()
 
@@ -264,11 +289,22 @@ class _Anonymizer:
         return result
 
     def deanonymise(self, text: str) -> str:
-        """Restaure les valeurs originales dans la réponse du LLM."""
+        """Restaure les valeurs originales dans la réponse du LLM.
+
+        FIX : le LLM a tendance à retirer les chevrons << >> quand il
+        recopie un token (surtout en le mettant dans un tableau markdown
+        ou une phrase reformulée). On restaure donc aussi bien la forme
+        encadrée que la forme nue, comme le fait déjà deanonymise_with_map
+        pour le SQL généré par Vanna.
+        """
         result = text
         # Du plus long token au plus court pour éviter les remplacements partiels
         for tok, val in sorted(self._map.items(), key=lambda x: len(x[0]), reverse=True):
+            # 1. Forme encadrée exacte : <<NOM_1>>
             result = result.replace(tok, val)
+            # 2. Forme nue (chevrons retirés par le LLM) : NOM_1
+            tok_nu = tok.replace("<<", "").replace(">>", "")
+            result = re.sub(rf"\b{re.escape(tok_nu)}\b", lambda _: val, result)
         return result
 
 
@@ -325,7 +361,11 @@ def deanonymise_with_map(text: str, restore_map: dict[str, str]) -> str:
     """
     result = text
     for tok, val in sorted(restore_map.items(), key=lambda x: len(x[0]), reverse=True):
+        # 1. Remplacement exact du token (avec chevrons)
         result = result.replace(tok, val)
+        # 2. Remplacement de la version nue (sans chevrons) générée par le LLM
+        tok_nu = tok.replace("<<", "").replace(">>", "")
+        result = re.sub(rf"\b{re.escape(tok_nu)}\b", lambda _: val, result)
     return result
 
 

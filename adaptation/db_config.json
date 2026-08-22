@@ -8,7 +8,8 @@
         "doc_entete": "F_DOCENTETE",
         "doc_ligne": "F_DOCLIGNE",
         "reglements": "F_DOCREGL",
-        "nomenclature": "F_NOMENCLAT"
+        "nomenclature": "F_NOMENCLAT",
+        "familles": "F_FAMILLE"
     },
     "columns": {
         "clients_fournisseurs": {
@@ -17,20 +18,41 @@
             "type_tiers": "CT_Type",
             "sommeil": "CT_Sommeil",
             "validite": "CT_Sommeil",
-            "encours": "CT_Encours", "cb_marq": "cbMarq"
+            "encours": "CT_Encours",
+            "encours_max": "CT_Encours",
+            "cb_marq": "cbMarq",
+            "adresse":      "CT_Adresse",
+"complement":   "CT_Complement",
+"code_postal":  "CT_CodePostal",
+"ville":        "CT_Ville",
+"pays":         "CT_Pays",
+"contact":      "CT_Contact",
+"telephone":    "CT_Telephone",
+"telecopie":    "CT_Telecopie",
+"email":        "CT_EMail",
+"site":         "CT_Site",
+"cg_num_princ": "CG_NumPrinc"
         },
         "articles": {
             "ref": "AR_Ref",
             "designation": "AR_Design",
             "prix_achat": "AR_PrixAch",
             "prix_vente": "AR_PrixVen",
-            "type_article": "AR_Type","cb_marq": "cbMarq", "code_famille": "FA_CodeFamille"
+            "type_article": "AR_Type",
+            "cb_marq": "cbMarq",
+            "code_famille": "FA_CodeFamille",
+            "nature": "AR_Nature",
+            "unite_vente": "AR_UniteVen",
+            "suivi_stock": "AR_SuiviStock"
         },
         "stock": {
             "ref": "AR_Ref",
+            "depot": "DE_No",
             "qte_stock": "AS_QteSto",
             "qte_commande": "AS_QteCom",
-            "cb_marq": "cbMarq", "de_no": "DE_No"
+            "montant_stock": "AS_MontSto",
+            "principal": "AS_Principal",
+            "cb_marq": "cbMarq"
         },
         "doc_entete": {
             "piece": "DO_Piece",
@@ -46,19 +68,39 @@
             "ref_article": "AR_Ref",
             "qte": "DL_Qte",
             "prix_unitaire": "DL_PrixUnitaire",
-            "ligne": "DL_Ligne", "cb_marq": "cbMarq", "pf_num": "PF_Num"
+            "ligne": "DL_Ligne",
+            "cb_marq": "cbMarq",
+            "pf_num": "PF_Num",
+            "mvt_stock": "DL_MvtStock",
+            "depot": "DE_No",
+            "prix_ru": "DL_PrixRU",
+            "cmup": "DL_CMUP",
+            "ref_compose": "AR_RefCompose",
+            "ttc": "DL_TTC",
+            "valorise": "DL_Valorise",
+            "non_livre": "DL_NonLivre",
+            "piecebl": "DL_PieceBL",
+            "qtebl": "DL_QteBL"
         },
         "reglements": {
-            "piece": "DO_Piece",
+            "piece":          "DO_Piece",
+            "domaine":        "DO_Domaine",
+            "type":           "DO_Type",
+            "cb_piece":       "cbDO_Piece",
             "type_reglement": "DR_TypeRegl",
-            "montant": "DR_Montant",
-            "mode_paiement": "DR_TypeRegl",
-            "date_reglement": "DR_Date", "cb_marq": "cbMarq"
+            "montant":        "DR_Montant",
+            "mode_paiement":  "DR_TypeRegl",
+            "date_reglement": "DR_Date",
+            "cb_marq":        "cbMarq"
         },
         "nomenclature": {
             "ref_pf": "AR_Ref",
             "ref_mp": "NO_RefDet",
             "qte": "NO_Qte", "cb_marq": "cbMarq"
+        },
+        "familles": {
+            "code": "FA_CodeFamille",
+            "intitule": "FA_Intitule"
         }
     }
 }

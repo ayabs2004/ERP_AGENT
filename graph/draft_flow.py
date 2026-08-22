@@ -30,7 +30,89 @@ from api.mcp_actions_sage import _get_conn, _resolve_article, _get_nomenclature
 # ─────────────────────────────────────────────────────────────────────
 # Prévisualisation des documents OF/BF : enrichissement nomenclature
 # ─────────────────────────────────────────────────────────────────────
+# draft_flow.py — en tête de fichier
+import adaptation.db_adapter as sch
 
+def _enrichir_facture_depuis_bl(draft: dict) -> dict:
+    type_doc = (draft.get("type_doc") or "").upper()
+    if type_doc not in ("FACTURE", "FA_ACHAT"):
+        return draft
+    num_bl = draft.get("num_piece_source", "")
+    if not num_bl:
+        return draft
+    if (draft.get("code_client") and draft.get("code_fournisseur") and draft.get("ref_article")
+            and draft.get("quantite") and draft.get("date_livraison")):
+        return draft
+    conn = _get_conn()
+    try:
+        entete = conn.execute(
+            f"SELECT {sch.C_DO_TIERS} AS DO_Tiers, {sch.C_DO_DATE} AS DO_Date "
+            f"FROM {sch.T_DOC_ENTETE} WHERE {sch.C_DO_PIECE} = ?",
+            (num_bl,)
+        ).fetchone()
+        if entete:
+            if type_doc == "FA_ACHAT" and not draft.get("code_fournisseur"):
+                draft["code_fournisseur"] = entete["DO_Tiers"]
+            elif type_doc == "FACTURE" and not draft.get("code_client"):
+                draft["code_client"] = entete["DO_Tiers"]
+            if not draft.get("date_livraison") and entete["DO_Date"]:
+                draft["date_livraison"] = entete["DO_Date"]
+        ligne = conn.execute(
+            f"SELECT {sch.C_DL_REF} AS AR_Ref, {sch.C_DL_QTE} AS DL_Qte, "
+            f"{sch.C_DL_PRIX} AS DL_PrixUnitaire "
+            f"FROM {sch.T_DOC_LIGNE} WHERE {sch.C_DL_PIECE} = ?",
+            (num_bl,),
+        ).fetchone()
+        if ligne:
+            if not draft.get("ref_article"):
+                draft["ref_article"] = ligne["AR_Ref"]
+            if not draft.get("quantite"):
+                draft["quantite"] = ligne["DL_Qte"]
+            if not draft.get("prix_unitaire"):
+                draft["prix_unitaire"] = ligne["DL_PrixUnitaire"]
+    except Exception as e:
+        print(f"   ⚠️  [Facture depuis BL] {e}")
+    finally:
+        conn.close()
+    return draft
+
+
+def _enrichir_bf_depuis_of(draft: dict) -> dict:
+    if (draft.get("type_doc") or "").upper() != "BF":
+        return draft
+    if draft.get("ref_article"):
+        return draft
+    num_of = (
+        draft.get("num_of", "")
+        or draft.get("num_piece_source", "")
+        or draft.get("num_piece", "")
+    ).strip().upper()
+    if not num_of:
+        return draft
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            f"SELECT {sch.C_DL_REF} AS AR_Ref, {sch.C_DL_QTE} AS DL_Qte "
+            f"FROM {sch.T_DOC_LIGNE} WHERE UPPER({sch.C_DL_PIECE}) = ?",
+            (num_of,),
+        ).fetchone()
+        if row:
+            draft["ref_article"] = row["AR_Ref"]
+            # Quantité PLANIFIÉE conservée à titre indicatif seulement.
+            # On ne pré-remplit JAMAIS draft["quantite"] : la quantité
+            # finale réellement produite doit toujours être confirmée
+            # par l'utilisateur (elle peut différer du prévisionnel).
+            draft["quantite_prevue"] = row["DL_Qte"]
+            article = _resolve_article(conn, row["AR_Ref"])
+            if article and not draft.get("designation_article"):
+                draft["designation_article"] = article.get("AR_Design") or row["AR_Ref"]
+        else:
+            print(f"   ⚠️  [BF depuis OF] Aucune ligne trouvée pour la pièce '{num_of}'")
+    except Exception as e:
+        print(f"   ⚠️  [BF depuis OF] Erreur enrichissement : {e}")
+    finally:
+        conn.close()
+    return draft
 def _enrichir_nomenclature_preview(draft: dict) -> dict:
     type_doc = (draft.get("type_doc") or "").upper()
     if type_doc not in {"OF", "BF"}:
@@ -95,7 +177,8 @@ def _enrichir_prix_preview(draft: dict) -> dict:
             article = dict(article)
             if not draft.get("designation_article") and article.get("AR_Design"):
                 draft["designation_article"] = article["AR_Design"]
-            prix = float(article.get("AR_PrixVen") or 0.0)
+            col_prix = "AR_PrixAch" if type_doc in {"BL_ACHAT", "FA_ACHAT"} else "AR_PrixVen"
+            prix = float(article.get(col_prix) or 0.0)
             if prix > 0:
                 draft["prix_unitaire"] = prix
     finally:
@@ -121,7 +204,7 @@ SCHEMAS_DOCUMENTS: dict[str, dict] = {
             "code_client": "Quel client ?",
             "ref_article": "Quelle référence article ?",
             "quantite":    "Quelle quantité ?",
-            "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
+            "date_livraison": "Quelle date de facturation souhaitée ? (JJ/MM/AAAA)",
         },
     },
     "BL_ACHAT": {
@@ -130,6 +213,16 @@ SCHEMAS_DOCUMENTS: dict[str, dict] = {
             "code_fournisseur": "Quel fournisseur ?",
             "ref_article":      "Quelle référence article ?",
             "quantite":         "Quelle quantité reçue ?",
+            "prix_unitaire":    "Quel prix d'achat unitaire ?",
+            "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
+        },
+    },
+    "FA_ACHAT": {
+        "champs": ["code_fournisseur", "ref_article", "quantite", "prix_unitaire","date_livraison"],
+        "label_champs": {
+            "code_fournisseur": "Quel fournisseur ?",
+            "ref_article":      "Quelle référence article ?",
+            "quantite":         "Quelle quantité ?",
             "prix_unitaire":    "Quel prix d'achat unitaire ?",
             "date_livraison": "Quelle date de livraison souhaitée ? (JJ/MM/AAAA)",
         },
@@ -184,9 +277,12 @@ def champs_manquants(type_doc: str, draft: dict) -> list[str]:
             manquants.append(c)
     return manquants
 
-def question_pour_champ(type_doc: str, champ: str) -> str:
+def question_pour_champ(type_doc: str, champ: str, draft: dict | None = None) -> str:
     schema = SCHEMAS_DOCUMENTS.get((type_doc or "").upper(), {})
-    return schema.get("label_champs", {}).get(champ, f"Valeur pour '{champ}' ?")
+    base = schema.get("label_champs", {}).get(champ, f"Valeur pour '{champ}' ?")
+    if champ == "quantite" and draft and draft.get("quantite_prevue"):
+        base += f" (quantité prévue à l'OF : {draft['quantite_prevue']:g})"
+    return base
 
 
 async def _verifier_stock_draft(draft: dict) -> tuple[bool, str]:
@@ -269,74 +365,23 @@ def construire_draft_depuis_state(state: dict) -> dict:
         draft["code_fournisseur"] = state.get("code_client", "")
     elif type_doc == "BF":
         draft["code_client"] = state.get("code_client", "") or "PROD-INT"
-        draft["num_of"]      = state.get("num_piece", "") or state.get("dernier_num_piece", "")
+        draft["num_of"] = (
+            state.get("num_piece", "")
+            or state.get("num_piece_source", "")
+            or state.get("dernier_num_piece", "")
+        )
     elif type_doc == "OF":
         draft["code_client"] = state.get("code_client", "") or "PROD-INT"
+    elif type_doc == "FA_ACHAT" and state.get("action") == "TRANSFORMER_DOC":
+        draft["code_fournisseur"]  = state.get("code_client", "") or state.get("code_fournisseur", "")
+        draft["num_piece_source"]  = state.get("num_piece", "")
     elif type_doc == "FACTURE" and state.get("action") == "TRANSFORMER_DOC":
         draft["code_client"]      = state.get("code_client", "")
         draft["num_piece_source"] = state.get("num_piece", "")
     else:  # BL, FACTURE
         draft["code_client"] = state.get("code_client", "")
     return draft
-def _enrichir_facture_depuis_bl(draft: dict) -> dict:
-    if (draft.get("type_doc") or "").upper() != "FACTURE":
-        return draft
-    num_bl = draft.get("num_piece_source", "")
-    if not num_bl:
-        return draft
-    if (draft.get("code_client") and draft.get("ref_article")
-            and draft.get("quantite") and draft.get("date_livraison")):   # ← ajouter date_livraison au test
-        return draft
-    conn = _get_conn()
-    try:
-        entete = conn.execute(
-            "SELECT CT_Num, DO_Date FROM F_DOCENTETE WHERE DO_Piece = ?", (num_bl,)
-        ).fetchone()
-        if entete:
-            if not draft.get("code_client"):
-                draft["code_client"] = entete["CT_Num"]
-            if not draft.get("date_livraison") and entete["DO_Date"]:      # ← AJOUT
-                draft["date_livraison"] = entete["DO_Date"]
-        ligne = conn.execute(
-            "SELECT AR_Ref, DL_Qte, DL_PrixUnitaire FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
-            (num_bl,),
-        ).fetchone()
-        if ligne:
-            if not draft.get("ref_article"):
-                draft["ref_article"] = ligne["AR_Ref"]
-            if not draft.get("quantite"):
-                draft["quantite"] = ligne["DL_Qte"]
-            if not draft.get("prix_unitaire"):
-                draft["prix_unitaire"] = ligne["DL_PrixUnitaire"]
-    except Exception as e:
-        print(f"   ⚠️  [Facture depuis BL] {e}")
-    finally:
-        conn.close()
-    return draft
-def _enrichir_bf_depuis_of(draft: dict) -> dict:
-    if (draft.get("type_doc") or "").upper() != "BF":
-        return draft
-    if draft.get("ref_article") and draft.get("quantite"):
-        return draft
-    num_of = draft.get("num_of", "")
-    if not num_of:
-        return draft
-    conn = _get_conn()
-    try:
-        row = conn.execute(
-            "SELECT AR_Ref, DL_Qte FROM F_DOCLIGNE WHERE DO_Piece = ? LIMIT 1",
-            (num_of,),
-        ).fetchone()
-        if row:
-            if not draft.get("ref_article"):
-                draft["ref_article"] = row["AR_Ref"]
-            if not draft.get("quantite"):
-                draft["quantite"] = row["DL_Qte"]
-    except Exception as e:
-        print(f"   ⚠️  [BF depuis OF] {e}")
-    finally:
-        conn.close()
-    return draft
+
 # ─────────────────────────────────────────────────────────────────────
 # PREVIEW — génère le PDF brouillon + texte récapitulatif
 # ─────────────────────────────────────────────────────────────────────
@@ -388,6 +433,7 @@ async def executer_draft_confirme(
     mcp_workflow_bl_achat,
     mcp_pool_transformer_document=None,
     mcp_workflow_facture=None,
+    mcp_workflow_fa_achat=None,
 ) -> dict:
     """
     Appelle le workflow MCP réel correspondant au type_doc.
@@ -416,13 +462,19 @@ async def executer_draft_confirme(
             draft.get("ref_article", ""), float(draft.get("quantite", 0)),
             draft.get("num_of", ""), draft.get("code_client", "PROD-INT"),
         )
-    if type_doc == "FACTURE" and mcp_pool_transformer_document and draft.get("num_piece_source"):
-        # Facture directe par transformation d'un BL existant
-        return await mcp_pool_transformer_document(draft["num_piece_source"], "FACTURE")
+    if type_doc in {"FACTURE", "FA_ACHAT"} and mcp_pool_transformer_document and draft.get("num_piece_source"):
+        # Transformation d'un BL existant (BL -> FACTURE, ou BL_ACHAT -> FA_ACHAT)
+        return await mcp_pool_transformer_document(draft["num_piece_source"], type_doc)
     if type_doc == "FACTURE" and mcp_workflow_facture:
         # Facture créée directement (sans BL source)
         return await mcp_workflow_facture(
             draft.get("code_client", ""), draft.get("ref_article", ""),
+            float(draft.get("quantite", 0)), float(draft.get("prix_unitaire", 0) or 0),
+        )
+    if type_doc == "FA_ACHAT" and mcp_workflow_fa_achat:
+        # Facture d'achat créée directement (sans BL source)
+        return await mcp_workflow_fa_achat(
+            draft.get("code_fournisseur", ""), draft.get("ref_article", ""),
             float(draft.get("quantite", 0)), float(draft.get("prix_unitaire", 0) or 0),
         )
     return {"statut": "ERREUR", "message": f"Type de document non géré par le flow : {type_doc}"}
@@ -477,10 +529,15 @@ async def enrichir_draft(draft: dict, mcp_pool) -> dict:
             txt = await mcp_pool.call(
                 "nl2sql", "rechercher_fiche_client", {"code_client": code_client}
             )
-            data = json.loads(txt)
+            if not txt:
+                print(f"   ⚠️  [Enrichissement] client vide pour {code_client}")
+                data = {}
+            else:
+                data = json.loads(txt)
             if data.get("CT_Intitule"):
                 draft["intitule_client"] = data["CT_Intitule"]
-        except Exception:
+        except Exception as e:
+            print(f"   ⚠️  [Enrichissement] erreur client {code_client}: {e}")
             pass
 
     if code_fourn and not draft.get("intitule_fournisseur"):
@@ -488,11 +545,15 @@ async def enrichir_draft(draft: dict, mcp_pool) -> dict:
             txt = await mcp_pool.call(
                 "nl2sql", "executer_sql_vanna",
                 {
-                    "sql": f"SELECT CT_Intitule FROM F_COMPTET WHERE CT_Num='{code_fourn}' LIMIT 1",
+                    "sql": f"SELECT TOP 1 CT_Intitule FROM F_COMPTET WHERE CT_Num='{code_fourn}'",
                     "description": f"Intitulé fournisseur {code_fourn}",
                 },
             )
-            data = json.loads(txt)
+            if not txt:
+                print(f"   ⚠️  [Enrichissement] fournisseur vide pour {code_fourn}")
+                data = {}
+            else:
+                data = json.loads(txt)
             rows = data.get("resultats") or data.get("rows") or []
             if rows:
                 first_row = rows[0]
@@ -507,28 +568,34 @@ async def enrichir_draft(draft: dict, mcp_pool) -> dict:
     # (BL_ACHAT le demande explicitement à l'utilisateur → ne pas écraser)
     if ref_article and not draft.get("prix_unitaire"):
         try:
+            col_prix = "AR_PrixAch" if type_doc in ("BL_ACHAT", "FA_ACHAT") else "AR_PrixVen"
             txt = await mcp_pool.call(
                 "nl2sql", "executer_sql_vanna",
                 {
-                    "sql": f"SELECT AR_Design, AR_PrixVen FROM F_ARTICLE WHERE UPPER(AR_Ref)=UPPER('{ref_article}')",
+                    "sql": f"SELECT TOP 1 AR_Design, {col_prix} FROM F_ARTICLE WHERE UPPER(AR_Ref)=UPPER('{ref_article}')",
                     "description": f"Prix et désignation de {ref_article}",
                 },
             )
-            data = json.loads(txt)
+            if not txt:
+                print(f"   ⚠️  [Enrichissement] prix vide pour {ref_article}")
+                data = {}
+            else:
+                data = json.loads(txt)
             rows = data.get("resultats") or data.get("rows") or []
             if rows:
                 first_row = rows[0]
                 if isinstance(first_row, dict):
-                    prix = first_row.get("AR_PrixVen")
+                    prix = first_row.get(col_prix)
                     design = first_row.get("AR_Design")
                 else:
-                    prix = first_row["AR_PrixVen"] if "AR_PrixVen" in first_row.keys() else None
+                    prix = first_row[col_prix] if col_prix in first_row.keys() else None
                     design = first_row["AR_Design"] if "AR_Design" in first_row.keys() else None
                 if prix is not None:
                     draft["prix_unitaire"] = float(prix)
                 if design and not draft.get("designation_article"):
                     draft["designation_article"] = design
-        except Exception:
+        except Exception as e:
+            print(f"   ⚠️  [Enrichissement] erreur prix: {e}")
             pass
 
     return draft

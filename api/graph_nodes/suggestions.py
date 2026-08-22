@@ -6,7 +6,9 @@ Extracted from orchestrateur_general.py lines 4963-5167.
 from datetime import datetime
 from api.mcp_pool import pool as mcp_pool
 import logging
-
+# en tête de graph_nodes/suggestions.py
+import json
+from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,23 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict, _STATUT
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             return f"❌ Erreur création facture fournisseur : {_safe_str(e)}"
-
+    elif type_sugg == "DRAFT_FACTURE_ACHAT_DEPUIS_BL":
+        params = suggestion.get("params", {})
+        draft = {
+        "type_doc":         "FA_ACHAT",
+        "code_fournisseur": params.get("code_fournisseur", ""),
+        "ref_article":      params.get("ref_article", ""),
+        "quantite":         params.get("quantite", 0.0),
+        "prix_unitaire":    params.get("prix_unitaire", 0.0),
+        "date_str":         datetime.now().strftime("%d/%m/%Y"),
+        "num_piece_source": params.get("num_br", ""),
+    }
+        contexte_session["document_draft"] = draft
+        contexte_session["statut_draft"]   = "PREVIEW"
+        contexte_session["suggestion_en_attente"] = {}
+        texte, pdf_path = await generer_preview(draft)
+        contexte_session["pdf_path"] = pdf_path
+        return texte
     elif type_sugg == "CREER_FACTURE":
         num_bl      = params.get("num_bl", "")
         code_client = params.get("code_client", "")

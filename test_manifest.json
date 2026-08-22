@@ -1,0 +1,2402 @@
+[
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PEHD alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACCUI.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACCUI",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1BRACCUI ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "matière",
+    "valeur_fictive": "polypropylène renforcé fibre de verre",
+    "question_test_suggeree": "Quelle est la matière de l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCOR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCOR",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "reclamation_sav\\X1BLOCOR_reclamation_990.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "X1BLOCOR",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "livraison partielle : 6 unités reçues sur 91 commandées",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article X1BLOCOR ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATEST.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATEST",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article SVMATEST ?"
+  },
+  {
+    "fichier": "reclamation_sav\\SVMATEST_reclamation_517.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "SVMATEST",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "délai de livraison dépassé de 9 jours ouvrés sans notification préalable",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article SVMATEST ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "24 mois pièces uniquement",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BLOCAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BLOCAC",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "reclamation_sav\\X1BLOCAC_reclamation_676.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "X1BLOCAC",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "défaut d'aspect constaté sur environ 3% du lot (rayures de surface)",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article X1BLOCAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PEHD alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1ECRIN.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1ECRIN",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "reclamation_sav\\X1ECRIN_reclamation_975.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "X1ECRIN",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "défaut d'aspect constaté sur environ 10% du lot (rayures de surface)",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article X1ECRIN ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORMSUPPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORMSUPPORT",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article PRESTFORMSUPPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "matière",
+    "valeur_fictive": "laiton chromé",
+    "question_test_suggeree": "Quelle est la matière de l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,05 mm",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SVCTGRAV.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVCTGRAV",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article SVCTGRAV ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "24 mois pièces uniquement",
+    "question_test_suggeree": "Quelle est la garantie de l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\SETA.pdf",
+    "doc_type": "fiche_article",
+    "code": "SETA",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article SETA ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\HROUE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HROUE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article HROUE ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "matière",
+    "valeur_fictive": "laiton chromé",
+    "question_test_suggeree": "Quelle est la matière de l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MONTRE01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MONTRE01",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article MONTRE01 ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PEHD alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,15 mm (moulage)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZGARANTIE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZGARANTIE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article XZGARANTIE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,05 mm",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\X2ROUAGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2ROUAGE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "reclamation_sav\\X2ROUAGE_reclamation_727.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "X2ROUAGE",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "délai de livraison dépassé de 27 jours ouvrés sans notification préalable",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article X2ROUAGE ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PVC rigide alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,15 mm (moulage)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\EM040.pdf",
+    "doc_type": "fiche_article",
+    "code": "EM040",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article EM040 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "matière",
+    "valeur_fictive": "polypropylène renforcé fibre de verre",
+    "question_test_suggeree": "Quelle est la matière de l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,15 mm (moulage)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre 5°C et 25°C, à l'abri de l'humidité",
+    "question_test_suggeree": "À quelle température stocker l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\COAR001.pdf",
+    "doc_type": "fiche_article",
+    "code": "COAR001",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article COAR001 ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "24 mois pièces uniquement",
+    "question_test_suggeree": "Quelle est la garantie de l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\TIMBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "TIMBAR",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article TIMBAR ?"
+  },
+  {
+    "fichier": "reclamation_sav\\TIMBAR_reclamation_70.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "TIMBAR",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "non-conformité dimensionnelle relevée par le contrôle qualité à réception",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article TIMBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "matière",
+    "valeur_fictive": "fonte GS",
+    "question_test_suggeree": "Quelle est la matière de l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\ZEXPRESS.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZEXPRESS",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article ZEXPRESS ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "12 mois pièces et main d'œuvre",
+    "question_test_suggeree": "Quelle est la garantie de l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\MODIV01.pdf",
+    "doc_type": "fiche_article",
+    "code": "MODIV01",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article MODIV01 ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "matière",
+    "valeur_fictive": "laiton chromé",
+    "question_test_suggeree": "Quelle est la matière de l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\WWW.pdf",
+    "doc_type": "fiche_article",
+    "code": "WWW",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article WWW ?"
+  },
+  {
+    "fichier": "reclamation_sav\\WWW_reclamation_984.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "WWW",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "livraison partielle : 50 unités reçues sur 118 commandées",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article WWW ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACAC",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1BRACAC ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "matière",
+    "valeur_fictive": "laiton chromé",
+    "question_test_suggeree": "Quelle est la matière de l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCCOLLIER.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "reclamation_sav\\LOCCOLLIER_reclamation_560.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "LOCCOLLIER",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "livraison partielle : 9 unités reçues sur 55 commandées",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article LOCCOLLIER ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,15 mm (moulage)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre 5°C et 25°C, à l'abri de l'humidité",
+    "question_test_suggeree": "À quelle température stocker l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\LOCPARURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "LOCPARURE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "reclamation_sav\\LOCPARURE_reclamation_863.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "LOCPARURE",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "délai de livraison dépassé de 35 jours ouvrés sans notification préalable",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article LOCPARURE ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\PRESTFORM.pdf",
+    "doc_type": "fiche_article",
+    "code": "PRESTFORM",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "reclamation_sav\\PRESTFORM_reclamation_97.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "PRESTFORM",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "délai de livraison dépassé de 33 jours ouvrés sans notification préalable",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article PRESTFORM ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "matière",
+    "valeur_fictive": "acier inoxydable 316L",
+    "question_test_suggeree": "Quelle est la matière de l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\ZPORT.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZPORT",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article ZPORT ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,05 mm",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "5 ans sur la structure, 1 an sur les composants électroniques",
+    "question_test_suggeree": "Quelle est la garantie de l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\XZMACHINE.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZMACHINE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article XZMACHINE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PEHD alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,3 mm (découpe laser)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "24 mois pièces uniquement",
+    "question_test_suggeree": "Quelle est la garantie de l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\HAIGUILLE.pdf",
+    "doc_type": "fiche_article",
+    "code": "HAIGUILLE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "reclamation_sav\\HAIGUILLE_reclamation_545.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "HAIGUILLE",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "emballage endommagé pendant le transport, 6 unités inutilisables",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article HAIGUILLE ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\BAOR01.pdf",
+    "doc_type": "fiche_article",
+    "code": "BAOR01",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article BAOR01 ?"
+  },
+  {
+    "fichier": "reclamation_sav\\BAOR01_reclamation_194.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "BAOR01",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "emballage endommagé pendant le transport, 30 unités inutilisables",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article BAOR01 ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,3 mm (découpe laser)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\RESTHORLOGE.pdf",
+    "doc_type": "fiche_article",
+    "code": "RESTHORLOGE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article RESTHORLOGE ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "matière",
+    "valeur_fictive": "polypropylène renforcé fibre de verre",
+    "question_test_suggeree": "Quelle est la matière de l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\CHSR10.pdf",
+    "doc_type": "fiche_article",
+    "code": "CHSR10",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article CHSR10 ?"
+  },
+  {
+    "fichier": "reclamation_sav\\CHSR10_reclamation_838.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "CHSR10",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "livraison partielle : 41 unités reçues sur 86 commandées",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article CHSR10 ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "matière",
+    "valeur_fictive": "polypropylène renforcé fibre de verre",
+    "question_test_suggeree": "Quelle est la matière de l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\SVMATETAN.pdf",
+    "doc_type": "fiche_article",
+    "code": "SVMATETAN",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article SVMATETAN ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\X1BRACBAR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1BRACBAR",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1BRACBAR ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PVC rigide alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,1 mm (usinage standard)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\XZDEPL.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZDEPL",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article XZDEPL ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "matière",
+    "valeur_fictive": "laiton chromé",
+    "question_test_suggeree": "Quelle est la matière de l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\PIL377REN.pdf",
+    "doc_type": "fiche_article",
+    "code": "PIL377REN",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "produit sensible à l'électricité statique : manipuler en zone ESD",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article PIL377REN ?"
+  },
+  {
+    "fichier": "reclamation_sav\\PIL377REN_reclamation_560.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "PIL377REN",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "défaut d'aspect constaté sur environ 35% du lot (rayures de surface)",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article PIL377REN ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\XZRH.pdf",
+    "doc_type": "fiche_article",
+    "code": "XZRH",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article XZRH ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,3 mm (découpe laser)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre 5°C et 25°C, à l'abri de l'humidité",
+    "question_test_suggeree": "À quelle température stocker l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\ENSHF.pdf",
+    "doc_type": "fiche_article",
+    "code": "ENSHF",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article ENSHF ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,3 mm (découpe laser)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "chaîne du froid requise en continu : 2°C à 8°C",
+    "question_test_suggeree": "À quelle température stocker l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\COR1.pdf",
+    "doc_type": "fiche_article",
+    "code": "COR1",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article COR1 ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,05 mm",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre 5°C et 25°C, à l'abri de l'humidité",
+    "question_test_suggeree": "À quelle température stocker l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "moulage par injection suivi d'un contrôle dimensionnel à 100%",
+    "question_test_suggeree": "Comment est fabriqué l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\ZFIDELITE.pdf",
+    "doc_type": "fiche_article",
+    "code": "ZFIDELITE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "reclamation_sav\\ZFIDELITE_reclamation_121.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "ZFIDELITE",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "délai de livraison dépassé de 39 jours ouvrés sans notification préalable",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article ZFIDELITE ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "matière",
+    "valeur_fictive": "PVC rigide alimentaire",
+    "question_test_suggeree": "Quelle est la matière de l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,05 mm",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre -10°C et 40°C, ventilation obligatoire",
+    "question_test_suggeree": "À quelle température stocker l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\X1COURAC.pdf",
+    "doc_type": "fiche_article",
+    "code": "X1COURAC",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X1COURAC ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "matière",
+    "valeur_fictive": "aluminium anodisé 6061",
+    "question_test_suggeree": "Quelle est la matière de l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "36 mois constructeur (hors usure normale)",
+    "question_test_suggeree": "Quelle est la garantie de l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "stockage entre 5°C et 25°C, à l'abri de l'humidité",
+    "question_test_suggeree": "À quelle température stocker l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "découpe laser, pliage puis soudure TIG sur banc automatisé",
+    "question_test_suggeree": "Comment est fabriqué l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\GRAVURE.pdf",
+    "doc_type": "fiche_article",
+    "code": "GRAVURE",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "ne pas empiler plus de 3 palettes, risque d'écrasement",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article GRAVURE ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "matière",
+    "valeur_fictive": "titane grade 5",
+    "question_test_suggeree": "Quelle est la matière de l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,02 mm (classe IT6)",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "24 mois pièces uniquement",
+    "question_test_suggeree": "Quelle est la garantie de l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "extrusion continue avec refroidissement par bain d'eau régulé",
+    "question_test_suggeree": "Comment est fabriqué l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\XVIS.pdf",
+    "doc_type": "fiche_article",
+    "code": "XVIS",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "porter des gants de protection lors de la manipulation (arêtes vives)",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article XVIS ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "matière",
+    "valeur_fictive": "bronze fritté auto-lubrifiant",
+    "question_test_suggeree": "Quelle est la matière de l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "tolérance",
+    "valeur_fictive": "± 0,5° angulaire",
+    "question_test_suggeree": "Quelle est la tolérance dimensionnelle de l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "garantie",
+    "valeur_fictive": "6 mois (article reconditionné)",
+    "question_test_suggeree": "Quelle est la garantie de l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "température de stockage",
+    "valeur_fictive": "température ambiante, éviter toute exposition directe au soleil",
+    "question_test_suggeree": "À quelle température stocker l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "procédé de fabrication",
+    "valeur_fictive": "usinage CNC 5 axes puis traitement de surface par anodisation dure",
+    "question_test_suggeree": "Comment est fabriqué l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "fiche_article\\X2REMONTOIR.pdf",
+    "doc_type": "fiche_article",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "précaution d'usage",
+    "valeur_fictive": "tenir hors de portée des enfants, présence de petites pièces détachables",
+    "question_test_suggeree": "Quelles précautions prendre avec l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "reclamation_sav\\X2REMONTOIR_reclamation_429.pdf",
+    "doc_type": "reclamation_sav",
+    "code": "X2REMONTOIR",
+    "champ_fictif": "motif de réclamation",
+    "valeur_fictive": "livraison partielle : 18 unités reçues sur 168 commandées",
+    "question_test_suggeree": "Quelles réclamations a-t-on eu sur l'article X2REMONTOIR ?"
+  },
+  {
+    "fichier": "note_crm\\CISEL.pdf",
+    "doc_type": "note_crm",
+    "code": "CISEL",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "franco de port à partir de 2500 DT d'achat",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client CISEL ?"
+  },
+  {
+    "fichier": "relance_commerciale\\CISEL_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "CISEL",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "baisse de commande de 10% sur le dernier trimestre par rapport à l'historique",
+    "question_test_suggeree": "Quel est l'historique de relance du client CISEL ?"
+  },
+  {
+    "fichier": "note_crm\\HGGF.pdf",
+    "doc_type": "note_crm",
+    "code": "HGGF",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise quantitative de 12% par palier de 100 unités",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client HGGF ?"
+  },
+  {
+    "fichier": "note_crm\\CERAM.pdf",
+    "doc_type": "note_crm",
+    "code": "CERAM",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise quantitative de 15% par palier de 100 unités",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client CERAM ?"
+  },
+  {
+    "fichier": "relance_commerciale\\CERAM_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "CERAM",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "baisse de commande de 3% sur le dernier trimestre par rapport à l'historique",
+    "question_test_suggeree": "Quel est l'historique de relance du client CERAM ?"
+  },
+  {
+    "fichier": "note_crm\\GRENA.pdf",
+    "doc_type": "note_crm",
+    "code": "GRENA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client GRENA ?"
+  },
+  {
+    "fichier": "note_crm\\EMERA.pdf",
+    "doc_type": "note_crm",
+    "code": "EMERA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 5% appliquée au-delà de 1000 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client EMERA ?"
+  },
+  {
+    "fichier": "note_crm\\HG01.pdf",
+    "doc_type": "note_crm",
+    "code": "HG01",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client HG01 ?"
+  },
+  {
+    "fichier": "note_crm\\KDJF.pdf",
+    "doc_type": "note_crm",
+    "code": "KDJF",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client KDJF ?"
+  },
+  {
+    "fichier": "note_crm\\BONJOUR.pdf",
+    "doc_type": "note_crm",
+    "code": "BONJOUR",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 3% appliquée au-delà de 500 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client BONJOUR ?"
+  },
+  {
+    "fichier": "relance_commerciale\\BONJOUR_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "BONJOUR",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "baisse de commande de 35% sur le dernier trimestre par rapport à l'historique",
+    "question_test_suggeree": "Quel est l'historique de relance du client BONJOUR ?"
+  },
+  {
+    "fichier": "note_crm\\CRIST.pdf",
+    "doc_type": "note_crm",
+    "code": "CRIST",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client CRIST ?"
+  },
+  {
+    "fichier": "relance_commerciale\\CRIST_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "CRIST",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "3 relances envoyées en octobre 2025, aucune réponse du client à ce jour",
+    "question_test_suggeree": "Quel est l'historique de relance du client CRIST ?"
+  },
+  {
+    "fichier": "note_crm\\OPALE.pdf",
+    "doc_type": "note_crm",
+    "code": "OPALE",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client OPALE ?"
+  },
+  {
+    "fichier": "note_crm\\PLATI.pdf",
+    "doc_type": "note_crm",
+    "code": "PLATI",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client PLATI ?"
+  },
+  {
+    "fichier": "relance_commerciale\\PLATI_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "PLATI",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "baisse de commande de 35% sur le dernier trimestre par rapport à l'historique",
+    "question_test_suggeree": "Quel est l'historique de relance du client PLATI ?"
+  },
+  {
+    "fichier": "note_crm\\SOCIETEA.pdf",
+    "doc_type": "note_crm",
+    "code": "SOCIETEA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client SOCIETEA ?"
+  },
+  {
+    "fichier": "note_crm\\DIAMA.pdf",
+    "doc_type": "note_crm",
+    "code": "DIAMA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "franco de port à partir de 1000 DT d'achat",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client DIAMA ?"
+  },
+  {
+    "fichier": "note_crm\\CARAT.pdf",
+    "doc_type": "note_crm",
+    "code": "CARAT",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 15% appliquée au-delà de 1000 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client CARAT ?"
+  },
+  {
+    "fichier": "note_crm\\WEBEXPORT.pdf",
+    "doc_type": "note_crm",
+    "code": "WEBEXPORT",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client WEBEXPORT ?"
+  },
+  {
+    "fichier": "recouvrement\\WEBEXPORT_recouvrement.pdf",
+    "doc_type": "recouvrement",
+    "code": "WEBEXPORT",
+    "champ_fictif": "statut recouvrement",
+    "valeur_fictive": "échéancier de paiement proposé sur 3 mois, 1re échéance honorée le 22/11/2025",
+    "question_test_suggeree": "Où en est le recouvrement du client WEBEXPORT ?"
+  },
+  {
+    "fichier": "note_crm\\CENTREOR.pdf",
+    "doc_type": "note_crm",
+    "code": "CENTREOR",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise quantitative de 15% par palier de 100 unités",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client CENTREOR ?"
+  },
+  {
+    "fichier": "relance_commerciale\\CENTREOR_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "CENTREOR",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "client recontacté par téléphone le août 2025, promesse de règlement non tenue",
+    "question_test_suggeree": "Quel est l'historique de relance du client CENTREOR ?"
+  },
+  {
+    "fichier": "recouvrement\\CENTREOR_recouvrement.pdf",
+    "doc_type": "recouvrement",
+    "code": "CENTREOR",
+    "champ_fictif": "statut recouvrement",
+    "valeur_fictive": "dossier transmis au service contentieux le 01/05/2025 après relances infructueuses",
+    "question_test_suggeree": "Où en est le recouvrement du client CENTREOR ?"
+  },
+  {
+    "fichier": "note_crm\\QUART.pdf",
+    "doc_type": "note_crm",
+    "code": "QUART",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 5% appliquée au-delà de 5000 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client QUART ?"
+  },
+  {
+    "fichier": "note_crm\\RUBIS.pdf",
+    "doc_type": "note_crm",
+    "code": "RUBIS",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 8% appliquée au-delà de 2500 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client RUBIS ?"
+  },
+  {
+    "fichier": "relance_commerciale\\RUBIS_relance.pdf",
+    "doc_type": "relance_commerciale",
+    "code": "RUBIS",
+    "champ_fictif": "historique de relance",
+    "valeur_fictive": "client recontacté par téléphone le juillet 2025, promesse de règlement non tenue",
+    "question_test_suggeree": "Quel est l'historique de relance du client RUBIS ?"
+  },
+  {
+    "fichier": "recouvrement\\RUBIS_recouvrement.pdf",
+    "doc_type": "recouvrement",
+    "code": "RUBIS",
+    "champ_fictif": "statut recouvrement",
+    "valeur_fictive": "échéancier de paiement proposé sur 3 mois, 1re échéance honorée le 24/07/2025",
+    "question_test_suggeree": "Où en est le recouvrement du client RUBIS ?"
+  },
+  {
+    "fichier": "note_crm\\WEBEUROPE.pdf",
+    "doc_type": "note_crm",
+    "code": "WEBEUROPE",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client WEBEUROPE ?"
+  },
+  {
+    "fichier": "note_crm\\GFFF.pdf",
+    "doc_type": "note_crm",
+    "code": "GFFF",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le client GFFF ?"
+  },
+  {
+    "fichier": "recouvrement\\GFFF_recouvrement.pdf",
+    "doc_type": "recouvrement",
+    "code": "GFFF",
+    "champ_fictif": "statut recouvrement",
+    "valeur_fictive": "échéancier de paiement proposé sur 3 mois, 1re échéance honorée le 22/09/2025",
+    "question_test_suggeree": "Où en est le recouvrement du client GFFF ?"
+  },
+  {
+    "fichier": "note_crm\\MANDR.pdf",
+    "doc_type": "note_crm",
+    "code": "MANDR",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur MANDR ?"
+  },
+  {
+    "fichier": "note_crm\\GERMA.pdf",
+    "doc_type": "note_crm",
+    "code": "GERMA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur GERMA ?"
+  },
+  {
+    "fichier": "note_crm\\BLANC.pdf",
+    "doc_type": "note_crm",
+    "code": "BLANC",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "franco de port à partir de 5000 DT d'achat",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur BLANC ?"
+  },
+  {
+    "fichier": "note_crm\\JHDH.pdf",
+    "doc_type": "note_crm",
+    "code": "JHDH",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 12% appliquée au-delà de 500 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur JHDH ?"
+  },
+  {
+    "fichier": "note_crm\\HOLDI.pdf",
+    "doc_type": "note_crm",
+    "code": "HOLDI",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "délai de paiement négocié à 60 jours fin de mois (au lieu de 30 jours standard)",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur HOLDI ?"
+  },
+  {
+    "fichier": "note_crm\\FGJ.pdf",
+    "doc_type": "note_crm",
+    "code": "FGJ",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 3% appliquée au-delà de 500 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur FGJ ?"
+  },
+  {
+    "fichier": "note_crm\\TELEC.pdf",
+    "doc_type": "note_crm",
+    "code": "TELEC",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur TELEC ?"
+  },
+  {
+    "fichier": "note_crm\\VEOLIA.pdf",
+    "doc_type": "note_crm",
+    "code": "VEOLIA",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "prix bloqué pendant 12 mois sur les références principales de ce client",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur VEOLIA ?"
+  },
+  {
+    "fichier": "note_crm\\ECLAT.pdf",
+    "doc_type": "note_crm",
+    "code": "ECLAT",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise fidélité de 20% appliquée au-delà de 5000 DT de CA annuel",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur ECLAT ?"
+  },
+  {
+    "fichier": "note_crm\\FOURNIBI.pdf",
+    "doc_type": "note_crm",
+    "code": "FOURNIBI",
+    "champ_fictif": "conditions commerciales négociées",
+    "valeur_fictive": "remise quantitative de 3% par palier de 100 unités",
+    "question_test_suggeree": "Quelles sont les conditions commerciales négociées avec le fournisseur FOURNIBI ?"
+  },
+  {
+    "fichier": "procedure\\procedure_01.pdf",
+    "doc_type": "procedure",
+    "code": "",
+    "champ_fictif": "Procédure retour marchandise",
+    "valeur_fictive": "Tout retour doit être signalé sous 14 jours calendaires à compter de la réception, accompagné du numéro de bon de livraison. Les articles personnalisés ou coupés sur mesure ne sont pas repris.",
+    "question_test_suggeree": "Procédure retour marchandise : que dit la procédure ?"
+  },
+  {
+    "fichier": "procedure\\procedure_02.pdf",
+    "doc_type": "procedure",
+    "code": "",
+    "champ_fictif": "Procédure garantie SAV",
+    "valeur_fictive": "La garantie couvre les défauts de fabrication mais exclut l'usure normale, les mauvaises conditions de stockage et les modifications apportées par le client. Toute demande de prise en charge doit être accompagnée de photos.",
+    "question_test_suggeree": "Procédure garantie SAV : que dit la procédure ?"
+  },
+  {
+    "fichier": "procedure\\procedure_03.pdf",
+    "doc_type": "procedure",
+    "code": "",
+    "champ_fictif": "Procédure de fabrication qualité",
+    "valeur_fictive": "Chaque lot de production fait l'objet d'un contrôle qualité par échantillonnage (norme interne QC-014) avant libération vers le stock.",
+    "question_test_suggeree": "Procédure de fabrication qualité : que dit la procédure ?"
+  }
+]

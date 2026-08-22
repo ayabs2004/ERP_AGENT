@@ -107,12 +107,14 @@ def _construire_sage_schema() -> dict:
         # Codes types de documents Sage (valeurs applicatives — pas des
         # noms de colonnes, donc légitimement issues de database.schema_sage)
         "DOC_TYPE": {
-            "OF":      DOC_TYPE.get("OF", 1),
-            "BF":      DOC_TYPE.get("BF", 4),
-            "BL":      DOC_TYPE.get("BL", 2),
-            "FACTURE": DOC_TYPE.get("FACTURE", 3),
-            "AVOIR":   DOC_TYPE.get("AVOIR", 9),
-            "BC":      DOC_TYPE.get("BC", 6),
+            "OF":       DOC_TYPE.get("OF", 1),
+            "BF":       DOC_TYPE.get("BF", 4),
+            "BL":       DOC_TYPE.get("BL", 2),
+            "FACTURE":  DOC_TYPE.get("FACTURE", 3),
+            "AVOIR":    DOC_TYPE.get("AVOIR", 9),
+            "BC":       DOC_TYPE.get("BC", 6),
+            "BL_ACHAT": DOC_TYPE.get("BL_ACHAT", 13),
+            "FA_ACHAT": DOC_TYPE.get("FA_ACHAT", 16),
         },
         # Domaines
         "DOC_DOMAINE": {

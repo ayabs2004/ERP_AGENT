@@ -209,8 +209,8 @@ class PyODBCCursorWrapper:
                 return None
             cols = [c[0] for c in self._cursor.description]
             return DictRow(zip(cols, row))
-        finally:
-            self._cursor.close()
+        except Exception:
+            raise
 
     def fetchall(self):
         if self._cursor is None: return []
@@ -220,8 +220,8 @@ class PyODBCCursorWrapper:
                 return []
             cols = [c[0] for c in self._cursor.description]
             return [DictRow(zip(cols, r)) for r in rows]
-        finally:
-            self._cursor.close()
+        except Exception:
+            raise
 
     def fetchmany(self, size=None):
         if self._cursor is None: return []
@@ -231,8 +231,8 @@ class PyODBCCursorWrapper:
                 return []
             cols = [c[0] for c in self._cursor.description]
             return [DictRow(zip(cols, r)) for r in rows]
-        finally:
-            self._cursor.close()
+        except Exception:
+            raise
 
     def execute(self, sql, *args):
         if self._cursor: self._cursor.execute(sql, *args)
@@ -247,8 +247,8 @@ class PyODBCCursorWrapper:
             cols = [c[0] for c in self._cursor.description]
             for r in rows:
                 yield DictRow(zip(cols, r))
-        finally:
-            self._cursor.close()
+        except Exception:
+            raise
 
     def __getattr__(self, name):
         if self._cursor is None: return None
@@ -423,12 +423,24 @@ T_DOC_LIGNE   = table("doc_ligne")
 
 T_REGLEMENTS  = table("reglements")
 T_NOMENCLAT   = table("nomenclature")
+T_FAMILLE     = table("familles")
 
 C_CT_NUM          = col("clients_fournisseurs", "code")
 C_CT_INTITULE     = col("clients_fournisseurs", "nom")
 C_CT_TYPE         = col("clients_fournisseurs", "type_tiers")
 C_CT_SOMMEIL      = col("clients_fournisseurs", "sommeil")
 C_CT_ENCOURS      = col("clients_fournisseurs", "encours")
+C_CT_ADRESSE     = col("clients_fournisseurs", "adresse")
+C_CT_COMPLEMENT  = col("clients_fournisseurs", "complement")
+C_CT_CODEPOSTAL  = col("clients_fournisseurs", "code_postal")
+C_CT_VILLE       = col("clients_fournisseurs", "ville")
+C_CT_PAYS        = col("clients_fournisseurs", "pays")
+C_CT_CONTACT     = col("clients_fournisseurs", "contact")
+C_CT_TELEPHONE   = col("clients_fournisseurs", "telephone")
+C_CT_TELECOPIE   = col("clients_fournisseurs", "telecopie")
+C_CT_EMAIL       = col("clients_fournisseurs", "email")
+C_CT_SITE        = col("clients_fournisseurs", "site")
+C_CT_CGNUMPRINC  = col("clients_fournisseurs", "cg_num_princ")
 
 # "validite" n'existe pas comme colonne native dans Sage : un tiers est
 # valide s'il n'est PAS en sommeil (CT_Sommeil). Ce n'est donc pas un
@@ -460,10 +472,20 @@ C_AR_DESIGN   = col("articles", "designation")
 C_AR_PRIXACH  = col("articles", "prix_achat")
 C_AR_PRIXVEN  = col("articles", "prix_vente")
 C_AR_TYPE     = col("articles", "type_article")
+C_AR_FAMILLE  = col("articles", "code_famille")
+C_AR_NATURE   = col("articles", "nature")
+C_AR_UNITEVEN = col("articles", "unite_vente")
+C_AR_SUIVISTOCK = col("articles", "suivi_stock")
+
+C_FA_CODE     = col("familles", "code")
+C_FA_INTITULE = col("familles", "intitule")
 
 C_AS_REF      = col("stock", "ref")
+C_AS_DENO     = col("stock", "depot")
 C_AS_QTESTO   = col("stock", "qte_stock")
 C_AS_QTECOM   = col("stock", "qte_commande")
+C_AS_MONTSTO  = col("stock", "montant_stock")
+C_AS_PRINCIPAL = col("stock", "principal")
 
 C_DO_PIECE    = col("doc_entete", "piece")
 C_DO_DOMAINE  = col("doc_entete", "domaine")
@@ -477,6 +499,16 @@ C_DL_REF      = col("doc_ligne", "ref_article")
 C_DL_QTE      = col("doc_ligne", "qte")
 C_DL_PRIX     = col("doc_ligne", "prix_unitaire")
 C_DL_LIGNE    = col("doc_ligne", "ligne")
+C_DL_MVTSTOCK = col("doc_ligne", "mvt_stock")
+C_DL_DENO     = col("doc_ligne", "depot")
+C_DL_PRIXRU   = col("doc_ligne", "prix_ru")
+C_DL_CMUP     = col("doc_ligne", "cmup")
+C_DL_ARCOMPOSE = col("doc_ligne", "ref_compose")
+C_DL_TTC      = col("doc_ligne", "ttc")
+C_DL_VALORISE = col("doc_ligne", "valorise")
+C_DL_NONLIVRE = col("doc_ligne", "non_livre")
+C_DL_PIECEBL  = col("doc_ligne", "piecebl")
+C_DL_QTEBL    = col("doc_ligne", "qtebl")
 
 C_NO_REF_PF   = col("nomenclature", "ref_pf")
 C_NO_REF_MP   = col("nomenclature", "ref_mp")
@@ -485,8 +517,11 @@ C_CT_CBMARQ   = col("clients_fournisseurs", "cb_marq")   # adaptez au nom réel 
 C_DE_ENTETE_CBMARQ = col("doc_entete", "cb_marq")
 C_DL_CBMARQ   = col("doc_ligne", "cb_marq")
 C_DL_PFNUM    = col("doc_ligne", "pf_num")
-C_REGL_CBMARQ = col("reglements", "cb_marq")
+C_REGL_CBMARQ      = col("reglements", "cb_marq")
 C_REGL_PIECE       = col("reglements", "piece")
+C_REGL_DOMAINE     = col("reglements", "domaine")
+C_REGL_TYPE_DOC    = col("reglements", "type")
+C_REGL_CB_PIECE    = col("reglements", "cb_piece")
 C_REGL_TYPE        = col("reglements", "type_reglement")
 C_REGL_MONTANT     = col("reglements", "montant")
 C_REGL_DATE        = col("reglements", "date_reglement")

@@ -65,6 +65,17 @@ _PATTERNS_PRECLASS = [
     (r"saisi[rs]?\s+(?:un\s+|le\s+)?(?:nouveau\s+)?fournisseur",       "CREER_FOURNISSEUR"),
     (r"nouveau\s+fournisseur",                                             "CREER_FOURNISSEUR"),
     (r"ajouter?\s+(un\s+)?fournisseur",                                   "CREER_FOURNISSEUR"),
+    # ── MODIFIER_CLIENT / MODIFIER_FOURNISSEUR (flux guidé) ───────────
+    (r"modifier?\s+(?:le\s+|un\s+|mon\s+)?client",             "MODIFIER_CLIENT"),
+    (r"(?:changer?|mettre?\s+[àa]\s+jour|actualiser?|éditer?)\s+(?:le\s+|un\s+|mon\s+)?client", "MODIFIER_CLIENT"),
+    (r"modifier?\s+(?:le\s+|un\s+|mon\s+)?fournisseur",        "MODIFIER_FOURNISSEUR"),
+    (r"(?:changer?|mettre?\s+[àa]\s+jour|actualiser?|éditer?)\s+(?:le\s+|un\s+|mon\s+)?fournisseur", "MODIFIER_FOURNISSEUR"),
+    # ── CREER_ARTICLE ─────────────────────────────────────────────
+    (r"(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\s+(?:d['\u2019]|de\s+|un\s+|une\s+|l['\u2019]|le\s+|la\s+|un\s+nouveau\s+|nouveau\s+)?articles?", "CREER_ARTICLE"),
+    (r"enregistr(?:er?|ez?)\s+(?:un\s+|l['\u2019])?(?:nouveau\s+)?articles?", "CREER_ARTICLE"),
+    (r"saisi[rs]?\s+(?:un\s+|l['\u2019])?(?:nouveau\s+)?articles?",           "CREER_ARTICLE"),
+    (r"nouveau\s+articles?",                                             "CREER_ARTICLE"),
+    (r"ajouter?\s+(un\s+)?articles?",                                    "CREER_ARTICLE"),
     # ── MODIFIER_STATUT (priorité avant FICHE pour éviter conflit) ──
     (r"bloquer?\s+(le\s+)?fournisseur",                     "MODIFIER_STATUT"),
     (r"d[eé]bloquer?\s+(le\s+)?fournisseur",                "MODIFIER_STATUT"),
@@ -170,6 +181,11 @@ _PATTERNS_PRECLASS = [
     (r"cr[eé]dit\s+(du\s+)?client",                        "NL2SQL_LIBRE"),
     (r"solde\s+(du\s+)?client",                             "NL2SQL_LIBRE"),
     (r"limite\s+(du\s+)?client",                            "NL2SQL_LIBRE"),
+    # ── ENCOURS FOURNISSEUR ──────────────────────────────────────
+    (r"encours\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"cr[eé]dit\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"solde\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
+    (r"limite\s+(du\s+|de\s+|d['\u2019]?\s*)?fournisseur", "NL2SQL_LIBRE"),
     # ── FOURNISSEURS ──────────────────────────────────────────────
     (r"liste\s+(tous\s+)?(les\s+)?fournisseurs?",   "LISTE_FOURNISSEURS"),
     (r"(tous|toutes)\s+(les\s+)?fournisseurs?",      "LISTE_FOURNISSEURS"),
@@ -212,6 +228,8 @@ _PATTERNS_PRECLASS = [
     (r"(?:modifier?\s+(?:le\s+|la\s+|l['\u2019]?\s*|l\s+|un\s+|une\s+)?infos?\s+(?:du\s+|de\s+|d['\u2019]?)?(?:client|fournisseur|article|produit))", "MODIFIER_ENTITE"),
     (r"(?:modifier?\s+(?:le\s+|la\s+|l['\u2019]?\s*|l\s+|un\s+|une\s+)?fiche\s+(?:du\s+|de\s+|d['\u2019]?)?(?:client|fournisseur|article|produit))", "MODIFIER_ENTITE"),
     # ── LISTE_ARTICLES ────────────────────────────────────────────
+    (r"produits?\s+finis?|articles?\s+finis?",              "NL2SQL_LIBRE"),
+    (r"mati[èe]res?\s+premi[eè]res?|mati[èe]re\s+premi[eè]re", "NL2SQL_LIBRE"),
     (r"liste\s+(tous\s+)?(les\s+)?articles?",              "LISTE_ARTICLES"),
     (r"(tous|toutes)\s+(les\s+)?articles?",                "LISTE_ARTICLES"),
     (r"catalogue\s*(articles?|produits?)?",                "LISTE_ARTICLES"),

@@ -59,6 +59,16 @@ def _est_nom_valide(nom: str) -> bool:
         return False
     mots = nom.strip().split()
     mots_lower = [m.lower() for m in mots]
+    
+    # Refuser les captures trop longues (> 4 mots) sauf noms composés connus
+    if len(mots) > 4:
+        return False
+    
+    # Refuser si plus d'un mot est un stop-word ou mot interrogatif
+    nb_stop = sum(1 for m in mots_lower if m in _MOTS_VIDES_NOM)
+    if nb_stop >= 2:
+        return False
+    
     if all(m in _MOTS_VIDES_NOM for m in mots_lower):
         return False
     if len(mots) >= 2:
@@ -164,6 +174,18 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
             print(f"   ⚡ [Cache Nom] '{nom}' → {cached}")
         return cached
 
+    # 1) essai code exact d'abord (e.g. GRENA, CARAT)
+    try:
+        raw = await mcp_pool.call("actions", "resoudre_tiers", {"code_ou_nom": nom.strip()})
+        data = json.loads(raw) if isinstance(raw, str) else raw
+        if data.get("statut") == "SUCCES" and data.get("CT_Num"):
+            ct_num = data["CT_Num"]
+            _client_nom_cache[nom_lower] = ct_num
+            print(f"   ✅ [Code Exact] '{nom}' → {ct_num}")
+            return ct_num
+    except Exception:
+        pass
+
     _MOTS_PARASITES = {"le", "la", "les", "du", "de", "des", "et", "ou", "un", "une", "pour", "avec", "sur"}
     mots_significatifs = [
         m for m in nom_lower.split()
@@ -212,8 +234,20 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
         code_m = m.group(1).strip() if m else ""
         return code_m if code_m.lower() not in _CODES_INVALIDES_CACHE else ""
 
+    MAX_RECHERCHE_NOM_CALLS = 6  # plafond configurable d'appels MCP
+
+    # Si trop de mots significatifs, la phrase ressemble à une requête NL2SQL → abandon
+    if len(mots_significatifs) > 3:
+        _client_nom_cache[nom_lower] = ""
+        print(f"   ⚠️  [Recherche Nom] '{nom}' trop long ({len(mots_significatifs)} mots) → NL2SQL_LIBRE")
+        return ""
+
+    _nb_appels = 0
     for essai_fn, essai_val in [(_appel_fiche, nom), (_appel_fiche, " ".join(mots_significatifs))]:
+        if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+            break
         t = await essai_fn(essai_val)
+        _nb_appels += 1
         if t:
             code = _extraire_code(t)
             if code:
@@ -223,11 +257,16 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
 
     for taille in range(len(mots_significatifs), 0, -1):
         for combo in itertools.combinations(mots_significatifs, taille):
+            if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+                break
             sous_nom = " ".join(combo)
             if len(sous_nom) < 2:
                 continue
             for fn in (_appel_fiche, _appel_statut):
+                if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+                    break
                 t = await fn(sous_nom)
+                _nb_appels += 1
                 if t:
                     code = _extraire_code(t)
                     if code:

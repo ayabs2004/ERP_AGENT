@@ -17,6 +17,7 @@ v4.1 : CORRECTIF DE NEUTRALITÉ DB.
 import json
 import sqlite3
 import logging
+import asyncio
 from api.mcp_pool import pool as mcp_pool
 from cache.response_cache import cache as response_cache
 
@@ -38,6 +39,8 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
 
     def _traiter_erreur_mcp(data: dict) -> str | None:
         statut = data.get("statut", "")
+        if statut == "ERREUR":
+            return data.get("message", "Erreur inconnue.")
         if statut not in _STATUTS_ERREUR_MCP:
             return None
         message = data.get("message", "")
@@ -219,24 +222,97 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
                 state["reponse_brute"] = json.dumps(data, ensure_ascii=False)
 
         elif act == "CREER_CLIENT":
-            _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Client"
-            raw  = await mcp_pool.call("actions", "creer_nouveau_client", {
-                "code_client":     state["code_client"],
-                "intitule":        _intitule,
-                "ct_sommeil":      state.get("ct_sommeil", 0),
-                "ct_encours":      state.get("ct_encours", 0.0),
-            })
-            data = _parse_mcp_response(raw)
+            pd = state.get("pending_document", {})
+            _intitule = pd.get("intitule") or state.get("intitule") or state.get("nom_client_brut") or state.get("code_client") or "Nouveau Client"
+            payload = {
+        "code_client":    state.get("code_client"),
+        "intitule":       _intitule,
+        "ct_validite":    pd.get("ct_validite")    or state.get("ct_validite", "VALIDE"),
+        "ct_encours_max": pd.get("ct_encours_max") or state.get("ct_encours_max", 0.0),
+        "adresse":        pd.get("adresse")        or state.get("adresse", ""),
+        "complement":     pd.get("complement")     or state.get("complement", ""),
+        "code_postal":    pd.get("code_postal")    or state.get("code_postal", ""),
+        "ville":          pd.get("ville")          or state.get("ville", ""),
+        "pays":           pd.get("pays")           or state.get("pays", ""),
+        "contact":        pd.get("contact")        or state.get("contact", ""),
+        "telephone":      pd.get("telephone")      or state.get("telephone", ""),
+        "email":          pd.get("email")          or state.get("email", ""),
+        "site":           pd.get("site")           or state.get("site", ""),
+        "cg_num_princ":   pd.get("cg_num_princ", ""),
+    }
+
+            logger.debug("[CREER_CLIENT] payload -> %s", payload)
+            try:
+                raw = await mcp_pool.call("actions", "creer_nouveau_client", payload)
+            except Exception as e:
+                logger.exception("[CREER_CLIENT] erreur appel MCP creer_nouveau_client: %s", e)
+                data = {"statut": "ERREUR", "message": _safe_str(e)}
+            else:
+                logger.debug("[CREER_CLIENT] raw MCP response: %r", raw)
+                data = _parse_mcp_response(raw)
+            # If code already exists, attempt to generate a new code and retry once
+            if data.get("statut") == "EXISTE_DEJA":
+                # Try to obtain a fresh sequential code from MCP and retry once
+                try:
+                    logger.debug("[CREER_CLIENT] demande generer_prochain_code (CLI)")
+                    raw_code = await mcp_pool.call("actions", "generer_prochain_code", {"prefixe": "CLI"})
+                    logger.debug("[CREER_CLIENT] raw_code MCP response: %r", raw_code)
+                    data_code = _parse_mcp_response(raw_code)
+                    new_code = data_code.get("code") if data_code.get("statut") == "OK" else None
+                except Exception as e:
+                    logger.exception("[CREER_CLIENT] erreur generer_prochain_code: %s", e)
+                    new_code = None
+                if not new_code:
+                    # Fallback: append '_1' to previous code
+                    old = state.get("code_client") or "CLI"
+                    new_code = f"{old}_1"
+                state["code_client"] = new_code
+                payload["code_client"] = new_code
+                try:
+                    raw = await mcp_pool.call("actions", "creer_nouveau_client", payload)
+                    logger.debug("[CREER_CLIENT] raw MCP retry response: %r", raw)
+                    data = _parse_mcp_response(raw)
+                except Exception as e:
+                    logger.exception("[CREER_CLIENT] erreur retry creer_nouveau_client: %s", e)
+                    data = {"statut": "ERREUR", "message": _safe_str(e)}
+
             err  = _traiter_erreur_mcp(data)
             state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
 
         elif act == "CREER_FOURNISSEUR":
-            _intitule = state.get("nom_client_brut") or state.get("code_client") or "Nouveau Fournisseur"
-            raw  = await mcp_pool.call("actions", "creer_nouveau_fournisseur", {
-                "code_fournisseur": state["code_client"],
-                "intitule":         _intitule,
-            })
+            pd = state.get("pending_document", {})
+            _intitule = pd.get("intitule") or state.get("intitule") or state.get("nom_client_brut") or state.get("code_client") or "Nouveau Fournisseur"
+            payload = {
+        "code_fournisseur": state["code_client"],
+        "intitule":         _intitule,
+        "adresse":          pd.get("adresse")        or state.get("adresse", ""),
+        "complement":       pd.get("complement")     or state.get("complement", ""),
+        "code_postal":      pd.get("code_postal")    or state.get("code_postal", ""),
+        "ville":            pd.get("ville")          or state.get("ville", ""),
+        "pays":             pd.get("pays")           or state.get("pays", ""),
+        "contact":          pd.get("contact")        or state.get("contact", ""),
+        "telephone":        pd.get("telephone")      or state.get("telephone", ""),
+        "email":            pd.get("email")          or state.get("email", ""),
+        "site":             pd.get("site")           or state.get("site", ""),
+        "ct_encours_max":   pd.get("ct_encours_max") or state.get("ct_encours_max", 0.0),
+        "ct_validite":      pd.get("ct_validite")    or state.get("ct_validite", "VALIDE"),
+    }
+            raw  = await mcp_pool.call("actions", "creer_nouveau_fournisseur", payload)
             data = _parse_mcp_response(raw)
+            if data.get("statut") == "EXISTE_DEJA":
+                try:
+                    raw_code = await mcp_pool.call("actions", "generer_prochain_code", {"prefixe": "FOUR"})
+                    data_code = _parse_mcp_response(raw_code)
+                    new_code = data_code.get("code") if data_code.get("statut") == "OK" else None
+                except Exception:
+                    new_code = None
+                if not new_code:
+                    old = state.get("code_client") or "FOUR"
+                    new_code = f"{old}_1"
+                state["code_client"] = new_code
+                payload["code_fournisseur"] = new_code
+                raw = await mcp_pool.call("actions", "creer_nouveau_fournisseur", payload)
+                data = _parse_mcp_response(raw)
             err  = _traiter_erreur_mcp(data)
             state["reponse_brute"] = err or data.get("message", json.dumps(data, ensure_ascii=False))
 
@@ -246,7 +322,7 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
                 _statut_cible = "BLOQUE"
 
             # Detect if it's a supplier or client
-            is_fournisseur = state.get("code_fournisseur") is not None
+            is_fournisseur = bool(state.get("code_fournisseur"))
 
             if is_fournisseur:
                 raw = await mcp_pool.call("actions", "modifier_statut_fournisseur", {
@@ -342,9 +418,18 @@ async def noeud_ecriture(state, _STATUTS_ERREUR_MCP, _mcp_workflow_bl_achat, _mc
 
         await response_cache.invalidate_writes()
 
-    except Exception as e:
+    except BaseException as e:
         # Capture tous les types d'erreurs (sqlite3.Error, pyodbc.Error, etc.)
         # pour éviter que les erreurs MSSQL non attrapées remontent dans
         # le TaskGroup d'anyio et causent "unhandled errors in a TaskGroup".
-        state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
+        import traceback
+        _subs = getattr(e, 'exceptions', None)
+        if _subs:
+            logger.error("   ⚠️  [Écriture] ExceptionGroup avec %d sous-exceptions:", len(_subs))
+            for i, sub in enumerate(_subs):
+                logger.error("   ⚠️  [Écriture] Sous-exception #%d: %s", i+1, sub)
+                traceback.print_exception(type(sub), sub, sub.__traceback__)
+            state["reponse_brute"] = f"__ERREUR__:{_safe_str(_subs[0])}"
+        else:
+            state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
     return state

@@ -180,6 +180,7 @@ class MCPPool:
         if server in self._conns:
             async with self._locks[server]:
                 try:
+                    logger.debug("MCPPool: calling %s.%s with args=%s (persistent session)", server, tool, args)
                     res = await asyncio.wait_for(
                         self._conns[server].session.call_tool(tool, arguments=args),
                         timeout=MCP_CALL_TIMEOUT,
@@ -196,6 +197,13 @@ class MCPPool:
                 except asyncio.TimeoutError:
                     logger.warning("%s.%s timeout (%ss) → reconnexion", server, tool, MCP_CALL_TIMEOUT)
                     await self._reconnect(server)
+                except asyncio.CancelledError:
+                    logger.warning(
+                        "%s.%s annulé par timeout externe → reconnexion planifiée en arrière-plan",
+                        server, tool,
+                    )
+                    asyncio.create_task(self._reconnect_safe(server))
+                    raise
                 except Exception as e:
                     logger.warning("Session %s erreur : %s → reconnexion", server, e)
                     await self._reconnect(server)
@@ -203,6 +211,7 @@ class MCPPool:
                 # Nouvelle tentative après reconnexion
                 if server in self._conns:
                     try:
+                        logger.debug("MCPPool: retry calling %s.%s with args=%s (after reconnect)", server, tool, args)
                         res = await asyncio.wait_for(
                             self._conns[server].session.call_tool(tool, arguments=args),
                             timeout=MCP_CALL_TIMEOUT,
@@ -222,6 +231,7 @@ class MCPPool:
         async with stdio_client(params) as (r, w):
             async with ClientSession(r, w) as s:
                 await s.initialize()
+                logger.debug("MCPPool: fallback subprocess call %s.%s with args=%s", server, tool, args)
                 res = await asyncio.wait_for(
                     s.call_tool(tool, arguments=args),
                     timeout=MCP_CALL_TIMEOUT,
@@ -254,6 +264,24 @@ class MCPPool:
             logger.info("%s reconnecté avec succès", name)
         except Exception as e:
             logger.exception("%s reconnexion impossible", name)
+
+    async def _reconnect_safe(self, name: str):
+        """
+        Variante de _reconnect() protégée par un timeout global, utilisée
+        UNIQUEMENT en tâche de fond après une CancelledError.
+        Empêche un sous-process zombie ou un close() bloquant de laisser
+        la tâche en attente indéfiniment.
+        """
+        try:
+            await asyncio.wait_for(self._reconnect(name), timeout=45.0)
+        except asyncio.TimeoutError:
+            logger.error(
+                "%s reconnexion en arrière-plan bloquée >45s → "
+                "le sous-processus est probablement zombie, abandon."
+                " Le prochain appel retentera une reconnexion.",
+                name,
+            )
+            self._conns.pop(name, None)
 
     # ──────────────────────────────────────────────────────────────────
     # Fermeture

@@ -379,3 +379,29 @@ def init_database_complete(db_path: str | None = None):
 
 if __name__ == "__main__":
     init_database_complete()
+
+
+def init_database_mssql():
+    """Exécute les scripts de migration pour MSSQL."""
+    import os
+    from pathlib import Path
+    from adaptation.db_adapter import get_connection
+
+    mig_file = Path(__file__).parent / "migrations" / "mssql_fix_82086.sql"
+    if not mig_file.exists():
+        print(f"⚠️  Script de migration introuvable : {mig_file}")
+        return
+
+    print("🗄️  [MSSQL] Vérification et application des migrations...")
+    try:
+        with open(mig_file, "r", encoding="utf-8") as f:
+            sql = f.read()
+
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        conn.commit()
+        conn.close()
+        print("✅ [MSSQL] Migrations appliquées avec succès (message 82086).")
+    except Exception as e:
+        print(f"⚠️  [MSSQL] Échec de l'application des migrations : {e}")

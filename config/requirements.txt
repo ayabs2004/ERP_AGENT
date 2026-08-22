@@ -66,3 +66,4 @@ pytest
 # présents dans le .venv livré avec le projet — preuve supplémentaire que
 # cet environnement n'était pas reproductible tel quel. Installe-les et
 # fige leur version exacte après un premier `pip install` réussi.
+sentence-transformers

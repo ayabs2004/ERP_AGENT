@@ -9,6 +9,7 @@ import re
 import logging
 from api.llm_anonymizer import invoke_llm_anonymise
 
+from formatting.formatters import _formater_resultats_generiques, _formater_nl2sql_brut as _formater_nl2sql_brut_base
 logger = logging.getLogger(__name__)
 
 
@@ -65,66 +66,7 @@ def _detecter_hallucination(synthese: str, rb: str) -> bool:
 
 def _formater_nl2sql_brut(rb: str, question: str, _FORMATEURS_JSON) -> str:
     """Format raw NL2SQL response for display."""
-    if not rb:
-        return "⚠️  Aucun résultat trouvé."
-
-    if rb.startswith(("📊", "✅", "❌", "⚠️", "─", "👥", "📦", "🏆", "⏳", "Question :")):
-        return rb
-
-    try:
-        data = json.loads(rb)
-        if isinstance(data, dict):
-            if "erreur" in data:
-                return f"❌ Erreur SQL : {data['erreur']}"
-            statut = data.get("statut", "")
-            if statut == "OK":
-                for _act, _fmt in _FORMATEURS_JSON.items():
-                    try:
-                        r = _fmt(data)
-                        if r:
-                            return r
-                    except (KeyError, ValueError, TypeError):
-                        continue
-                for key in ("clients", "factures", "articles", "resultats", "rows", "data", "lignes"):
-                    items = data.get(key)
-                    if items and isinstance(items, list) and items:
-                        cols = list(items[0].keys()) if isinstance(items[0], dict) else []
-                        lignes = [f"📊 {question} — {len(items)} résultat(s) :", "─" * 60]
-                        for i, row in enumerate(items[:30], 1):
-                            parts = [f"{k}: {v}" for k, v in row.items() if v is not None]
-                            lignes.append(f"  {i:>3}. " + " │ ".join(parts))
-                        if len(items) > 30:
-                            lignes.append(f"  ... et {len(items) - 30} ligne(s) supplémentaire(s)")
-                        lignes.append("─" * 60)
-                        return "\n".join(lignes)
-                parts = [f"{k}: {v}" for k, v in data.items()
-                         if v is not None and not isinstance(v, (dict, list))]
-                if parts:
-                    return f"📊 {question} :\n  " + "\n  ".join(parts)
-            if data.get("message"):
-                return data["message"]
-        elif isinstance(data, list):
-            if not data:
-                return f"📊 Résultat de « {question} » : Aucun résultat."
-            cols = list(data[0].keys()) if isinstance(data[0], dict) else []
-            if not cols:
-                return str(data)
-            lignes = [f"📊 Résultat de « {question} » — {len(data)} ligne(s) :", "─" * 60]
-            for i, row in enumerate(data[:30], 1):
-                parts = [f"{k}: {v}" for k, v in row.items() if v is not None]
-                lignes.append(f"  {i:>3}. " + " │ ".join(parts))
-            if len(data) > 30:
-                lignes.append(f"  ... et {len(data) - 30} ligne(s) supplémentaire(s)")
-            lignes.append("─" * 60)
-            return "\n".join(lignes)
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    if "│" in rb or "─" in rb or ":" in rb:
-        return rb
-
-    return f"📊 Résultat de « {question} » :\n{rb}"
-
+    return _formater_nl2sql_brut_base(rb, question)
 
 async def noeud_synthese(state, _FORMATEURS_JSON, ACTIONS_KB, ACTIONS_EXPORT, 
                           ENABLE_LLM_SYNTHESE, SYNTHESE_TIMEOUT, ENABLE_MEM0,
@@ -145,6 +87,18 @@ async def noeud_synthese(state, _FORMATEURS_JSON, ACTIONS_KB, ACTIONS_EXPORT,
             s["modification_en_cours"] = modification_en_cours
         if attente_confirmation:
             s["attente_confirmation"] = attente_confirmation
+            
+        # ── 1.1 Désanonymisation et garde-fou ──
+        if s.get("reponse_finale") and s.get("mapping_anonymisation"):
+            from llm_anonymizer import deanonymise_with_map
+            s["reponse_finale"] = deanonymise_with_map(s["reponse_finale"], s["mapping_anonymisation"])
+            
+            import re
+            if re.search(r'<<[A-Z_]+_\d+>>|\b(?:NOM|CLIENT|FOUR|ARTICLE|PIECE)_\d+\b', s["reponse_finale"]):
+                import logging
+                logging.getLogger("api.graph_nodes").critical(f"🚨 Fuite de token d'anonymisation interceptée : {s['reponse_finale']}")
+                s["reponse_finale"] = "⚠️ Erreur interne : impossible de démasquer certaines informations confidentielles."
+                
         return s
 
     if state.get("reponse_finale"):
@@ -174,6 +128,33 @@ async def noeud_synthese(state, _FORMATEURS_JSON, ACTIONS_KB, ACTIONS_EXPORT,
                 "⚠️  Aucun résultat trouvé pour cette requête.\n"
                 "Les données demandées ne sont pas disponibles dans la base."
             )
+            return _restore_modification_state(state)
+
+        # ── Détection tabulaire vs scalaire ──────────────────────────
+        # Une liste de résultats (plusieurs lignes) est mieux rendue par
+        # _formater_nl2sql_brut() → _table_md() (Markdown propre, colonnes
+        # alignées, troncature cohérente) qu'improvisée par un LLM, qui a
+        # tendance à produire des tableaux ASCII cassés (+---+) ou à halluciner
+        # des lignes. Un résultat scalaire/message unique (ex: "CA client X :
+        # 45000 DT") n'a en revanche rien de tabulaire : une synthèse LLM peut
+        # y apporter du contexte utile sans risque de mal rendre un tableau.
+        _est_tabulaire = False
+        try:
+            _data_check = json.loads(rb)
+            if isinstance(_data_check, list) and len(_data_check) > 1:
+                _est_tabulaire = True
+            elif isinstance(_data_check, dict):
+                for _key in ("clients", "factures", "articles", "resultats", "rows", "data", "lignes"):
+                    _items = _data_check.get(_key)
+                    if isinstance(_items, list) and len(_items) > 1:
+                        _est_tabulaire = True
+                        break
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        if _est_tabulaire:
+            logger.info("   📋 [Synthèse NL2SQL] Données tabulaires → formateur déterministe (pas de LLM)")
+            state["reponse_finale"] = _formater_nl2sql_brut(rb, state["demande_brute"], _FORMATEURS_JSON)
             return _restore_modification_state(state)
 
         if ENABLE_LLM_SYNTHESE:

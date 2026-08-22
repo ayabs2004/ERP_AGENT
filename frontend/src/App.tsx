@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { Send, Sparkles, Bell, Loader2, FileText, Check, X, Coins, LogOut } from "lucide-react";
+import { Send, Sparkles, Bell, Loader2, FileText, Check, X, Coins, LogOut, Calendar } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import ReactMarkdown from "react-markdown";
 import Login, { AuthInfo } from "./Login";
-
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -129,7 +130,43 @@ interface ChatAppProps {
   auth: AuthInfo;
   onLogout: () => void;
 }
-
+const markdownComponents = {
+  table: ({ children }: any) => (
+    <div className="overflow-x-auto my-3 rounded-lg border border-gray-700">
+      <table className="min-w-full border-collapse text-sm">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }: any) => (
+    <thead className="bg-gray-900/60">{children}</thead>
+  ),
+  tbody: ({ children }: any) => (
+    <tbody className="divide-y divide-gray-700">{children}</tbody>
+  ),
+  tr: ({ children }: any) => (
+    <tr className="even:bg-gray-800/40 hover:bg-gray-700/40 transition-colors">
+      {children}
+    </tr>
+  ),
+  th: ({ children }: any) => (
+    <th className="border border-gray-700 px-3 py-2 text-left font-semibold text-gray-200 whitespace-nowrap">
+      {children}
+    </th>
+  ),
+  td: ({ children }: any) => (
+    <td className="border border-gray-700 px-3 py-2 text-gray-300 align-top">
+      {children}
+    </td>
+  ),
+  // bonus : les listes / gras / titres rendus par tes formatters restent lisibles aussi
+  strong: ({ children }: any) => (
+    <strong className="font-semibold text-white">{children}</strong>
+  ),
+  h3: ({ children }: any) => (
+    <h3 className="text-base font-bold mt-1 mb-2">{children}</h3>
+  ),
+};
 function ChatApp({ auth, onLogout }: ChatAppProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -149,6 +186,7 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
   const [alerts, setAlerts] = useState<string[]>([]);
   const [attenteComplements, setAttenteComplements] = useState(false);
   const [montantPerso, setMontantPerso] = useState("");
+  const [datePerso, setDatePerso] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -366,6 +404,20 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
     setMontantPerso("");
   };
 
+  const dernierMessageAssistant =
+    [...messages].reverse().find((msg) => msg.role === "assistant")?.content ?? "";
+
+  const afficherCalendrier = /date\s*(de\s*livraison|de\s*facturation|livraison|facturation)|livraison\s*souhait|facturation\s*souhait/i.test(
+    dernierMessageAssistant
+  );
+
+  const handleDateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!datePerso) return;
+    sendMessage(datePerso, `📅 ${datePerso}`);
+    setDatePerso("");
+  };
+
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden">
 
@@ -446,7 +498,9 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
               <div className="max-w-[85%] sm:max-w-[70%]">
 
                 <div className="bg-gray-800 rounded-xl p-4 overflow-x-auto">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+  {msg.content}
+</ReactMarkdown>
                   {msg.role === "assistant" &&
                     badgeConfiance(msg.scoreConfiance, msg.origineClassification)}
                 </div>
@@ -568,33 +622,59 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* INPUT */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage(input);
-          }}
-          className="border-t border-gray-800 p-4 flex gap-2"
-        >
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              attenteComplements
-                ? "Répondez au complément..."
-                : "Votre message..."
-            }
-            className="flex-1 bg-gray-800 rounded-xl p-3 outline-none"
-          />
-
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="bg-green-600 px-5 rounded-xl disabled:opacity-50"
+        {afficherCalendrier && (
+          <form
+            onSubmit={handleDateSubmit}
+            className="border-t border-gray-800 p-4 flex gap-2"
           >
-            <Send size={18} />
-          </button>
-        </form>
+            <div className="flex flex-1 items-center gap-2 bg-gray-800 rounded-xl px-3 py-2 border border-gray-700">
+              <Calendar size={18} className="text-emerald-400" />
+              <input
+                type="date"
+                value={datePerso}
+                onChange={(e) => setDatePerso(e.target.value)}
+                className="flex-1 bg-transparent text-gray-100 outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!datePerso || isLoading}
+              className="bg-emerald-600 px-5 rounded-xl disabled:opacity-50"
+            >
+              <Check size={18} />
+            </button>
+          </form>
+        )}
+
+        {!afficherCalendrier && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage(input);
+            }}
+            className="border-t border-gray-800 p-4 flex gap-2"
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                attenteComplements
+                  ? "Répondez au complément..."
+                  : "Votre message..."
+              }
+              className="flex-1 bg-gray-800 rounded-xl p-3 outline-none"
+            />
+
+            <button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              className="bg-green-600 px-5 rounded-xl disabled:opacity-50"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

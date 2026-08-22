@@ -22,7 +22,7 @@ DOC_CODES = {
     "AV":       (5, 0),   # Avoir vente (BA)
     "AVOIR":    (5, 0),
     "BC_ACHAT": (11, 1),  # Bon de Commande FOURNISSEUR (PC)
-    "BL_ACHAT": (13, 1),  # ⚠️ À CONFIRMER (type FB 12-15)
+    "BL_ACHAT": (13, 1),  # Bon de Livraison / Réception ACHAT
     "FA_ACHAT": (16, 1),  # Facture fournisseur (FF)
 }
 
@@ -50,7 +50,7 @@ DOC_PREFIXES = {
     "AV": "AV",
     "AVOIR": "AV",
     "BC_ACHAT": "PC",   # ← ajouté, cohérent avec la commande fournisseur
-    "BL_ACHAT": "BR",
+    "BL_ACHAT": "FBL",
     "FA_ACHAT": "FF",   # ← corrigé, était "AF" (le préfixe réel est FF)
 }
 # ─────────────────────────────────────────────────────────────────────

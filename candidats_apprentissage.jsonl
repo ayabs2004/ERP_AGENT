@@ -1,1 +1,2 @@
 {"question": "le contenu de la facture FA0006", "action": "REGLEMENT", "origine": "SEMANTIQUE", "score": 0.8850669540307539, "score2": 0.8239777003723039, "timestamp": 1785501893.3569756, "confirme": true}
+{"question": "Factures émises entre le 1er janvier et le 31 mars", "action": "DOCS_PERIODE", "origine": "SEMANTIQUE", "score": 0.8231786191395198, "score2": 0.6974345121304946, "timestamp": 1786979177.269264, "confirme": true}

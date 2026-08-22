@@ -84,6 +84,25 @@ def _formater_type_colonne(row) -> str:
     return dtype
 
 
+_COLONNES_EXCLUES_VANNA = {
+    "F_DOCENTETE": {"DO_TotalHT", "DO_TotalTTC", "DO_MontantHT", "DO_MontantTTC", "DO_NetAPayer"},
+}
+
+def _get_colonnes_utilisees() -> set[str]:
+    import json
+    from pathlib import Path
+    _DB_CONFIG_PATH = Path(__file__).parent.parent / "adaptation" / "db_config.json"
+    with open(_DB_CONFIG_PATH, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+    colonnes = set()
+    for table_cols in cfg["columns"].values():
+        for col_name in table_cols.values():
+            colonnes.add(col_name)
+    return colonnes
+
+_COLONNES_UTILISEES = _get_colonnes_utilisees()
+
+
 def generer_ddl_table(connexion, nom_table: str) -> str | None:
     """
     Génère un CREATE TABLE reflétant exactement le schéma réel de `nom_table`
@@ -100,11 +119,20 @@ def generer_ddl_table(connexion, nom_table: str) -> str | None:
     cur.execute(_REQUETE_PK, nom_table)
     pk_cols = [r.COLUMN_NAME for r in cur.fetchall()]
 
+    # On ignore les colonnes exclues explicitement pour cette table
+    exclues = _COLONNES_EXCLUES_VANNA.get(nom_table, set())
+
     lignes_ddl = []
-    for col in colonnes:
-        type_sql = _formater_type_colonne(col)
-        nullable = "" if col.IS_NULLABLE == "YES" else " NOT NULL"
-        lignes_ddl.append(f"    {col.COLUMN_NAME} {type_sql}{nullable}")
+    for row in colonnes:
+        if row.COLUMN_NAME in exclues:
+            continue
+            
+        if row.COLUMN_NAME not in _COLONNES_UTILISEES and row.COLUMN_NAME not in pk_cols:
+            continue
+
+        type_sql = _formater_type_colonne(row)
+        nullable = "" if row.IS_NULLABLE == "YES" else " NOT NULL"
+        lignes_ddl.append(f"    {row.COLUMN_NAME} {type_sql}{nullable}")
 
     if pk_cols:
         lignes_ddl.append(f"    PRIMARY KEY ({', '.join(pk_cols)})")

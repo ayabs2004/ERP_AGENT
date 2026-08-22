@@ -40,19 +40,22 @@ async def noeud_lecture(state, _rechercher_client_par_nom, _safe_str):
 
     try:
         tool_map = {
-            "TOP_CLIENTS":             ("nl2sql", "analyser_top_clients_ca",       {}),
+            "AFFICHER_NOMENCLATURE": ("nl2sql", "lire_nomenclature_article",
+                           {"ref_article": state.get("ref_article", "")}),
+            "TOP_CLIENTS":             ("nl2sql", "analyser_top_clients_ca",       {"top_n": int(state.get("quantite") or 5)}),
             "LISTE_CLIENTS":           ("nl2sql", "lister_clients_actifs",          {}),
             "LISTE_ARTICLES":          ("nl2sql", "lister_articles_catalogue",      {}),
-            "PALMARES_ARTICLES":       ("nl2sql", "analyser_palmares_articles",     {}),
+            "PALMARES_ARTICLES":       ("nl2sql", "analyser_palmares_articles",     {"top_n": int(state.get("quantite") or 3)}),
             "CA_GLOBAL":               ("nl2sql", "calculer_ca_global_periode",     {}),
             "CLIENTS_BAISSE":          ("nl2sql", "detecter_clients_baisse_ca",     {}),
+            "CLIENTS_INACTIFS":        ("nl2sql", "lister_clients_inactifs",        {"duree_jours": 90}),
             "FACTURES_NON_REGLEES":    ("nl2sql", "lister_factures_impayees",       {"code_client": state.get("code_client", "")}),
             "LISTE_FACTURES":          ("nl2sql", "lister_toutes_factures",         {}),
             "TOUTES_FACTURES_CLIENT":  ("nl2sql", "lister_toutes_factures_client",  {"code_client": state.get("code_client", "")}),
             "VERIFIER_STOCK":          ("nl2sql", "verifier_stock_article",         {"ref_article": state.get("ref_article", "")}),
             "FICHE_CLIENT":            ("nl2sql", "rechercher_fiche_client",        {"code_client": state.get("code_client", "")}),
             "STATUT_CLIENT":           ("nl2sql", "verifier_statut_client",         {"code_client": state.get("code_client", "")}),
-            "DOCS_PERIODE":            ("nl2sql", "lister_documents_par_periode",   {"date_debut": state.get("date_debut",""), "date_fin": state.get("date_fin","")}),
+            "DOCS_PERIODE":            ("nl2sql", "lister_documents_par_periode",   {"date_debut": state.get("date_debut",""), "date_fin": state.get("date_fin",""), "type_doc": state.get("type_doc") or "FACTURE"}),
             "RENTABILITE":             ("nl2sql", "analyser_rentabilite_clients",   {}),
             "SAISONNALITE":            ("nl2sql", "analyser_saisonnalite_ventes",   {}),
             "DSO":                     ("nl2sql", "calculer_dso_clients",           {"code_client": state.get("code_client","")}),
@@ -80,5 +83,6 @@ async def noeud_lecture(state, _rechercher_client_par_nom, _safe_str):
         else:
             state["reponse_brute"] = f"__INCONNU__:{act}"
     except (json.JSONDecodeError, KeyError, ValueError) as e:
+        logger.error(f"[Lecture] Erreur action={act}: {_safe_str(e)}")
         state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
     return state

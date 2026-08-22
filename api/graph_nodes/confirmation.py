@@ -72,15 +72,33 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
     state["pending_action"] = {
         "action":                state["action"],
         "code_client":           state["code_client"],
+        "code_fournisseur":      state.get("code_fournisseur", ""),
         "nom_client_brut":       state.get("nom_client_brut", ""),
         "ref_article":           state["ref_article"],
         "quantite":              state["quantite"],
         "num_piece":             state["num_piece"],
         "type_doc":              state["type_doc"],
         "mode_paiement":         state["mode_paiement"],
+        "numero_piece_paiement": state.get("numero_piece_paiement", ""),
+        # ── Champs CREER_CLIENT / CREER_FOURNISSEUR ──
+        "intitule":              state.get("intitule", ""),
+        "adresse":               state.get("adresse", ""),
+        "complement":            state.get("complement", ""),
+        "code_postal":           state.get("code_postal", ""),
+        "ville":                 state.get("ville", ""),
+        "pays":                  state.get("pays", ""),
+        "contact":               state.get("contact", ""),
+        "telephone":             state.get("telephone", ""),
+        "email":                 state.get("email", ""),
+        "site":                  state.get("site", ""),
+        "ct_validite":           state.get("ct_validite", "VALIDE"),
+        "ct_encours_max":        state.get("ct_encours_max", 0.0),
+        # ── Conservé pour compat (mais noeud_ecriture ne les lit pas) ──
         "ct_sommeil":            state.get("ct_sommeil", 0),
         "ct_encours":            state.get("ct_encours", 0.0),
-        "numero_piece_paiement": state.get("numero_piece_paiement", ""),
+        # ── pending_document doit aussi survivre : c'est lui que
+        # noeud_ecriture lit en priorité (pd.get("adresse") or state.get(...))
+        "pending_document":      state.get("pending_document", {}),
     }
     state["statut_confirmation"] = "ATTENTE"
     state["validation_ok"] = False

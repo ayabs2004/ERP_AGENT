@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nl2sql_server.py — Serveur MCP NL2SQL Sage 100 v4.1
+nl2sql_server.py — Serveur MCP NL2SQL Sage 100 v4.3
 ====================================================
 v4.1 : CORRECTIF DE NEUTRALITÉ DB.
        v4.0 n'avait neutralisé (via adaptation/db_adapter.py + db_config.json)
@@ -11,6 +11,60 @@ v4.1 : CORRECTIF DE NEUTRALITÉ DB.
        DO_Piece, DL_Qte, AR_Ref, ...). Ce fichier remplace TOUTES ces occurrences
        par des appels table()/col(), y compris pour l'accès aux lignes de résultat
        (via des alias AS <nom_logique> pour ne plus dépendre du nom physique réel).
+
+v4.2 : CORRECTIF BUGS SILENCIEUX — f-string + .format() différé.
+       Plusieurs patterns de _NL_PATTERNS construisaient leur SQL avec un
+       f-string contenant un placeholder (ex: `{seuil}`, `{n}`, `{mois}`,
+       `{code}`, `{an}`, `{filtre}`) censé être rempli par un `.format(...)`
+       appliqué APRÈS coup sur le résultat déjà évalué du f-string.
+       Or un f-string évalue tous ses `{...}` IMMÉDIATEMENT, donc `{seuil}`
+       (ou `{n}`, `{mois}`, `{code}`, `{an}`, `{filtre}`) levait une
+       `NameError` avant même que `.format()` ne s'exécute. Cette exception
+       était avalée silencieusement par le `try/except: continue` de
+       `interpreter_et_analyser_via_sql`, faisant retomber le moteur sur le
+       pattern suivant ou sur le fallback générique — d'où des filtres
+       ignorés (prix, quantité, mois, fournisseur, année...) sans aucune
+       erreur visible.
+       Fix : toutes les valeurs sont maintenant calculées AVANT et injectées
+       directement dans le f-string (soit inline, soit via une petite
+       fonction génératrice dédiée pour les cas les plus complexes),
+       sans jamais passer par un `.format()` différé.
+       Un pattern "marge brute sur un article précis" a aussi été ajouté
+       (le pattern générique existant ignorait la référence article demandée).
+
+v4.3 : CORRECTIF CONFUSION type=3 / type=6 (factures de vente vs BL) — AUDIT COMPLET.
+       Schéma réel confirmé par le docstring Vanna (orchestrateur_general.py) :
+           type=6  domaine=0 → factures de vente
+           type=3  domaine=0 → bons de livraison (BL)
+           type=1  domaine=0 → bons de commande client (BC)
+           type=25 domaine=2 → ordres de fabrication (OF)
+           type=26 domaine=2 → bons de fabrication (BF)
+           type=5  domaine=0 → avoirs de vente
+       Une grande partie du moteur analytique (CA, DSO, top clients, RFM,
+       palmarès/rentabilité articles, saisonnalité, KPI, balance âgée,
+       clients actifs/bloqués/inactifs, détection de baisse de CA,
+       déclaration fiscale...) utilisait encore `type = 3` pour désigner
+       des "factures", alors que `lister_toutes_factures` /
+       `lister_toutes_factures_client` (déjà correctes) utilisent bien
+       `type = 6`. Résultat : ces analyses calculaient silencieusement sur
+       des BONS DE LIVRAISON au lieu des factures — chiffres plausibles en
+       apparence mais faux (ou vides si peu de BL existent).
+       Fix : remplacement de `type = 3 AND domaine = 0` par
+       `type = 6 AND domaine = 0` dans toutes les fonctions/patterns qui
+       calculent réellement sur des factures de vente. Les patterns
+       explicitement dédiés aux BL ("Liste des bons de livraison", "BL non
+       facturés") restent inchangés (type = 3), de même que les patterns
+       BC (type=1), OF (type=25) et BF (type=26) qui étaient déjà corrects.
+       `selectionner_documents_par_periode` utilisait en plus un
+       `_TYPE_MAP` totalement erroné (FACTURE→3, BC→6, BL→2 inexistant,
+       AV→9 inexistant, OF→1, BF→4) sans filtre de domaine. Remplacé par
+       `_TYPE_DOMAINE_MAP` aligné sur le schéma réel, avec filtre domaine.
+       ⚠️ Côté FOURNISSEUR (domaine=1), plusieurs fonctions utilisent encore
+       des codes divergents pour "facture fournisseur" (16, 6, 3 selon
+       l'endroit) — ceci n'a PAS été corrigé ici faute de confirmation sur
+       le bon code, et fait l'objet d'un audit séparé (voir commentaires
+       "AUDIT FOURNISSEUR" ci-dessous). Ne pas supposer que ces valeurs
+       sont correctes.
 """
 import json
 import os
@@ -20,6 +74,13 @@ import sys
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from datetime import datetime, timedelta
+
+try:
+    import sqlglot
+    from sqlglot import exp
+except Exception:
+    sqlglot = None
+    exp = None
 
 # ── sys.path: permet d'importer adaptation.db_adapter et api.declaration
 # que le script soit lancé depuis la racine ou depuis api/ (subprocess MCP)
@@ -47,6 +108,38 @@ from mcp.server.fastmcp import FastMCP
 from adaptation.db_adapter import table, col, cols, get_connection, placeholder
 
 mcp = FastMCP("nl2sql")
+
+
+class _ConnexionCorrigee:
+    """Wrapper transparent pour corriger automatiquement les GROUP BY MSSQL.
+    Il délègue tous les attributs au vrai objet conn, mais corrige chaque
+    `execute()` avant exécution.
+    """
+
+    def __init__(self, conn_reelle):
+        self._conn = conn_reelle
+
+    def execute(self, sql, params=()):
+        sql_corrige = _corriger_group_by_mssql(sql)
+        try:
+            return self._conn.execute(sql_corrige, params)
+        except Exception as e:
+            m = _RX_ERREUR_GROUPBY_MSSQL.search(str(e)) if _RX_ERREUR_GROUPBY_MSSQL else None
+            if m and _is_mssql():
+                col_manquante = m.group(1)
+                sql_retry = re.sub(
+                    r'(GROUP BY .+?)(\s+ORDER BY|\s+HAVING|$)',
+                    rf'\1, {col_manquante}\2',
+                    sql_corrige,
+                    count=1,
+                    flags=re.IGNORECASE | re.DOTALL,
+                )
+                return self._conn.execute(sql_retry, params)
+            raise
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
 
 # ─────────────────────────────────────────────────────────────────────
 # CONNEXION DB — utilise db_adapter.get_connection()
@@ -171,7 +264,7 @@ def _connect():
 
         conn.commit()
 
-    return conn
+    return _ConnexionCorrigee(conn) if _is_mssql() else conn
 
 # ─────────────────────────────────────────────────────────────────────
 # SCHÉMA RÉEL F_DOCENTETE (pour référence)
@@ -184,6 +277,18 @@ def _connect():
 # F_ARTSTOCK  : AR_Ref, AS_QteSto, AS_QteCom, AS_QteAchaCom
 # F_NOMENCLAT : NO_RefPF, NO_RefMP, NO_Qte
 # reglements  : id, DO_Piece, mode_paiement, montant, date_reglement
+#
+# CODES type/domaine CONFIRMÉS (côté VENTE, domaine=0 sauf mention contraire) :
+#   type=6  domaine=0 → factures de vente
+#   type=3  domaine=0 → bons de livraison (BL)
+#   type=1  domaine=0 → bons de commande client (BC)
+#   type=25 domaine=2 → ordres de fabrication (OF)
+#   type=26 domaine=2 → bons de fabrication (BF)
+#   type=5  domaine=0 → avoirs de vente
+#   Côté FOURNISSEUR (domaine=1) : codes NON confirmés, audit séparé requis
+#   (le fichier utilise encore 16, 6 et 3 à différents endroits pour désigner
+#   une "facture fournisseur" — voir commentaires "AUDIT FOURNISSEUR").
+#
 # NOTE : ce bloc est purement documentaire. Le code ne doit JAMAIS utiliser
 # ces noms en dur — toujours passer par table()/col().
 
@@ -205,7 +310,13 @@ def _executer_sql(
     has_limit = re.search(r"\bLIMIT\b|\bFETCH\s+FIRST\b|\bTOP\s+\d+\b", sql_clean, re.IGNORECASE)
     if not has_limit:
         if _is_mssql():
-            sql_clean = re.sub(r'^(\s*SELECT\s+)', rf'\g<1>TOP {limite} ', sql_clean, count=1, flags=re.IGNORECASE)
+            sql_clean = re.sub(
+                r'^(\s*SELECT\s+)(DISTINCT\s+)?',
+                lambda mo: f"{mo.group(1)}{mo.group(2) or ''}TOP {limite} ",
+                sql_clean,
+                count=1,
+                flags=re.IGNORECASE,
+            )
         else:
             sql_clean = f"{sql_clean} LIMIT {limite}"
     else:
@@ -233,6 +344,34 @@ def _is_mssql() -> bool:
     import os
     cfg = os.getenv("DB_DRIVER", "sqlite").lower()
     return cfg == "mssql"
+
+def _fmt_mois(col_expr: str) -> str:
+    if _is_mssql():
+        return f"FORMAT({col_expr}, 'yyyy-MM')"
+    return f"STRFTIME('%Y-%m', {col_expr})"
+
+def _fmt_annee(col_expr: str) -> str:
+    if _is_mssql():
+        return f"FORMAT({col_expr}, 'yyyy')"
+    return f"STRFTIME('%Y', {col_expr})"
+
+def _fmt_mois_num(col_expr: str) -> str:
+    if _is_mssql():
+        return f"MONTH({col_expr})"
+    return f"CAST(STRFTIME('%m', {col_expr}) AS INTEGER)"
+
+def _diff_jours(date_fin: str, date_debut: str) -> str:
+    if _is_mssql():
+        return f"DATEDIFF(day, {date_debut}, {date_fin})"
+    return f"(JULIANDAY({date_fin}) - JULIANDAY({date_debut}))"
+
+def _now_date() -> str:
+    return "GETDATE()" if _is_mssql() else "'now'"
+
+def _date_sub_days(n_days: int) -> str:
+    if _is_mssql():
+        return f"DATEADD(day, -{n_days}, GETDATE())"
+    return f"DATE('now', '-{n_days} days')"
 
 def _limit(n: int) -> str:
     """Trailing clause — empty for MSSQL (use _top() prefix instead). SQLite: LIMIT N."""
@@ -358,9 +497,49 @@ def _montant_doc(conn, do_piece: str) -> Decimal:
     return _to_decimal(row["total"]) if row else Decimal("0.00")
 
 
-# ─────────────────────────────────────────────────────────────────────
-# HELPER : EXÉCUTION SQL SÉCURISÉE
-# ─────────────────────────────────────────────────────────────────────
+_RX_ERREUR_GROUPBY_MSSQL = re.compile(
+    r"La colonne '([^']+)' n'est pas valide dans la liste de sélection",
+    re.IGNORECASE,
+)
+
+
+def _corriger_group_by_mssql(sql: str) -> str:
+    """Complète le GROUP BY sous MSSQL pour éviter l'erreur 8120.
+    SQLite tolère ces colonnes manquantes ; SQL Server ne le tolère pas.
+    """
+    if not _is_mssql() or not sql or not sql.strip():
+        return sql
+    if sqlglot is None or exp is None:
+        return sql
+    try:
+        tree = sqlglot.parse_one(sql, dialect="tsql")
+        group = tree.args.get("group")
+        if group is None:
+            has_agg = any(isinstance(n, exp.AggFunc) for n in tree.walk())
+            if not has_agg:
+                return sql
+            return sql
+
+        group_cols = {str(g) for g in group.expressions}
+        select_exprs = tree.args.get("expressions", [])
+        missing = []
+        for e in select_exprs:
+            inner = e.this if isinstance(e, exp.Alias) else e
+            if isinstance(inner, exp.Column):
+                col_str = str(inner)
+                if col_str not in group_cols and str(e) not in group_cols:
+                    missing.append(inner)
+
+        if missing:
+            for col in missing:
+                group.append("expressions", col.copy())
+            print(f"   🔧 [MSSQL-Fix] GROUP BY complété : +{[str(c) for c in missing]}")
+        return tree.sql(dialect="tsql")
+    except Exception as e:
+        print(f"   ⚠️  [MSSQL-Fix] Correction GROUP BY échouée, SQL original conservé : {e}")
+        return sql
+
+
 def _executer_sql(
     conn: sqlite3.Connection,
     sql: str,
@@ -368,59 +547,109 @@ def _executer_sql(
     limite: int = 100,
 ) -> list[dict]:
     sql_clean = sql.strip()
-    # FIX : coupe tout au premier ';' pour éviter "one statement at a time"
-    # si le générateur (Vanna/LLM) a laissé un point-virgule final ou
-    # produit plusieurs instructions.
     sql_clean = sql_clean.split(";")[0].strip()
     if not re.match(r"^\s*SELECT\b", sql_clean, re.IGNORECASE):
         return [{"erreur": "Seules les requêtes SELECT sont autorisées."}]
-    # Ajouter une limitation si absente (LIMIT pour SQLite, FETCH FIRST pour MSSQL)
+
+    sql_clean = _corriger_group_by_mssql(sql_clean)
+
     has_limit = re.search(r"\bLIMIT\b|\bFETCH\s+FIRST\b|\bTOP\s+\d+\b", sql_clean, re.IGNORECASE)
     if not has_limit:
         if _is_mssql():
-            # Insérer TOP N après le SELECT
-            sql_clean = re.sub(r'^(\s*SELECT\s+)', rf'\g<1>TOP {limite} ', sql_clean, count=1, flags=re.IGNORECASE)
+            sql_clean = re.sub(
+                r'^(\s*SELECT\s+)(DISTINCT\s+)?',
+                lambda mo: f"{mo.group(1)}{mo.group(2) or ''}TOP {limite} ",
+                sql_clean,
+                count=1,
+                flags=re.IGNORECASE,
+            )
         else:
             sql_clean = f"{sql_clean} LIMIT {limite}"
     else:
-        # Convertir LIMIT en FETCH FIRST si mssql
         sql_clean = _convert_limit_for_mssql(sql_clean)
 
     try:
         cursor = conn.execute(sql_clean, params)
-        rows = [dict(row) for row in cursor.fetchall()]
+        columns = [desc[0] for desc in cursor.description] if cursor.description else []
+        rows = []
+        for row in cursor.fetchall():
+            if hasattr(row, "keys"):
+                d = dict(row)
+            else:
+                d = {columns[i]: row[i] for i in range(len(columns))}
+            for k, v in d.items():
+                if isinstance(v, Decimal):
+                    d[k] = float(v)
+            rows.append(d)
         return rows
     except Exception as e:
-        return [{"erreur": str(e)}]
+        err_str = str(e)
+        if _is_mssql():
+            m = _RX_ERREUR_GROUPBY_MSSQL.search(err_str)
+            if m:
+                col_manquante = m.group(1)
+                print(f"   🔁 [MSSQL-Retry] Ajout de '{col_manquante}' au GROUP BY et nouvel essai")
+                sql_retry = re.sub(
+                    r'(GROUP BY .+?)(\s+ORDER BY|\s+HAVING|$)',
+                    rf'\1, {col_manquante}\2',
+                    sql_clean,
+                    count=1,
+                    flags=re.IGNORECASE | re.DOTALL,
+                )
+                try:
+                    cursor = conn.execute(sql_retry, params)
+                    columns = [d[0] for d in cursor.description] if cursor.description else []
+                    rows = []
+                    for row in cursor.fetchall():
+                        if hasattr(row, "keys"):
+                            d = dict(row)
+                        else:
+                            d = {columns[i]: row[i] for i in range(len(columns))}
+                        for k, v in d.items():
+                            if isinstance(v, Decimal):
+                                d[k] = float(v)
+                        rows.append(d)
+                    return rows
+                except Exception as e2:
+                    return [{"erreur": str(e2)}]
+        return [{"erreur": err_str}]
 
 # ─────────────────────────────────────────────────────────────────────
 # HELPER : FORMATAGE RÉSULTATS
 # ─────────────────────────────────────────────────────────────────────
 def _formater_resultats(rows: list[dict], description: str) -> str:
+    """Retourne du JSON structuré (jamais de texte pré-formaté) afin que
+    formatters.py (côté frontend) produise un vrai tableau Markdown via
+    _table_md() / _formater_resultats_generiques(), au lieu d'un bloc
+    texte figé. Le préfixe "📊" et les tirets Unicode ont été retirés
+    volontairement : ce sont eux qui faisaient passer la réponse dans
+    _PREFIXES_DEJA_FORMATES côté formatters.py et court-circuitaient le
+    JSON.parse (donc le rendu tableau).
+
+    La troncature n'est plus faite ici (rows[:20] en dur) : elle est
+    déléguée à formatters.py::_tronquer (MAX_LIGNES_TABLE, actuellement
+    60), pour rester cohérente avec tous les autres formatteurs JSON.
+    """
     if not rows:
-        return f"{description} : Aucun résultat trouvé."
+        return json.dumps(
+            {"statut": "OK", "description": description, "resultats": []},
+            ensure_ascii=False,
+        )
     if "erreur" in rows[0]:
-        return f"Erreur SQL : {rows[0]['erreur']}"
+        return json.dumps({"erreur": rows[0]["erreur"]}, ensure_ascii=False)
+
+    # Résultat scalaire unique (ex: "SELECT COUNT(*) AS nb_clients ...")
     if len(rows) == 1 and len(rows[0]) == 1:
         key, val = next(iter(rows[0].items()))
-        return f"{description} : {val}"
+        return json.dumps(
+            {"statut": "OK", "description": description, "message": f"{description} : {val}"},
+            ensure_ascii=False,
+        )
 
-    lignes = [f"📊 {description} ({len(rows)} résultat(s)) :", "─" * 50]
-    for i, row in enumerate(rows[:20], 1):
-        parts = []
-        for k, v in row.items():
-            if v is not None:
-                if isinstance(v, Decimal):
-                    parts.append(f"{k}: {v:,.2f}")
-                elif isinstance(v, float):
-                    parts.append(f"{k}: {v:,.2f}")
-                else:
-                    parts.append(f"{k}: {v}")
-        lignes.append(f"  {i}. " + " | ".join(parts))
-    if len(rows) > 20:
-        lignes.append(f"  ... et {len(rows) - 20} résultat(s) supplémentaire(s)")
-    return "\n".join(lignes)
-
+    return json.dumps(
+        {"statut": "OK", "description": description, "resultats": rows},
+        ensure_ascii=False,
+    )
 
 # ─────────────────────────────────────────────────────────────────────
 # HELPERS DATE
@@ -431,7 +660,7 @@ def _filtre_date(periode: str | None) -> str:
     periode = periode.strip().lower()
     date_col = col('doc_entete', 'date')
     if re.match(r"^\d{4}$", periode):
-        return f"AND STRFTIME('%Y', e.{date_col}) = '{periode}'"
+        return f"AND {_fmt_annee(f'e.{date_col}')} = '{periode}'"
     _MOIS = {
         "jan": "01", "fév": "02", "feb": "02", "mar": "03",
         "avr": "04", "apr": "04", "mai": "05", "may": "05",
@@ -447,9 +676,9 @@ def _filtre_date(periode: str | None) -> str:
     if m:
         mois_num = _MOIS.get(m.group(1)[:3].lower())
         if mois_num:
-            return f"AND STRFTIME('%Y-%m', e.{date_col}) = '{m.group(2)}-{mois_num}'"
+            return f"AND {_fmt_mois(f'e.{date_col}')} = '{m.group(2)}-{mois_num}'"
     if re.match(r"^\d{4}-\d{2}$", periode):
-        return f"AND STRFTIME('%Y-%m', e.{date_col}) = '{periode}'"
+        return f"AND {_fmt_mois(f'e.{date_col}')} = '{periode}'"
     return ""
 
 
@@ -478,6 +707,11 @@ def _sql_client_encours(code_ou_nom: str, conn) -> str:
 
     piece_col_entete = col('doc_entete', 'piece')
     type_col_entete = col('doc_entete', 'type')
+    # FIX v4.2 : cette colonne manquait, provoquant une NameError avalée
+    # silencieusement par le try/except du moteur de patterns, qui faisait
+    # retomber "encours du client X" sur le fallback générique (→ CA total
+    # au lieu du solde impayé).
+    domaine_col_entete = col('doc_entete', 'domaine')
     code_tiers_col_entete = col('doc_entete', 'code_tiers')
 
     piece_col_ligne = col('doc_ligne', 'piece')
@@ -492,7 +726,8 @@ def _sql_client_encours(code_ou_nom: str, conn) -> str:
                COALESCE(SUM(l.{qte_col} * l.{prix_col}), 0) AS encours_utilise
         FROM {clients_table} c
         LEFT JOIN {doc_entete_table} e ON c.{code_col} = e.{code_tiers_col_entete}
-            AND e.{type_col_entete} = 3
+            AND e.{type_col_entete} = 6
+            AND e.{domaine_col_entete} = 0
             AND e.{piece_col_entete} NOT IN (SELECT {piece_col_reglements} FROM {reglements_table})
         LEFT JOIN {doc_ligne_table} l ON e.{piece_col_entete} = l.{piece_col_ligne}
         WHERE c.{code_col} = '{code}'
@@ -502,7 +737,7 @@ def _sql_client_encours(code_ou_nom: str, conn) -> str:
 
 def _sql_factures_non_reglees(code_ou_nom: str, conn) -> str:
     """
-    Factures non réglées = type=3 dont piece absent de reglements.
+    Factures non réglées = type=6 (factures de vente) dont piece absent de reglements.
     """
     clients_table = table('clients_fournisseurs')
     doc_entete_table = table('doc_entete')
@@ -529,10 +764,7 @@ def _sql_factures_non_reglees(code_ou_nom: str, conn) -> str:
         row = _resoudre_client(conn, code_ou_nom)
         if row:
             filtre = f"AND e.{code_tiers_col_entete} = '{row[code_col]}'"
-    days_diff_sql = (
-        f"DATEDIFF(day, e.{date_col_entete}, GETDATE())" if _is_mssql()
-        else f"CAST(JULIANDAY('now') - JULIANDAY(e.{date_col_entete}) AS INTEGER)"
-    )
+    days_diff_sql = f"CAST({_diff_jours(_now_date(), f'e.{date_col_entete}')} AS INTEGER)"
 
     return f"""
         SELECT e.{piece_col_entete},
@@ -544,7 +776,7 @@ def _sql_factures_non_reglees(code_ou_nom: str, conn) -> str:
         FROM {doc_entete_table} e
         LEFT JOIN {clients_table}  c ON e.{code_tiers_col_entete} = c.{code_col}
         LEFT JOIN {doc_ligne_table} l ON e.{piece_col_entete} = l.{piece_col_ligne}
-        WHERE e.{type_col_entete} = 3 AND e.{domaine_col_entete} = 0
+        WHERE e.{type_col_entete} = 6 AND e.{domaine_col_entete} = 0
           AND e.{piece_col_entete} NOT IN (SELECT {piece_col_reglements} FROM {reglements_table})
           {filtre}
         GROUP BY e.{piece_col_entete}, e.{code_tiers_col_entete}, c.{nom_col}, e.{date_col_entete}
@@ -576,7 +808,9 @@ def _sql_ca_client(
 
     row = _resoudre_client(conn, code_ou_nom)
     code = row[code_col] if row else code_ou_nom
-    filtre_an = f"AND STRFTIME('%Y', e.{date_col_entete}) = '{annee}'" if annee else ""
+    filtre_an = f"AND {_fmt_annee(f'e.{date_col_entete}')} = '{annee}'" if annee else ""
+    # FIX v4.3 : type=3 = BL, pas facture. Le CA client doit être calculé
+    # sur les factures de vente (type=6).
     return f"""
         SELECT e.{code_col},
                c.{nom_col},
@@ -587,7 +821,7 @@ def _sql_ca_client(
         FROM {doc_entete_table} e
         JOIN {doc_ligne_table}  l ON e.{piece_col_entete} = l.{piece_col_ligne}
         LEFT JOIN {clients_table} c ON e.{code_tiers_col_entete} = c.{code_col}
-        WHERE e.{type_col_entete} = 3 AND e.{domaine_col_entete} = 0
+        WHERE e.{type_col_entete} = 6 AND e.{domaine_col_entete} = 0
           AND e.{code_tiers_col_entete} = '{code}'
           {filtre_an}
         GROUP BY e.{code_col}
@@ -621,21 +855,27 @@ def _sql_docs_periode(
         row = _resoudre_client(conn, code_ou_nom)
         if row:
             filtre = f"AND e.{code_tiers_col_entete} = '{row[code_col]}'"
+    if _is_mssql():
+        date_filtre = (
+            f"TRY_CAST(e.{date_col_entete} AS DATE) >= TRY_CAST('{date_debut}' AS DATE) "
+            f"AND TRY_CAST(e.{date_col_entete} AS DATE) <= TRY_CAST('{date_fin}' AS DATE)"
+        )
+    else:
+        date_filtre = f"e.{date_col_entete} >= '{date_debut}' AND e.{date_col_entete} <= '{date_fin}'"
+
     return f"""
         SELECT e.{piece_col_entete}, e.{type_col_entete}, e.{date_col_entete},
-               e.{code_tiers_col_entete},
-               c.{nom_col},
+               e.{code_tiers_col_entete}, c.{nom_col},
                COALESCE(SUM(l.{qte_col} * l.{prix_col}), 0) AS montant_ht
         FROM {doc_entete_table} e
         LEFT JOIN {clients_table}  c ON e.{code_tiers_col_entete} = c.{code_col}
         LEFT JOIN {doc_ligne_table} l ON e.{piece_col_entete} = l.{piece_col_ligne}
-        WHERE e.{date_col_entete} >= '{date_debut}' AND e.{date_col_entete} <= '{date_fin}'
+        WHERE {date_filtre}
           {filtre}
-        GROUP BY e.{piece_col_entete}
+        GROUP BY e.{piece_col_entete}, e.{type_col_entete}, e.{date_col_entete},
+                 e.{code_tiers_col_entete}, c.{nom_col}
         ORDER BY e.{date_col_entete} DESC
     """
-
-
 def _sql_dso(code_ou_nom: str, conn) -> str:
     """
     DSO = délai moyen entre date et date_reglement (table reglements).
@@ -667,13 +907,15 @@ def _sql_dso(code_ou_nom: str, conn) -> str:
         row = _resoudre_client(conn, code_ou_nom)
         if row:
             filtre = f"AND e.{code_tiers_col_entete} = '{row[code_col]}'"
+    # FIX v4.3 : type=3 = BL, pas facture. Le DSO doit être calculé sur
+    # les factures de vente (type=6).
     return f"""
         SELECT e.{code_col},
                c.{nom_col},
                ROUND(AVG(
                  CASE WHEN r.{date_reglement_col} IS NOT NULL
-                      THEN JULIANDAY(r.{date_reglement_col}) - JULIANDAY(e.{date_col_entete})
-                      ELSE JULIANDAY('now') - JULIANDAY(e.{date_col_entete})
+                      THEN {_diff_jours(f'r.{date_reglement_col}', f'e.{date_col_entete}')}
+                      ELSE {_diff_jours(_now_date(), f'e.{date_col_entete}')}
                  END
                ), 1) AS dso_jours,
                COUNT(DISTINCT e.{piece_col_entete}) AS nb_factures,
@@ -682,13 +924,156 @@ def _sql_dso(code_ou_nom: str, conn) -> str:
         LEFT JOIN {clients_table}  c ON e.{code_tiers_col_entete} = c.{code_col}
         LEFT JOIN {doc_ligne_table} l ON e.{piece_col_entete} = l.{piece_col_ligne}
         LEFT JOIN {reglements_table} r ON e.{piece_col_entete} = r.{piece_col_reglements}
-        WHERE e.{type_col_entete} = 3 AND e.{domaine_col_entete} = 0
+        WHERE e.{type_col_entete} = 6 AND e.{domaine_col_entete} = 0
           {filtre}
-        GROUP BY e.{code_col}
+        GROUP BY e.{code_col}, c.{nom_col}
         ORDER BY dso_jours DESC
     """
 
 
+# ─────────────────────────────────────────────────────────────────────
+# GÉNÉRATEURS DE PATTERNS COMPLEXES (v4.2)
+# Extraits en fonctions dédiées pour éviter le piège du f-string évalué
+# AVANT le .format() qui devait le compléter (cause du bug silencieux).
+# Toute valeur dynamique est calculée en Python normal AVANT d'être
+# injectée dans le f-string du SQL.
+# ─────────────────────────────────────────────────────────────────────
+
+def _gen_factures_mois_numero(m, conn):
+    mois = int(next((g for g in m.groups() if g), 1))
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
+    sql = f"""
+        SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+               e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+               COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
+               CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut
+        FROM {table('doc_entete')} e
+        LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
+        LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+        LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
+        WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+          AND {_fmt_mois_num(f"e.{col('doc_entete', 'date')}")} = {mois}
+        GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                 e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+                 r.{col('reglements', 'piece')}
+        ORDER BY e.{col('doc_entete', 'date')} DESC
+    """
+    return {"sql": sql, "description": f"Factures du mois {mois}"}
+
+
+_MOIS_NOMS_FR = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
+}
+
+
+def _gen_factures_mois_nom(m, conn):
+    mois = _MOIS_NOMS_FR.get(m.group(1).lower(), 1)
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
+    sql = f"""
+        SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+               e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+               COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
+               CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut
+        FROM {table('doc_entete')} e
+        LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
+        LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+        LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
+        WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+          AND {_fmt_mois_num(f"e.{col('doc_entete', 'date')}")} = {mois}
+        GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                 e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+                 r.{col('reglements', 'piece')}
+        ORDER BY e.{col('doc_entete', 'date')} DESC
+    """
+    return {"sql": sql, "description": f"Factures du mois de {m.group(1)}"}
+
+
+def _gen_articles_plus_vendus(m, conn):
+    date_col = f"e.{col('doc_entete', 'date')}"
+    if m.group(1) and "mois" in m.group(1):
+        filtre = f"AND {_fmt_mois(date_col)} = {_fmt_mois(_now_date())}"
+    elif m.group(1) and "semaine" in m.group(1):
+        filtre = f"AND {date_col} >= {_date_sub_days(7)}"
+    elif m.group(2):
+        filtre = f"AND {_fmt_annee(date_col)} = '{m.group(2)}'"
+    else:
+        filtre = ""
+    # FIX v4.3 : type=3 = BL, pas facture. Les articles "vendus" sont
+    # comptabilisés sur les factures de vente (type=6), cohérent avec
+    # analyser_palmares_articles.
+    sql = f"""
+        SELECT {_top(10)}l.{col('doc_ligne', 'ref_article')}, a.{col('articles', 'designation')},
+               SUM(l.{col('doc_ligne', 'qte')})                      AS qte_vendue,
+               SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})  AS ca
+        FROM {table('doc_ligne')}  l
+        JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
+        LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
+        WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+          {filtre}
+        GROUP BY l.{col('doc_ligne', 'ref_article')}
+        ORDER BY qte_vendue DESC
+    """
+    return {
+        "sql": sql,
+        "description": "Articles les plus vendus" + (f" ({m.group(1)})" if m.group(1) else ""),
+    }
+
+
+def _gen_factures_fournisseur_specifique(m, conn):
+    # AUDIT FOURNISSEUR (non corrigé — code type=16/domaine=1 non confirmé,
+    # voir découverte annexe : incohérence 16/6/3 selon les fonctions).
+    code = next((m.group(i) for i in range(1, (m.lastindex or 0) + 1) if m.group(i)), "").upper()
+    sql = f"""
+        SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+               e.{col('doc_entete', 'code_tiers')} AS code_fournisseur,
+               c.{col('clients_fournisseurs', 'nom')} AS nom_fournisseur,
+               COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
+               CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL
+                    THEN 'RÉGLÉE' ELSE 'EN ATTENTE'
+               END AS statut
+        FROM {table('doc_entete')} e
+        LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
+        LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+        LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
+        WHERE e.{col('doc_entete', 'type')} = 16 AND e.{col('doc_entete', 'domaine')} = 1
+          AND e.{col('doc_entete', 'code_tiers')} = '{code}'
+        GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                 e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+                 r.{col('reglements', 'piece')}
+        ORDER BY e.{col('doc_entete', 'date')} DESC
+    """
+    return {"sql": sql, "description": f"Factures fournisseur {code}"}
+
+
+def _gen_marge_article_specifique(m, conn):
+    ref = m.group(1).strip()
+    existe = conn.execute(
+        f"SELECT 1 FROM {table('articles')} WHERE UPPER({col('articles','ref')})=UPPER(?)",
+        (ref,)
+    ).fetchone()
+    if not existe:
+        return {"sql": "", "description": f"Article '{ref}' introuvable dans le catalogue"}
+    sql = f"""
+        SELECT l.{col('doc_ligne', 'ref_article')}, a.{col('articles', 'designation')},
+               SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}) AS ca_vente,
+               SUM(l.{col('doc_ligne', 'qte')} * a.{col('articles', 'prix_achat')}) AS cout_achat,
+               SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})
+                 - SUM(l.{col('doc_ligne', 'qte')} * a.{col('articles', 'prix_achat')}) AS marge_brute,
+               ROUND(
+                 (SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})
+                  - SUM(l.{col('doc_ligne', 'qte')} * a.{col('articles', 'prix_achat')}))
+                 / NULLIF(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) * 100,
+               1) AS taux_marge_pct
+        FROM {table('doc_ligne')} l
+        JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
+        LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
+        WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+          AND UPPER(l.{col('doc_ligne', 'ref_article')}) = UPPER('{ref}')
+        GROUP BY l.{col('doc_ligne', 'ref_article')}
+    """
+    return {"sql": sql, "description": f"Marge brute sur l'article '{ref}' (aucune vente si vide)"}
 # ─────────────────────────────────────────────────────────────────────
 # CATALOGUE DE PATTERNS NL→SQL — neutre (table()/col())
 # ─────────────────────────────────────────────────────────────────────
@@ -697,6 +1082,7 @@ _FOURNISSEUR_RX = r"fou?r?n+i?s+e?u?r"
 _NL_PATTERNS: list[tuple] = [
 
     # ── Clients classés par nombre de commandes ───────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"clas(?:se|sement|s[eé])\s+.{0,30}clients?.{0,30}(?:nombre|nb)\s+(?:de\s+)?commandes?"
         r"|clients?.{0,30}par\s+(?:nombre|nb)\s+(?:de\s+)?commandes?"
@@ -710,7 +1096,7 @@ _NL_PATTERNS: list[tuple] = [
                        COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS ca_total
                 FROM {table('clients_fournisseurs')} c
                 LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                    AND e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                    AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
@@ -720,6 +1106,7 @@ _NL_PATTERNS: list[tuple] = [
         }
     ),
     # ── Alias : "moyenne des factures par client" → panier moyen ──
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"moyenne\s+des?\s+factures?\s+par\s+client",
         lambda m, conn: {
@@ -732,7 +1119,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
                 ORDER BY moyenne_facture DESC
             """,
@@ -756,6 +1143,9 @@ _NL_PATTERNS: list[tuple] = [
         }
     ),
     # ── Articles sous seuil de stock ET commandés ce mois ────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6 (cohérence avec le
+    # reste des analyses ; NB : "commandé" ici est calculé via les
+    # factures, pas via les BC — à confirmer métier si besoin).
     (
         r"articles?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique).{0,40}command[eé]s?"
         r"|articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)"
@@ -772,8 +1162,8 @@ _NL_PATTERNS: list[tuple] = [
                 LEFT JOIN {table('stock')} s ON a.{col('articles', 'ref')} = s.{col('stock', 'ref')}
                 JOIN {table('doc_ligne')} l ON a.{col('articles', 'ref')} = l.{col('doc_ligne', 'ref_article')}
                 JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  AND STRFTIME('%Y-%m', e.{col('doc_entete', 'date')}) = STRFTIME('%Y-%m', 'now')
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+                  AND {_fmt_mois(f"e.{col('doc_entete', 'date')}")} = {_fmt_mois(_now_date())}
                   AND COALESCE(s.{col('stock', 'qte_stock')}, 0) < COALESCE(s.{col('stock', 'qte_commande')}, 5)
                 GROUP BY a.{col('articles', 'ref')}, a.{col('articles', 'designation')}, s.{col('stock', 'qte_stock')}, s.{col('stock', 'qte_commande')}
                 ORDER BY stock_dispo ASC
@@ -810,20 +1200,21 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Évolution factures impayées mois par mois ─────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"[eé]volution.{0,30}(?:factures?\s+)?impay[eé]es?\s+mois\s+par\s+mois"
         r"|impay[eé]es?\s+mois\s+par\s+mois"
         r"|factures?\s+impay[eé]es?\s+par\s+mois",
         lambda m, conn: {
             "sql": f"""
-                SELECT STRFTIME('%Y-%m', e.{col('doc_entete', 'date')}) AS mois,
+                SELECT {_fmt_mois(f"e.{col('doc_entete', 'date')}")} AS mois,
                        COUNT(*)                      AS nb_factures,
                        SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}) AS montant_impaye
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 AND e.{col('doc_entete', 'piece')} NOT IN (SELECT {col('reglements', 'piece')} FROM {table('reglements')})
-                GROUP BY mois
+                GROUP BY {_fmt_mois(f"e.{col('doc_entete', 'date')}")}
                 ORDER BY mois ASC
             """,
             "description": "Évolution des factures impayées mois par mois",
@@ -831,6 +1222,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Articles vendus à un seul client ─────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"articles?.{0,30}vendu[se]?.{0,20}(?:un\s+seul|1\s+seul|unique)\s+client"
         r"|articles?.{0,20}(?:un\s+seul|unique)\s+client",
@@ -841,7 +1233,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_ligne')} l
                 JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
                 JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 GROUP BY l.{col('doc_ligne', 'ref_article')}
                 HAVING nb_clients = 1
                 ORDER BY l.{col('doc_ligne', 'ref_article')}
@@ -851,6 +1243,9 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Fournisseurs livrant des articles des meilleurs clients ───
+    # FIX v4.3 : le classement "meilleurs clients" (sous-requête) doit
+    # être basé sur les factures (type=6), pas les BL (type=3). Le
+    # domaine=1 côté fournisseur reste hors périmètre (AUDIT FOURNISSEUR).
     (
        r"fournisseurs?.{0,80}(?:meilleurs?|top)\s+clients?"
     r"|fournisseurs?.{0,80}articles?.{0,60}(?:meilleurs?|top)\s+clients?",
@@ -865,12 +1260,12 @@ _NL_PATTERNS: list[tuple] = [
                     SELECT l.{col('doc_ligne', 'ref_article')}
                     FROM {table('doc_ligne')} l
                     JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
-                    WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                    WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                     AND e.{col('doc_entete', 'code_tiers')} IN (
                         SELECT {_top(5)}e2.{col('doc_entete', 'code_tiers')}
                         FROM {table('doc_entete')} e2
                         JOIN {table('doc_ligne')} l2 ON l2.{col('doc_ligne', 'piece')} = e2.{col('doc_entete', 'piece')}
-                        WHERE e2.{col('doc_entete', 'type')} = 3 AND e2.{col('doc_entete', 'domaine')} = 0
+                        WHERE e2.{col('doc_entete', 'type')} = 6 AND e2.{col('doc_entete', 'domaine')} = 0
                         GROUP BY e2.{col('doc_entete', 'code_tiers')}
                         ORDER BY SUM(l2.{col('doc_ligne', 'qte')} * l2.{col('doc_ligne', 'prix_unitaire')}) DESC
                     )
@@ -882,6 +1277,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Panier moyen par client ───────────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"panier\s+moyen(?:\s+par\s+client)?",
         lambda m, conn: {
@@ -894,7 +1290,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
                 ORDER BY panier_moyen DESC
             """,
@@ -903,6 +1299,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Clients sans commande depuis N mois (version générique) ──
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"clients?.{0,30}(?:pas\s+command[eé]|sans\s+commande|inactifs?)\s+depuis\s+(?:plus\s+de\s+)?(\d+)\s+mois",
         lambda m, conn: {
@@ -912,18 +1309,40 @@ _NL_PATTERNS: list[tuple] = [
                        COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_factures_total
                 FROM {table('clients_fournisseurs')} c
                 LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                    AND e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                    AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
-                HAVING derniere_facture IS NULL
-                    OR derniere_facture < DATE('now', '-{jours} days')
+                HAVING MAX(e.{col('doc_entete', 'date')}) IS NULL
+                    OR MAX(e.{col('doc_entete', 'date')}) < {_date_sub_days(int(m.group(1)) * 30)}
                 ORDER BY derniere_facture ASC
-            """.format(jours=int(m.group(1)) * 30),
+            """,
             "description": f"Clients sans commande depuis {m.group(1)} mois",
         }
     ),
 
+    # ── Liste globale de tous les BL de vente ─────────────────────────
+    # NE PAS MODIFIER : pattern explicitement dédié aux BL (type=3 correct).
+    (
+        r"(?:liste|affiche|montre|donne|toutes?)\s+(?:toutes?\s+|des\s+|les\s+)?bls?$",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                       e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
+                       COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht
+                FROM {table('doc_entete')} e
+                LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
+                LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
+                ORDER BY e.{col('doc_entete', 'date')} DESC
+            """,
+            "description": "Liste des bons de livraison",
+        }
+    ),
+
     # ── BL non facturés ──────────────────────────────────────────────
+    # NE PAS MODIFIER : pattern explicitement dédié aux BL (type=3 correct,
+    # les deux occurrences ci-dessous incluses).
     (
         r"bl\s+non\s+factur[eé]s?|bons?\s+de\s+livraison\s+non\s+factur[eé]s?|liste\s+(?:des?\s+)?bl\s+(?:non|en\s+attente)",
         lambda m, conn: {
@@ -934,13 +1353,13 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 2 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
                   AND e.{col('doc_entete', 'piece')} NOT IN (
                       SELECT DISTINCT {col('doc_entete', 'reference')}
                       FROM {table('doc_entete')}
                       WHERE {col('doc_entete', 'type')} = 3 AND {col('doc_entete', 'domaine')} = 0 AND {col('doc_entete', 'reference')} IS NOT NULL AND {col('doc_entete', 'reference')} != ''
                   )
-                GROUP BY e.{col('doc_entete', 'piece')}
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "BL non facturés",
@@ -967,6 +1386,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Clients inactifs depuis N mois ───────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"clients?\s+(?:qui\s+)?n['\u2019]ont\s+pas\s+command[eé]\s+depuis\s+(\d+)\s+mois"
         r"|clients?\s+inactifs?\s+depuis\s+(\d+)\s+mois"
@@ -978,15 +1398,13 @@ _NL_PATTERNS: list[tuple] = [
                        COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_factures
                 FROM {table('clients_fournisseurs')} c
                 LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                    AND e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                    AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
-                HAVING derniere_facture IS NULL
-                    OR derniere_facture < DATE('now', '-{mois} days')
-                ORDER BY derniere_facture ASC
-            """.format(
-                mois=int(next((g for g in m.groups() if g), 6)) * 30
-            ),
+                HAVING MAX(e.{col('doc_entete', 'date')}) IS NULL
+                    OR MAX(e.{col('doc_entete', 'date')}) < {_date_sub_days(int(next((g for g in m.groups() if g), 6)) * 30)}
+                ORDER BY MAX(e.{col('doc_entete', 'date')}) ASC
+            """,
             "description": f"Clients inactifs depuis {next((g for g in m.groups() if g), '6')} mois",
         }
     ),
@@ -995,59 +1413,18 @@ _NL_PATTERNS: list[tuple] = [
     (
         r"factures?.*?(?:du\s+mois\s+(?:de\s+)?|mois\s+)(\d{1,2})\b"
         r"|factures?.*?mis\s+(\d{1,2})\b",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
-                       e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
-                       COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
-                       CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut
-                FROM {table('doc_entete')} e
-                LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  AND CAST(STRFTIME('%m', e.{col('doc_entete', 'date')}) AS INTEGER) = {mois}
-                GROUP BY e.{col('doc_entete', 'piece')}
-                ORDER BY e.{col('doc_entete', 'date')} DESC
-            """.format(
-                mois=int(next((g for g in m.groups() if g), 1))
-            ),
-            "description": f"Factures du mois {next((g for g in m.groups() if g), '?')}",
-        }
+        _gen_factures_mois_numero,
     ),
 
     # ── Factures par mois (nom littéral) ─────────────────────────────
     (
         r"factures?.*?(?:du\s+mois\s+(?:de\s+)?|en\s+|de\s+)?(janvier|février|fevrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
-                       e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')},
-                       COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
-                       CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut
-                FROM {table('doc_entete')} e
-                LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  AND CAST(STRFTIME('%m', e.{col('doc_entete', 'date')}) AS INTEGER) = {mois}
-                GROUP BY e.{col('doc_entete', 'piece')}
-                ORDER BY e.{col('doc_entete', 'date')} DESC
-            """.format(
-                mois={
-                    "janvier":1,"février":2,"fevrier":2,"mars":3,"avril":4,
-                    "mai":5,"juin":6,"juillet":7,"août":8,"aout":8,
-                    "septembre":9,"octobre":10,"novembre":11,"décembre":12,"decembre":12
-                }.get(m.group(1).lower().replace("é","é").replace("û","u"), 1)
-            ),
-            "description": f"Factures du mois de {m.group(1)}",
-        }
+        _gen_factures_mois_nom,
     ),
 
     # ── Articles filtrés par prix de vente ────────────────────────────
     (
-        r"articles?.{0,40}prix.{0,20}(?:vente|ven).{0,20}(?:sup[eé]r|d[eé]passe|plus\s+(?:de|que)|>\s*)[\s]*(\d+(?:[.,]\d+)?)"
-        r"|articles?.{0,20}(?:sup[eé]r|d[eé]passe).{0,30}(\d+(?:[.,]\d+)?)",
+        r"articles?.{0,40}prix.{0,20}(?:vente|ven)?.{0,20}(?:sup[eé]r|d[eé]passe|plus\s+(?:de|que)|>\s*)\s*(\d+(?:[.,]\d+)?)",
         lambda m, conn: {
             "sql": f"""
                 SELECT {col('articles', 'ref')}, {col('articles', 'designation')},
@@ -1055,34 +1432,31 @@ _NL_PATTERNS: list[tuple] = [
                        {col('articles', 'prix_achat')} AS prix_achat,
                        ROUND({col('articles', 'prix_vente')} - {col('articles', 'prix_achat')}, 2) AS marge
                 FROM {table('articles')}
-                WHERE {col('articles', 'prix_vente')} > {seuil}
+                WHERE {col('articles', 'prix_vente')} > {float((next((g for g in m.groups() if g), "0")).replace(",", "."))}
                 ORDER BY {col('articles', 'prix_vente')} DESC
-            """.format(
-                seuil=float((next((g for g in m.groups() if g), "0")).replace(",", "."))
-            ),
+            """,
             "description": f"Articles avec prix de vente > {next((g for g in m.groups() if g), '0')} €",
         }
     ),
 
     # ── Articles filtrés par prix inférieur ───────────────────────────
     (
-        r"articles?.{0,40}prix.{0,20}(?:inf[eé]r|moins\s+(?:de|que)|<\s*)[\s]*(\d+(?:[.,]\d+)?)",
+        r"articles?.{0,40}prix.{0,20}(?:vente|ven)?.{0,20}(?:inf[eé]r|moins\s+(?:de|que)|<\s*)\s*(\d+(?:[.,]\d+)?)",
         lambda m, conn: {
             "sql": f"""
                 SELECT {col('articles', 'ref')}, {col('articles', 'designation')},
                        {col('articles', 'prix_vente')} AS prix_vente,
                        {col('articles', 'prix_achat')} AS prix_achat
                 FROM {table('articles')}
-                WHERE {col('articles', 'prix_vente')} < {seuil} AND {col('articles', 'prix_vente')} > 0
+                WHERE {col('articles', 'prix_vente')} < {float((next((g for g in m.groups() if g), "0")).replace(",", "."))} AND {col('articles', 'prix_vente')} > 0
                 ORDER BY {col('articles', 'prix_vente')} ASC
-            """.format(
-                seuil=float(m.group(1).replace(",", "."))
-            ),
-            "description": f"Articles avec prix de vente < {m.group(1)} €",
+            """,
+            "description": f"Articles avec prix de vente < {next((g for g in m.groups() if g), '0')} €",
         }
     ),
 
     # ── Clients avec plus/moins de N commandes ────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"clients?.{0,50}(?:plus\s+de|au\s+moins|plus\s+qu[e'\u2019])\s+(\d+)\s+(?:commandes?|factures?|achats?)",
         lambda m, conn: {
@@ -1091,18 +1465,19 @@ _NL_PATTERNS: list[tuple] = [
                        COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_factures,
                        COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS ca_total
                 FROM {table('clients_fournisseurs')} c
-                JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
-                HAVING COUNT(DISTINCT e.{col('doc_entete', 'piece')}) > {n}
+                HAVING COUNT(DISTINCT e.{col('doc_entete', 'piece')}) > {int(m.group(1))}
                 ORDER BY nb_factures DESC
-            """.format(n=int(m.group(1))),
+            """,
             "description": f"Clients avec plus de {m.group(1)} commandes/factures",
         }
     ),
 
     # ── Clients avec moins de N commandes ────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"clients?.{0,50}(?:moins\s+de|moins\s+qu[e'\u2019])\s+(\d+)\s+(?:commandes?|factures?|achats?)",
         lambda m, conn: {
@@ -1110,17 +1485,19 @@ _NL_PATTERNS: list[tuple] = [
                 SELECT c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')},
                        COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_factures
                 FROM {table('clients_fournisseurs')} c
-                LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
-                HAVING COUNT(DISTINCT e.{col('doc_entete', 'piece')}) < {n}
+                HAVING COUNT(DISTINCT e.{col('doc_entete', 'piece')}) < {int(m.group(1))}
                 ORDER BY nb_factures ASC
-            """.format(n=int(m.group(1))),
+            """,
             "description": f"Clients avec moins de {m.group(1)} commandes/factures",
         }
     ),
 
     # ── Liste globale de toutes les factures ──────────────────────────
+    # FIX v4.3 : la description annonçait déjà "factures de vente" mais le
+    # SQL tapait sur type=3 (BL) → corrigé en type=6.
     (
         r"(?:liste|affiche|montre|donne|toutes?)\s+(?:toutes?\s+|des\s+|les\s+)?factures?$",
         lambda m, conn: {
@@ -1133,8 +1510,8 @@ _NL_PATTERNS: list[tuple] = [
                 LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                GROUP BY e.{col('doc_entete', 'piece')}
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}, r.{col('reglements', 'piece')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "Liste de toutes les factures de vente",
@@ -1142,35 +1519,16 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── PRIORITÉ 1 : Factures d'un fournisseur spécifique ────────────
+    # AUDIT FOURNISSEUR (non corrigé — voir _gen_factures_fournisseur_specifique).
     (
         rf"factures?\s+(?:du\s+|de\s+|d[eu]\s+)?{_FOURNISSEUR_RX}\s+([A-Z0-9]+)"
         rf"|factures?\s+{_FOURNISSEUR_RX}.*?([A-Z]{{1,}}\d{{1,}}[A-Z0-9]*)"
         rf"|liste.*factures?.*{_FOURNISSEUR_RX}.*?([A-Z]{{1,}}\d{{1,}}[A-Z0-9]*)",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
-                       e.{col('doc_entete', 'code_tiers')} AS code_fournisseur,
-                       c.{col('clients_fournisseurs', 'nom')} AS nom_fournisseur,
-                       COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0) AS montant_ht,
-                       CASE WHEN r.{col('reglements', 'piece')} IS NOT NULL
-                            THEN 'RÉGLÉE' ELSE 'EN ATTENTE'
-                       END AS statut
-                FROM {table('doc_entete')} e
-                LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 1
-                  AND e.{col('doc_entete', 'code_tiers')} = '{code}'
-                GROUP BY e.{col('doc_entete', 'piece')}
-                ORDER BY e.{col('doc_entete', 'date')} DESC
-            """.format(
-                code=next((m.group(i) for i in range(1, (m.lastindex or 0) + 1) if m.group(i)), "").upper()
-            ),
-            "description": f"Factures fournisseur {next((m.group(i) for i in range(1, (m.lastindex or 0) + 1) if m.group(i)), '').upper()}",
-        }
+        _gen_factures_fournisseur_specifique,
     ),
 
     # ── PRIORITÉ 2 : Factures fournisseur globales (sans code) ───────
+    # AUDIT FOURNISSEUR (non corrigé — type=16/domaine=1 non confirmé).
     (
         rf"factures?\s+{_FOURNISSEUR_RX}|factures?\s+(?:d.achat|achat)|achats?\s+factur",
         lambda m, conn: {
@@ -1182,8 +1540,9 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 1
-                GROUP BY e.{col('doc_entete', 'piece')}
+                WHERE e.{col('doc_entete', 'type')} = 16 AND e.{col('doc_entete', 'domaine')} = 1
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                         e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "Factures fournisseur (achats)",
@@ -1210,6 +1569,8 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Bons de réception fournisseur ───────────────────────────────
+    # AUDIT FOURNISSEUR (non corrigé — type=13/domaine=1 non confirmé,
+    # à recouper avec les codes 16/6/3 utilisés ailleurs pour fournisseur).
     (
         rf"(?:bons?\s+de\s+)?r[eé]ceptions?(?:\s+{_FOURNISSEUR_RX})?|bl\s+achat|livraison\s+{_FOURNISSEUR_RX}",
         lambda m, conn: {
@@ -1221,11 +1582,73 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 2 AND e.{col('doc_entete', 'domaine')} = 1
-                GROUP BY e.{col('doc_entete', 'piece')}
+                WHERE e.{col('doc_entete', 'type')} = 13 AND e.{col('doc_entete', 'domaine')} = 1
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')},
+                         e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
-            "description": "Bons de réception fournisseur",
+            "description": "Bons de livraison achat (BL fournisseur)",
+        }
+    ),
+
+    # ── Produits finis définis en nomenclature ─────────────────────────
+    (
+        r"produits?\s+finis?|articles?\s+finis?",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT DISTINCT a.{col('articles', 'ref')} AS ref,
+                                a.{col('articles', 'designation')} AS designation
+                FROM {table('articles')} a
+                JOIN {table('nomenclature')} n
+                  ON UPPER(a.{col('articles', 'ref')}) = UPPER(n.{col('nomenclature', 'ref_pf')})
+                WHERE UPPER(a.{col('articles', 'ref')}) NOT IN (
+                    SELECT UPPER({col('nomenclature', 'ref_mp')}) FROM {table('nomenclature')}
+                )
+                ORDER BY a.{col('articles', 'ref')}
+            """,
+            "description": "Produits finis (non utilisés comme composant d'un autre article)",
+        }
+    ),
+
+    # ── Matières premières présentes dans la nomenclature ─────────────
+    (
+        r"mati[èe]res?\s+premi[eè]res?|mati[èe]re\s+premi[eè]re",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT DISTINCT a.{col('articles', 'ref')} AS ref,
+                                a.{col('articles', 'designation')} AS designation
+                FROM {table('articles')} a
+                JOIN {table('nomenclature')} n
+                  ON UPPER(a.{col('articles', 'ref')}) = UPPER(n.{col('nomenclature', 'ref_mp')})
+                WHERE UPPER(a.{col('articles', 'ref')}) NOT IN (
+                    SELECT UPPER({col('nomenclature', 'ref_pf')}) FROM {table('nomenclature')}
+                )
+                ORDER BY a.{col('articles', 'ref')}
+            """,
+            "description": "Matières premières (composants sans nomenclature propre)",
+        }
+    ),
+
+    # ── Composants semi-finis / sous-ensembles intermédiaires ─────────
+    (
+        r"(?:articles?|produits?|composants?)\s+semi[\s\-]finis?"
+        r"|semi[\s\-]finis?"
+        r"|sous[\s\-]ensembles?"
+        r"|composants?\s+interm[eé]diaires?",
+        lambda m, conn: {
+            "sql": f"""
+                SELECT DISTINCT a.{col('articles', 'ref')} AS ref,
+                                a.{col('articles', 'designation')} AS designation
+                FROM {table('articles')} a
+                WHERE UPPER(a.{col('articles', 'ref')}) IN (
+                    SELECT UPPER({col('nomenclature', 'ref_pf')}) FROM {table('nomenclature')}
+                )
+                AND UPPER(a.{col('articles', 'ref')}) IN (
+                    SELECT UPPER({col('nomenclature', 'ref_mp')}) FROM {table('nomenclature')}
+                )
+                ORDER BY a.{col('articles', 'ref')}
+            """,
+            "description": "Composants semi-finis (ont leur propre nomenclature ET sont utilisés dans une autre)",
         }
     ),
 
@@ -1236,9 +1659,10 @@ _NL_PATTERNS: list[tuple] = [
             "sql": f"""
                 SELECT {_top(50)}a.{col('articles', 'ref')}, a.{col('articles', 'designation')},
                        a.{col('articles', 'prix_vente')},
-                       COALESCE(s.{col('stock', 'qte_stock')}, 0) AS stock
+                       COALESCE(SUM(s.{col('stock', 'qte_stock')}), 0) AS stock
                 FROM {table('articles')} a
                 LEFT JOIN {table('stock')} s ON a.{col('articles', 'ref')} = s.{col('stock', 'ref')}
+                GROUP BY a.{col('articles', 'ref')}, a.{col('articles', 'designation')}, a.{col('articles', 'prix_vente')}
                 ORDER BY a.{col('articles', 'ref')}
             """,
             "description": "Liste des articles du catalogue",
@@ -1246,33 +1670,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Clients ayant acheté un article ──────────────────────────────
-    (
-        r"clients?\s+(?:qui\s+ont\s+)?achet[eé]\s+(.+?)(?:\s+en\s+(\d{4}|\w+\s+\d{4}|\d{4}-\d{2}))?$",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT DISTINCT e.{col('doc_entete', 'code_tiers')},
-                       c.{col('clients_fournisseurs', 'nom')},
-                       COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_achats,
-                       SUM(l.{col('doc_ligne', 'qte')})              AS qte_totale
-                FROM {table('doc_entete')} e
-                JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                JOIN {table('clients_fournisseurs')}   c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  AND UPPER(l.{col('doc_ligne', 'ref_article')}) LIKE UPPER('%{art}%')
-                  {filtre_date}
-                GROUP BY e.{col('doc_entete', 'code_tiers')}
-                ORDER BY qte_totale DESC
-            """.format(
-                art=m.group(1).strip(),
-                filtre_date=_filtre_date(
-                    m.group(2) if m.lastindex and m.lastindex >= 2 else None
-                ),
-            ),
-            "description": f"Clients ayant acheté '{m.group(1)}'",
-        }
-    ),
-
-    # ── Top clients par CA ────────────────────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"meilleurs?\s+clients?(?:\s+par\s+ca)?(?:\s+top\s*(\d+))?",
         lambda m, conn: {
@@ -1284,11 +1682,11 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
                 ORDER BY ca_total DESC
-                LIMIT {n}
-            """.format(n=int(m.group(1)) if m.group(1) else 10),
+                LIMIT {int(m.group(1)) if m.group(1) else 10}
+            """,
             "description": "Top clients par CA",
         }
     ),
@@ -1310,6 +1708,8 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Clients inactifs ──────────────────────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6 (domaine=0 ajouté par
+    # cohérence avec les autres analyses de factures).
     (
         r"clients?\s+(?:sans\s+commande|inactifs?|qui\s+n.ont\s+pas\s+command[eé])"
         r"(?:\s+depuis\s+(\d+)\s+(mois|ans?))?",
@@ -1319,18 +1719,13 @@ _NL_PATTERNS: list[tuple] = [
                        MAX(e.{col('doc_entete', 'date')}) AS derniere_commande
                 FROM {table('clients_fournisseurs')} c
                 LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                    AND e.{col('doc_entete', 'type')} = 3
+                    AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
                 HAVING derniere_commande IS NULL
-                    OR derniere_commande < DATE('now', '-{jours} days')
+                    OR derniere_commande < {_date_sub_days(_jours_depuis(m.group(1) if m.lastindex and m.lastindex >= 1 else None, m.group(2) if m.lastindex and m.lastindex >= 2 else "mois"))}
                 ORDER BY derniere_commande ASC
-            """.format(
-                jours=_jours_depuis(
-                    m.group(1) if m.lastindex and m.lastindex >= 1 else None,
-                    m.group(2) if m.lastindex and m.lastindex >= 2 else "mois",
-                )
-            ),
+            """,
             "description": "Clients inactifs",
         }
     ),
@@ -1379,42 +1774,30 @@ _NL_PATTERNS: list[tuple] = [
                        COALESCE(s.{col('stock', 'qte_stock')}, 0) - COALESCE(s.{col('stock', 'qte_commande')}, 0)   AS qte_nette
                 FROM {table('articles')} a
                 LEFT JOIN {table('stock')} s ON a.{col('articles', 'ref')} = s.{col('stock', 'ref')}
-                WHERE UPPER(a.{col('articles', 'ref')})    LIKE UPPER('%{ref}%')
-                   OR UPPER(a.{col('articles', 'designation')}) LIKE UPPER('%{ref}%')
-            """.format(ref=m.group(1).strip()),
+                WHERE UPPER(a.{col('articles', 'ref')})    LIKE UPPER('%{m.group(1).strip()}%')
+                   OR UPPER(a.{col('articles', 'designation')}) LIKE UPPER('%{m.group(1).strip()}%')
+            """,
             "description": f"Stock article '{m.group(1)}'",
         }
     ),
 
     # ── Articles les plus vendus ──────────────────────────────────────
-   (
+    (
         r"articles?\s+les?\s+plus?\s+vendu[se]?s?(?:\s+(ce\s+mois|cette\s+semaine|en\s+(\d{4})))?",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT {_top(10)}l.{col('doc_ligne', 'ref_article')}, a.{col('articles', 'designation')},
-                       SUM(l.{col('doc_ligne', 'qte')})                      AS qte_vendue,
-                       SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})  AS ca
-                FROM {table('doc_ligne')}  l
-                JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
-                LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  {filtre}
-                GROUP BY l.{col('doc_ligne', 'ref_article')}
-                ORDER BY qte_vendue DESC
-            """.format(
-                filtre=(
-                    f"AND STRFTIME('%Y-%m', e.{col('doc_entete', 'date')}) = STRFTIME('%Y-%m','now')"
-                    if m.group(1) and "mois" in m.group(1) else
-                    f"AND e.{col('doc_entete', 'date')} >= DATE('now','-7 days')"
-                    if m.group(1) and "semaine" in m.group(1) else
-                    f"AND STRFTIME('%Y', e.{col('doc_entete', 'date')}) = '{m.group(2)}'"
-                    if m.group(2) else ""
-                )
-            ),
-            "description": "Articles les plus vendus" + (f" ({m.group(1)})" if m.group(1) else ""),
-        }
+        _gen_articles_plus_vendus,
     ),
-    # ── Marge brute par article ───────────────────────────────────────
+
+    # ── Marge brute sur un article spécifique (v4.2 — nouveau) ────────
+    # /!\ DOIT ÊTRE AVANT le pattern générique "Marge brute par article",
+    # sinon "marge sur l'article MONTRE01" retomberait sur la liste
+    # complète non filtrée.
+    (
+        r"marge\s+(?:brute\s+)?(?:sur|de|pour)\s+(?:l['\u2019]article\s+)?([A-Za-z0-9\-]+)",
+        _gen_marge_article_specifique,
+    ),
+
+    # ── Marge brute par article (liste complète) ───────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6.
     (
         r"marge\s+(?:brute\s+)?(?:sur\s+|de\s+|par\s+)?article",
         lambda m, conn: {
@@ -1432,7 +1815,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_ligne')}  l
                 JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
                 LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 GROUP BY l.{col('doc_ligne', 'ref_article')}
                 ORDER BY marge_brute DESC
             """,
@@ -1454,50 +1837,98 @@ _NL_PATTERNS: list[tuple] = [
 
     # ── CA d'un client ────────────────────────────────────────────────
     (
-        r"(?:ca|chiffre\s+d.affaires?)\s+(?:du\s+|de\s+)?(?:client\s+)?(.+)"
-        r"(?:\s+en\s+(\d{4}))?",
-        lambda m, conn: {
-            "sql": _sql_ca_client(
-                m.group(1).strip(), conn,
-                m.group(2) if m.lastindex and m.lastindex >= 2 else None
-            ),
-            "description": f"CA client '{m.group(1)}'",
-        }
+        r"(?:encours|cr[eé]dit)\s+.+"  # garde-fou : ne jamais capturer une question "encours"/"crédit" ici
+        r"(?!)",  # pattern jamais vrai — placeholder retiré ci-dessous
+        lambda m, conn: {"sql": "", "description": ""},
     ),
+]
 
-    # ── CA mensuel ────────────────────────────────────────────────────
-    (
-        r"(?:ca|chiffre\s+d.affaires?)\s+(?:par\s+mois|mensuel)",
-        lambda m, conn: {
-            "sql": f"""
-                SELECT {_top(24)}STRFTIME('%Y-%m', e.{col('doc_entete', 'date')})            AS mois,
-                       COUNT(DISTINCT e.{col('doc_entete', 'piece')})               AS nb_factures,
-                       SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})       AS ca_ht
-                FROM {table('doc_entete')} e
-                JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                GROUP BY mois
-                ORDER BY mois DESC
-            """,
-            "description": "CA mensuel",
-        }
-    ),
+# ── PATCH v4.2 : retrait du garde-fou placeholder ci-dessus (il ne sert
+# qu'à documenter l'intention) et ajout du VRAI pattern "CA d'un client",
+# avec une négation explicite pour ne jamais intercepter une question
+# contenant "encours" ou "crédit" (cause du bug #1 : "encours client X"
+# tombant sur le pattern CA à cause d'un test de sous-chaîne trop large
+# dans le fallback générique — corrigé aussi dans _generer_sql_generique
+# ci-dessous, cette négation est une deuxième barrière de sécurité).
+_NL_PATTERNS.pop()  # retire le placeholder ci-dessus
 
-    # ── CA par année ──────────────────────────────────────────────────
+# ── FIX prob2/prob5 : Insérer les patterns SPÉCIFIQUES avant le pattern
+# générique "CA client" qui est trop vorace et capture "CA par mois" ou
+# "clients qui n'ont pas commandé" avant les patterns dédiés.
+# ─────────────────────────────────────────────────────────────────────
+
+# CA mensuel — DOIT être testé avant le pattern générique "CA client"
+# FIX v4.3 : type=3 = BL → type=6.
+_NL_PATTERNS.append((
+    r"(?:ca|chiffre\s+d.affaires?)\s+(?:par\s+mois|mensuel)",
+    lambda m, conn: {
+        "sql": f"""
+            SELECT {_top(24)}{_fmt_mois(f"e.{col('doc_entete', 'date')}")}            AS mois,
+                   COUNT(DISTINCT e.{col('doc_entete', 'piece')})               AS nb_factures,
+                   SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})       AS ca_ht
+            FROM {table('doc_entete')} e
+            JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+            WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+            GROUP BY {_fmt_mois(f"e.{col('doc_entete', 'date')}")}
+            ORDER BY mois DESC
+        """,
+        "description": "CA mensuel",
+    }
+))
+
+# Clients inactifs depuis N mois — DOIT être testé avant le pattern générique "CA client"
+# FIX v4.3 : type=3 = BL → type=6.
+_NL_PATTERNS.append((
+    r"clients?\s+(?:qui\s+)?n[''´]?ont\s+pas\s+command[eé]\s+depuis\s+(\d+)\s+mois"
+    r"|clients?\s+inactifs?\s+depuis\s+(\d+)\s+mois"
+    r"|quels?\s+clients?.{0,30}command[eé].{0,20}depuis\s+(\d+)\s+mois"
+    r"|clients?.{0,30}(?:pas\s+command[eé]|sans\s+commande|inactifs?)\s+depuis\s+(?:plus\s+de\s+)?(\d+)\s+mois",
+    lambda m, conn: {
+        "sql": f"""
+            SELECT c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')},
+                   MAX(e.{col('doc_entete', 'date')}) AS derniere_facture,
+                   COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_factures
+            FROM {table('clients_fournisseurs')} c
+            LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
+                AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+            WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
+            GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
+            HAVING MAX(e.{col('doc_entete', 'date')}) IS NULL
+                OR MAX(e.{col('doc_entete', 'date')}) < {_date_sub_days(int(next((g for g in m.groups() if g), 6)) * 30)}
+            ORDER BY MAX(e.{col('doc_entete', 'date')}) ASC
+        """,
+        "description": f"Clients sans commande depuis {next((g for g in m.groups() if g), '6')} mois",
+    }
+))
+
+_NL_PATTERNS.append((
+    r"(?<!encours\s)(?<!cr[eé]dit\s)(?:ca|chiffre\s+d.affaires?)\s+(?:du\s+|de\s+)?(?:client\s+)?(.+)"
+    r"(?:\s+en\s+(\d{4}))?",
+    lambda m, conn: {
+        "sql": _sql_ca_client(
+            m.group(1).strip(), conn,
+            m.group(2) if m.lastindex and m.lastindex >= 2 else None
+        ),
+        "description": f"CA client '{m.group(1)}'",
+    }
+))
+
+_NL_PATTERNS.extend([
+    # CA par annee - FIX v4.3 : type=3 = BL, pas facture
     (
         r"(?:ca|chiffre\s+d.affaires?)\s+(?:par\s+)?(\d{4})",
         lambda m, conn: {
             "sql": f"""
-                SELECT STRFTIME('%Y-%m', e.{col('doc_entete', 'date')})        AS mois,
+                SELECT {_fmt_mois(f"e.{col('doc_entete', 'date')}")}        AS mois,
                        SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')})  AS ca_ht,
                        COUNT(DISTINCT e.{col('doc_entete', 'piece')})           AS nb_factures
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'domaine')} = 0
-                  AND STRFTIME('%Y', e.{col('doc_entete', 'date')}) = '{an}'
-                GROUP BY mois
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+                  AND {_fmt_annee(f"e.{col('doc_entete', 'date')}")} = '{m.group(1)}'
+                GROUP BY {_fmt_mois(f"e.{col('doc_entete', 'date')}")}
                 ORDER BY mois
-            """.format(an=m.group(1)),
+            """,
             "description": f"CA par mois en {m.group(1)}",
         }
     ),
@@ -1527,6 +1958,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Ordres de fabrication (OF) ────────────────────────────────────
+    # type=25 domaine=2 déjà correct (cf. docstring Vanna) — inchangé.
     (
         r"\bofs?\b|ordres?\s+de\s+fabrication",
         lambda m, conn: {
@@ -1537,7 +1969,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 WHERE e.{col('doc_entete', 'type')} = 25 AND e.{col('doc_entete', 'domaine')} = 2
-                GROUP BY e.{col('doc_entete', 'piece')}
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "Liste des ordres de fabrication (OF)",
@@ -1545,6 +1977,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Bons de fabrication (BF) ──────────────────────────────────────
+    # type=26 domaine=2 déjà correct (cf. docstring Vanna) — inchangé.
     (
         r"\bbfs?\b|bons?\s+de\s+fabrication",
         lambda m, conn: {
@@ -1555,7 +1988,7 @@ _NL_PATTERNS: list[tuple] = [
                 FROM {table('doc_entete')} e
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 WHERE e.{col('doc_entete', 'type')} = 26 AND e.{col('doc_entete', 'domaine')} = 2
-                GROUP BY e.{col('doc_entete', 'piece')}
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "Liste des bons de fabrication (BF)",
@@ -1563,6 +1996,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── Bons de commande client (BC) ──────────────────────────────────
+    # type=1 domaine=0 déjà correct (cf. docstring Vanna) — inchangé.
     # /!\ Doit être AVANT le pattern générique résumé/KPI
     (
         r"\bbcs?\b|bons?\s+de\s+commande\s+(?:client|achat|vente|client|achat)?",
@@ -1576,7 +2010,7 @@ _NL_PATTERNS: list[tuple] = [
                 LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
                 LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 WHERE e.{col('doc_entete', 'type')} = 1 AND e.{col('doc_entete', 'domaine')} = 0
-                GROUP BY e.{col('doc_entete', 'piece')}
+                GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
                 ORDER BY e.{col('doc_entete', 'date')} DESC
             """,
             "description": "Liste des bons de commande client (BC)",
@@ -1592,16 +2026,19 @@ _NL_PATTERNS: list[tuple] = [
         }
     ),
 
+    # FIX v4.3 : codes type totalement erronés (1=BC pas OF, 2 n'existe
+    # pas, 3=BL pas facture, 9 n'existe pas [avoir=5]). Corrigés selon le
+    # docstring Vanna, avec alias renommés en conséquence.
     (
         r"(?:nombre|combien)\s+(?:de\s+)?(?:factures?|documents?)",
         lambda m, conn: {
             "sql": f"""
                 SELECT
                     COUNT(*) AS nb_total,
-                    SUM(CASE WHEN {col('doc_entete', 'type')}=1 THEN 1 ELSE 0 END) AS of_bf,
-                    SUM(CASE WHEN {col('doc_entete', 'type')}=2 THEN 1 ELSE 0 END) AS bl,
-                    SUM(CASE WHEN {col('doc_entete', 'type')}=3 THEN 1 ELSE 0 END) AS factures,
-                    SUM(CASE WHEN {col('doc_entete', 'type')}=9 THEN 1 ELSE 0 END) AS avoirs
+                    SUM(CASE WHEN {col('doc_entete', 'type')}=1 THEN 1 ELSE 0 END) AS bc,
+                    SUM(CASE WHEN {col('doc_entete', 'type')}=3 THEN 1 ELSE 0 END) AS bl,
+                    SUM(CASE WHEN {col('doc_entete', 'type')}=6 THEN 1 ELSE 0 END) AS factures,
+                    SUM(CASE WHEN {col('doc_entete', 'type')}=5 THEN 1 ELSE 0 END) AS avoirs
                 FROM {table('doc_entete')}
             """,
             "description": "Nombre de documents par type",
@@ -1617,6 +2054,7 @@ _NL_PATTERNS: list[tuple] = [
     ),
 
     # ── KPI / tableau de bord ─────────────────────────────────────────
+    # FIX v4.3 : type=3 = BL, pas facture → type=6 (+ domaine=0 explicite).
     (
         r"r[eé]sum[eé]|vue\s+d.ensemble|tableau\s+de\s+bord|kpi",
         lambda m, conn: {
@@ -1626,28 +2064,35 @@ _NL_PATTERNS: list[tuple] = [
                     AS nb_clients,
                   (SELECT COUNT(*) FROM {table('articles')})
                     AS nb_articles,
-                  (SELECT COUNT(*) FROM {table('doc_entete')} WHERE {col('doc_entete', 'type')}=3)
+                  (SELECT COUNT(*) FROM {table('doc_entete')} WHERE {col('doc_entete', 'type')}=6 AND {col('doc_entete', 'domaine')}=0)
                     AS nb_factures,
                   (SELECT COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0)
                    FROM {table('doc_ligne')} l
                    JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
-                   WHERE e.{col('doc_entete', 'type')}=3)
+                   WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0)
                     AS ca_total,
                   (SELECT COUNT(*)
                    FROM {table('doc_entete')}
-                   WHERE {col('doc_entete', 'type')}=3
+                   WHERE {col('doc_entete', 'type')}=6 AND {col('doc_entete', 'domaine')}=0
                      AND {col('doc_entete', 'piece')} NOT IN (SELECT {col('reglements', 'piece')} FROM {table('reglements')}))
                     AS factures_impayees
             """,
             "description": "Résumé général KPI",
         }
     ),
-]
+])
 
 
 # ─────────────────────────────────────────────────────────────────────
 # SQL GÉNÉRIQUE — neutre (table()/col())
 # ─────────────────────────────────────────────────────────────────────
+_MOTS_QUALIFICATIFS_GENERIQUE = (
+    "impayé", "impayés", "inactif", "inactifs", "bloqué", "bloqués",
+    "moins de", "plus de", "supérieur", "supérieures", "inférieur",
+    "encours", "gros", "commandes", "achats", "factures"
+)
+
+
 def _generer_sql_generique(
     q: str, code_client: str, conn: sqlite3.Connection
 ) -> dict | None:
@@ -1668,7 +2113,18 @@ def _generer_sql_generique(
             "desc": f"Stock article {art_ref}",
         }
 
-    if code_client and any(w in q for w in ("ca", "chiffre", "vente", "facture")):
+    # FIX v4.2 : "ca" in q était un test de SOUS-CHAÎNE — "carat" contient
+    # "ca" ! Toute question "encours du client CARAT" qui échouait (pour
+    # une autre raison) sur le pattern dédié retombait ici et matchait à
+    # tort la branche CA. Remplacé par un test à frontière de mot, et
+    # explicitement exclu si la question porte sur l'encours/crédit.
+    # FIX v4.3 : type=3 = BL, pas facture → type=6, + ajout domaine=0
+    # (absent à l'origine, ce qui pouvait mélanger vente/achat).
+    if (
+        code_client
+        and re.search(r"\b(?:ca|chiffre|vente|facture)\b", q)
+        and not re.search(r"\b(?:encours|cr[eé]dit)\b", q)
+    ):
         return {
             "sql": f"""
                 SELECT e.{col('doc_entete', 'code_tiers')},
@@ -1678,10 +2134,19 @@ def _generer_sql_generique(
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')} = 3 AND e.{col('doc_entete', 'code_tiers')} = '{code_client}'
+                WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
+                  AND e.{col('doc_entete', 'code_tiers')} = '{code_client}'
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
             """,
             "desc": f"CA client {code_client}",
+        }
+
+    # FIX v4.2 : "encours du client X" doit être calculé via _sql_client_encours
+    # (solde impayé), jamais retomber sur un résumé générique de documents.
+    if code_client and re.search(r"\b(?:encours|cr[eé]dit)\b", q):
+        return {
+            "sql": _sql_client_encours(code_client, conn),
+            "desc": f"Encours client {code_client}",
         }
 
     if code_client and any(w in q for w in ("commande", "bon", "bl", "bc", "document", "livraison")):
@@ -1714,6 +2179,8 @@ def _generer_sql_generique(
         }
 
     if not code_client and any(w in q for w in ("client", "clients", "tiers")):
+        if any(w in q for w in _MOTS_QUALIFICATIFS_GENERIQUE):
+            return None
         return {
             "sql": f"""
                 SELECT {col('clients_fournisseurs', 'code')}, {col('clients_fournisseurs', 'nom')}, {col('clients_fournisseurs', 'validite')}, {col('clients_fournisseurs', 'encours')}
@@ -1725,6 +2192,12 @@ def _generer_sql_generique(
         }
 
     if any(w in q for w in ("article", "articles", "produit", "produits", "catalogue")):
+        # FIX v4.2 : si un filtre de prix/quantité a été formulé mais que le
+        # pattern dédié n'a pas matché (échec de reconnaissance), il vaut
+        # mieux le signaler que de retourner silencieusement le catalogue
+        # complet non filtré (bug #2). On ajoute donc une garde ici aussi.
+        if any(w in q for w in ("prix", "tarif", "coût", "cout", "dt", "€", "eur")):
+            return None
         return {
             "sql": f"""
                 SELECT {col('articles', 'ref')}, {col('articles', 'designation')}, {col('articles', 'prix_vente')}, {col('articles', 'prix_achat')}
@@ -1741,16 +2214,29 @@ def _generer_sql_generique(
 # OUTIL : executer_sql_vanna
 # ─────────────────────────────────────────────────────────────────────
 @mcp.tool()
-def executer_sql_vanna(sql: str, description: str = "") -> str:
-    """Exécute un SQL généré par Vanna et retourne le résultat formaté."""
+def executer_sql_vanna(sql: str, description: str = "", params: list | None = None) -> str:
+    """Exécute un SQL généré par Vanna et retourne le résultat formaté.
+
+    params: liste optionnelle de paramètres bindés (utiliser ? dans le SQL
+    pour les valeurs injectées côté orchestrateur, ex: filtre code client).
+    """
     try:
         sql = sql.strip().split(";")[0].strip()  # FIX multi-statements
         conn = _connect()
-        rows = _executer_sql(conn, sql)
+        bound_params = tuple(params) if params else ()
+        rows = _executer_sql(conn, sql, bound_params)
         conn.close()
         return _formater_resultats(rows, description or "Résultat Vanna")
     except Exception as e:
-        return f"__ERREUR__:{e}"
+        import logging as _log
+        _log.getLogger("api.mcp_nl2sql").error(
+            f"[executer_sql_vanna] Erreur SQL — requête: {sql[:200]} | exception: {type(e).__name__}: {e}"
+        )
+        err_str = str(e)
+        # Point 1.3 : donner un message d'erreur non trompeur
+        if "no such column" in err_str.lower() or "invalid column" in err_str.lower() or "4104" in err_str:
+            return f"__ERREUR__:Colonne inconnue dans la requête générée. Détail DB: {err_str}"
+        return f"__ERREUR__:{err_str}"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1805,14 +2291,18 @@ def interpreter_et_analyser_via_sql(question_metier: str) -> str:
                     sql    = result.get("sql", "").strip()
                     desc   = result.get("description", "Résultat")
                     if sql:
+                        print(f"   🎯 [NL2SQL Debug] Pattern matché : {pattern[:60]}")
                         rows = _executer_sql(conn, sql)
                         conn.close()
                         return _formater_resultats(rows, desc)
+                    elif desc:
+                        conn.close()
+                        return desc  
                 except Exception as e:
                     # FIX : log au lieu d'avaler silencieusement — sinon
                     # on retombe sur le fallback générique sans savoir pourquoi.
                     print(f"⚠️  [NL2SQL] Pattern '{pattern[:40]}...' a échoué : {e}")
-                    print(_tb.format_exc()[-400:])
+                    
                     continue
 
         # SQL générique
@@ -1823,15 +2313,16 @@ def interpreter_et_analyser_via_sql(question_metier: str) -> str:
             return _formater_resultats(rows, sql_gen["desc"])
 
         # Résumé général fallback
+        # FIX v4.3 : type=3 = BL, pas facture → type=6, + ajout domaine=0.
         stats = conn.execute(f"""
             SELECT
               (SELECT COUNT(*) FROM {table('clients_fournisseurs')} WHERE {col('clients_fournisseurs', 'type_tiers')}=0)  AS nb_clients,
               (SELECT COUNT(*) FROM {table('articles')})                   AS nb_articles,
-              (SELECT COUNT(*) FROM {table('doc_entete')} WHERE {col('doc_entete', 'type')}=3) AS nb_factures,
+              (SELECT COUNT(*) FROM {table('doc_entete')} WHERE {col('doc_entete', 'type')}=6 AND {col('doc_entete', 'domaine')}=0) AS nb_factures,
               (SELECT COALESCE(SUM(l.{col('doc_ligne', 'qte')} * l.{col('doc_ligne', 'prix_unitaire')}), 0)
                FROM {table('doc_ligne')} l
                JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
-               WHERE e.{col('doc_entete', 'type')} = 3)                              AS ca_total
+               WHERE e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0)                              AS ca_total
         """).fetchone()
         conn.close()
 
@@ -1872,6 +2363,8 @@ def rechercher_fiche_client(code_client: str) -> str:
             }, ensure_ascii=False)
 
         code_reel = row[col('clients_fournisseurs', 'code')]
+        # FIX v4.3 : type=3 = BL, pas facture → type=6 (stats + sous-requête
+        # encours_factures).
         stats = conn.execute(f"""
             SELECT COUNT(DISTINCT e.{col('doc_entete', 'piece')})               AS nb_factures,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}), 0) AS ca_total,
@@ -1879,12 +2372,13 @@ def rechercher_fiche_client(code_client: str) -> str:
                      (SELECT SUM(l2.{col('doc_ligne', 'qte')} * l2.{col('doc_ligne', 'prix_unitaire')})
                       FROM {table('doc_entete')} e2
                       JOIN {table('doc_ligne')} l2 ON e2.{col('doc_entete', 'piece')} = l2.{col('doc_ligne', 'piece')}
-                      WHERE e2.{col('doc_entete', 'type')} = 3 AND e2.{col('doc_entete', 'code_tiers')} = ?
+                      WHERE e2.{col('doc_entete', 'type')} = 6 AND e2.{col('doc_entete', 'domaine')} = 0
+                        AND e2.{col('doc_entete', 'code_tiers')} = ?
                         AND e2.{col('doc_entete', 'piece')} NOT IN (SELECT {col('reglements', 'piece')} FROM {table('reglements')})
                      ), 0) AS encours_factures
             FROM {table('doc_entete')} e
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'code_tiers')}=?
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'code_tiers')}=?
         """, (code_reel, code_reel)).fetchone()
         conn.close()
 
@@ -1937,7 +2431,7 @@ def verifier_statut_client(code_client: str) -> str:
 
 @mcp.tool()
 def lister_toutes_factures() -> str:
-    """Liste globale de toutes les factures récentes."""
+    """Liste globale de toutes les factures récentes. (déjà correct : type=6)"""
     try:
         conn = _connect()
         # Requête pour les 50 dernières factures
@@ -1952,7 +2446,7 @@ def lister_toutes_factures() -> str:
             LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'reference')}, c.{col('clients_fournisseurs', 'nom')}, r.{col('reglements', 'piece')}
             ORDER BY e.{col('doc_entete', 'date')} DESC
         """).fetchmany(50)
@@ -1980,7 +2474,7 @@ def lister_toutes_factures() -> str:
 
 @mcp.tool()
 def lister_toutes_factures_client(code_client: str) -> str:
-    """Liste factures client — montants calculés depuis doc_ligne."""
+    """Liste factures client — montants calculés depuis doc_ligne. (déjà correct : type=6)"""
     try:
         conn       = _connect()
         row_client = _resoudre_client(conn, code_client)
@@ -2004,7 +2498,7 @@ def lister_toutes_factures_client(code_client: str) -> str:
             FROM {table('doc_entete')} e
             LEFT JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             LEFT JOIN {table('reglements')}  r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'code_tiers')}=?
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'code_tiers')}=?
             GROUP BY e.{col('doc_entete', 'piece')}
             ORDER BY MAX(e.{col('doc_entete', 'date')}) DESC
         """, (code_reel,)).fetchall()
@@ -2013,7 +2507,7 @@ def lister_toutes_factures_client(code_client: str) -> str:
         result   = []
         total_ht = total_regle = 0.0
         for f in factures:
-            mnt   = f["montant_ht"] or 0.0
+            mnt   = _f(f["montant_ht"])
             regle = bool(f["regle"])
             total_ht += mnt
             if regle:
@@ -2045,7 +2539,7 @@ def lister_toutes_factures_client(code_client: str) -> str:
 
 @mcp.tool()
 def lister_factures_non_reglees(code_tiers: str = "") -> str:
-    """Factures non réglées (absentes de la table reglements)."""
+    """Factures non réglées (absentes de la table reglements). (déjà correct : type=6)"""
     try:
         conn      = _connect()
         code_reel = ""
@@ -2063,14 +2557,14 @@ def lister_factures_non_reglees(code_tiers: str = "") -> str:
             FROM {table('doc_entete')} e
             LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
               AND e.{col('doc_entete', 'piece')} NOT IN (SELECT {col('reglements', 'piece')} FROM {table('reglements')})
         """
         params = (code_reel,) if code_reel else ()
         suffix = (
-            f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC"
+            f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')}, e.{col('doc_entete', 'date')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC"
             if code_reel
-            else f" GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC {_limit(50)}"
+            else f" GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')}, e.{col('doc_entete', 'date')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC {_limit(50)}"
         )
         rows = conn.execute(base_sql + suffix, params).fetchall()
         conn.close()
@@ -2078,7 +2572,7 @@ def lister_factures_non_reglees(code_tiers: str = "") -> str:
         result   = []
         total_du = 0.0
         for f in rows:
-            mnt = f["montant_ht"] or 0.0
+            mnt = _f(f["montant_ht"])
             total_du += mnt
             result.append({
                 "piece":     f["piece"],
@@ -2151,6 +2645,8 @@ def verifier_stock_article(ref_article: str) -> str:
         conn = _connect()
         base = f"""
             SELECT a.{col('articles', 'ref')} AS ref, a.{col('articles', 'designation')} AS designation,
+                   a.{col('articles', 'prix_vente')} AS prix_vente,
+                   a.{col('articles', 'prix_achat')} AS prix_achat,
                    COALESCE(s.{col('stock', 'qte_stock')}, 0)  AS qte_stock,
                    COALESCE(s.{col('stock', 'qte_commande')}, 0)  AS qte_commande,
                    COALESCE(s.{col('stock', 'qte_stock')}, 0) - COALESCE(s.{col('stock', 'qte_commande')}, 0) AS qte_nette
@@ -2178,6 +2674,8 @@ def verifier_stock_article(ref_article: str) -> str:
             f"STOCK : TROUVE\n"
             f"Ref       : {row['ref']}\n"
             f"Design    : {row['designation']}\n"
+            f"Prix vente: {round(row['prix_vente'] or 0.0, 2)} €\n"
+            f"Prix achat: {round(row['prix_achat'] or 0.0, 2)} €\n"
             f"stock     : {row['qte_stock']}\n"
             f"commande  : {row['qte_commande']}\n"
             f"net       : {row['qte_nette']}{alerte}"
@@ -2191,6 +2689,7 @@ def obtenir_top_clients(top_n: int = 5) -> str:
     """Top N clients par CA — montants depuis doc_ligne."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT {_top(top_n)} e.{col('doc_entete', 'code_tiers')} AS code,
                    c.{col('clients_fournisseurs', 'nom')} AS nom,
@@ -2199,7 +2698,7 @@ def obtenir_top_clients(top_n: int = 5) -> str:
             FROM {table('doc_entete')} e
             JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             GROUP BY e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}
             ORDER BY ca_total DESC
             {_limit(top_n)}
@@ -2227,6 +2726,7 @@ def analyser_solvabilite_rfm() -> str:
     """Analyse RFM."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT c.{col('clients_fournisseurs', 'code')} AS code,
                    c.{col('clients_fournisseurs', 'nom')} AS nom,
@@ -2238,7 +2738,7 @@ def analyser_solvabilite_rfm() -> str:
                    MAX(e.{col('doc_entete', 'date')})                        AS derniere_commande
             FROM {table('clients_fournisseurs')} c
             LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                AND e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+                AND e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             WHERE c.{col('clients_fournisseurs', 'type_tiers')}=0
             GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}, c.{col('clients_fournisseurs', 'validite')}, c.{col('clients_fournisseurs', 'encours')}, c.{col('clients_fournisseurs', 'encours_max')}
@@ -2273,9 +2773,11 @@ def lister_tous_les_articles() -> str:
         rows = conn.execute(f"""
             SELECT a.{col('articles', 'ref')} AS ref, a.{col('articles', 'designation')} AS designation,
                    a.{col('articles', 'prix_vente')} AS prix_vente, a.{col('articles', 'prix_achat')} AS prix_achat,
-                   COALESCE(s.{col('stock', 'qte_stock')}, 0) AS stock
+                   COALESCE(SUM(s.{col('stock', 'qte_stock')}), 0) AS stock
             FROM {table('articles')} a
             LEFT JOIN {table('stock')} s ON a.{col('articles', 'ref')} = s.{col('stock', 'ref')}
+            GROUP BY a.{col('articles', 'ref')}, a.{col('articles', 'designation')},
+                     a.{col('articles', 'prix_vente')}, a.{col('articles', 'prix_achat')}
             ORDER BY a.{col('articles', 'ref')}
         """).fetchall()
         conn.close()
@@ -2302,6 +2804,7 @@ def analyser_palmares_articles(top_n: int = 3) -> str:
     """Palmarès articles par CA — montants depuis doc_ligne."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT {_top(top_n)} l.{col('doc_ligne', 'ref_article')} AS ref, a.{col('articles', 'designation')} AS designation,
                    SUM(l.{col('doc_ligne', 'qte')})                     AS qte_vendue,
@@ -2310,7 +2813,7 @@ def analyser_palmares_articles(top_n: int = 3) -> str:
             FROM {table('doc_ligne')} l
             JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
             LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             GROUP BY l.{col('doc_ligne', 'ref_article')}, a.{col('articles', 'designation')}
             ORDER BY ca_article DESC
             {_limit(top_n)}
@@ -2339,6 +2842,7 @@ def calculer_chiffre_affaires_global() -> str:
     """CA global — montants depuis doc_ligne."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         r = conn.execute(f"""
             SELECT COUNT(DISTINCT e.{col('doc_entete', 'piece')})                AS nb_factures,
                    COUNT(DISTINCT e.{col('doc_entete', 'code_tiers')})           AS nb_clients,
@@ -2347,7 +2851,7 @@ def calculer_chiffre_affaires_global() -> str:
                    MAX(e.{col('doc_entete', 'date')})                             AS date_fin
             FROM {table('doc_entete')} e
             JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
         """).fetchone()
         conn.close()
         ca_ht = _f(r["ca_ht"])
@@ -2371,9 +2875,11 @@ def detecter_clients_en_baisse() -> str:
     try:
         conn  = _connect()
         today = datetime.now()
-        d_m6  = (today - timedelta(days=180)).strftime("%Y-%m-%d")
-        d_m12 = (today - timedelta(days=360)).strftime("%Y-%m-%d")
+        # Format "AAAAMMJJ" universel pour éviter les erreurs de conversion (242) sur SQL Server
+        d_m6  = (today - timedelta(days=180)).strftime("%Y%m%d")
+        d_m12 = (today - timedelta(days=360)).strftime("%Y%m%d")
 
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         recents = {
             r["code"]: (r["nom"], _f(r["ca"]))
             for r in conn.execute(f"""
@@ -2382,7 +2888,7 @@ def detecter_clients_en_baisse() -> str:
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
                 LEFT JOIN {table('clients_fournisseurs')} c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-                WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')}>=?
+                WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')}>=?
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
             """, (d_m6,)).fetchall()
         }
@@ -2393,7 +2899,7 @@ def detecter_clients_en_baisse() -> str:
                        COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS ca
                 FROM {table('doc_entete')} e
                 JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-                WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+                WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
                   AND e.{col('doc_entete', 'date')}>=? AND e.{col('doc_entete', 'date')}<?
                 GROUP BY e.{col('doc_entete', 'code_tiers')}
             """, (d_m12, d_m6)).fetchall()
@@ -2426,6 +2932,7 @@ def analyser_rentabilite_articles() -> str:
     """Marge brute par article."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT l.{col('doc_ligne', 'ref_article')} AS ref, a.{col('articles', 'designation')} AS designation,
                    SUM(l.{col('doc_ligne', 'qte')})                     AS qte_vendue,
@@ -2434,21 +2941,21 @@ def analyser_rentabilite_articles() -> str:
             FROM {table('doc_ligne')} l
             JOIN {table('doc_entete')} e ON l.{col('doc_ligne', 'piece')} = e.{col('doc_entete', 'piece')}
             LEFT JOIN {table('articles')} a ON l.{col('doc_ligne', 'ref_article')} = a.{col('articles', 'ref')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             GROUP BY l.{col('doc_ligne', 'ref_article')}
             ORDER BY ca_vente DESC
         """).fetchall()
         conn.close()
         result = []
         for r in rows:
-            ca   = r["ca_vente"]   or 0.0
-            cout = r["cout_achat"] or 0.0
+            ca   = _f(r["ca_vente"])
+            cout = _f(r["cout_achat"])
             marge = round(ca - cout, 2)
             taux  = round(marge / ca * 100, 1) if ca > 0 else 0
             result.append({
                 "ref":         r["ref"],
                 "designation": r["designation"] or r["ref"],
-                "qte_vendue":  round(r["qte_vendue"] or 0, 2),
+                "qte_vendue":  round(_f(r["qte_vendue"]), 2),
                 "ca_vente":    round(ca, 2),
                 "cout_achat":  round(cout, 2),
                 "marge_brute": marge,
@@ -2464,15 +2971,16 @@ def analyser_saisonnalite_ventes() -> str:
     """CA mensuel sur 24 mois."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
-            SELECT {_top(24)}STRFTIME('%Y-%m', e.{col('doc_entete', 'date')})              AS mois,
+            SELECT {_top(24)}{_fmt_mois(f"e.{col('doc_entete', 'date')}")}              AS mois,
                    COUNT(DISTINCT e.{col('doc_entete', 'piece')})                 AS nb_factures,
                    COUNT(DISTINCT e.{col('doc_entete', 'code_tiers')})            AS nb_clients,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS ca_mensuel
             FROM {table('doc_entete')} e
             JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')} IS NOT NULL
-            GROUP BY mois
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')} IS NOT NULL
+            GROUP BY {_fmt_mois(f"e.{col('doc_entete', 'date')}")}
             ORDER BY mois DESC
         """).fetchall()
         conn.close()
@@ -2497,29 +3005,30 @@ def calculer_delai_moyen_paiement() -> str:
     """DSO global et par client — via table reglements."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT e.{col('doc_entete', 'code_tiers')} AS code, c.{col('clients_fournisseurs', 'nom')} AS nom,
                    e.{col('doc_entete', 'date')} AS date_doc,
                    r.{col('reglements', 'date_reglement')} AS date_reglement,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS montant_ht,
                    CASE WHEN r.{col('reglements', 'date_reglement')} IS NOT NULL AND r.{col('reglements', 'date_reglement')}!=''
-                        THEN JULIANDAY(r.{col('reglements', 'date_reglement')})-JULIANDAY(e.{col('doc_entete', 'date')})
-                        ELSE JULIANDAY('now')-JULIANDAY(e.{col('doc_entete', 'date')})
+                        THEN {_diff_jours(f"r.{col('reglements', 'date_reglement')}", f"e.{col('doc_entete', 'date')}")}
+                        ELSE {_diff_jours(_now_date(), f"e.{col('doc_entete', 'date')}")}
                    END AS delai
             FROM {table('doc_entete')} e
             LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             LEFT JOIN {table('reglements')} r ON e.{col('doc_entete', 'piece')} = r.{col('reglements', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')} IS NOT NULL
-            GROUP BY e.{col('doc_entete', 'piece')}
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0 AND e.{col('doc_entete', 'date')} IS NOT NULL
+            GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')}, e.{col('doc_entete', 'date')}, r.{col('reglements', 'date_reglement')}
         """).fetchall()
         conn.close()
 
         if not rows:
             return json.dumps({"statut": "OK", "dso_global": 0}, ensure_ascii=False)
 
-        tot_p = sum((r["delai"] or 0) * (r["montant_ht"] or 0) for r in rows)
-        tot_m = sum(r["montant_ht"] or 0 for r in rows)
+        tot_p = sum(_f(r["delai"]) * _f(r["montant_ht"]) for r in rows)
+        tot_m = sum(_f(r["montant_ht"]) for r in rows)
         dso_g = round(tot_p / tot_m, 1) if tot_m > 0 else 0
 
         par_cli: dict[str, dict] = {}
@@ -2527,8 +3036,8 @@ def calculer_delai_moyen_paiement() -> str:
             c = r["code"]
             if c not in par_cli:
                 par_cli[c] = {"nom": r["nom"] or c, "d": [], "m": []}
-            par_cli[c]["d"].append(r["delai"] or 0)
-            par_cli[c]["m"].append(r["montant_ht"] or 0)
+            par_cli[c]["d"].append(_f(r["delai"]))
+            par_cli[c]["m"].append(_f(r["montant_ht"]))
 
         clients = []
         for code, d in par_cli.items():
@@ -2554,6 +3063,14 @@ def calculer_delai_moyen_paiement() -> str:
         return json.dumps({"erreur": str(e)}, ensure_ascii=False)
 
 
+# FIX v4.3 : _TYPE_MAP remplacé par _TYPE_DOMAINE_MAP (type ET domaine),
+# aligné sur le schéma réel confirmé (docstring Vanna / orchestrateur).
+_TYPE_DOMAINE_MAP = {
+    "BC": (1, 0), "BL": (3, 0), "FACTURE": (6, 0), "FC": (6, 0),
+    "AV": (5, 0), "AVOIR": (5, 0), "OF": (25, 2), "BF": (26, 2),
+}
+
+
 @mcp.tool()
 def selectionner_documents_par_periode(
     type_doc: str,
@@ -2564,36 +3081,44 @@ def selectionner_documents_par_periode(
     """Documents par période."""
     try:
         conn = _connect()
-        _TYPE_MAP = {
-            "BC": 6, "BL": 2, "FACTURE": 3, "FC": 3,
-            "AV": 9, "AVOIR": 9, "OF": 1, "BF": 4,
-        }
-        do_type   = _TYPE_MAP.get(type_doc.upper(), 3)
+        # FIX v4.2 : valeur par défaut sensée si type_doc absent/vide.
+        # FIX v4.3 : ancien _TYPE_MAP totalement erroné (FACTURE→3=BL,
+        # BC→6=FACTURE, BL→2 inexistant, AV→9 inexistant, OF→1=BC,
+        # BF→4 inexistant) ET sans filtre de domaine → remplacé par
+        # _TYPE_DOMAINE_MAP + filtre domaine explicite dans la requête.
+        type_doc = (type_doc or "FACTURE").strip() or "FACTURE"
+        do_type, do_domaine = _TYPE_DOMAINE_MAP.get(type_doc.upper(), (6, 0))
         code_reel = ""
         if code_tiers:
             row_c = _resoudre_client(conn, code_tiers)
             if row_c:
                 code_reel = row_c[col('clients_fournisseurs', 'code')]
-
+        date_col = col('doc_entete', 'date')
+        if _is_mssql():
+            date_cond = (f"TRY_CAST(e.{date_col} AS DATE)>=TRY_CAST(? AS DATE) "
+                 f"AND TRY_CAST(e.{date_col} AS DATE)<=TRY_CAST(? AS DATE)")
+        else:
+            date_cond = f"e.{date_col}>=? AND e.{date_col}<=?"
         base = f"""
-            SELECT e.{col('doc_entete', 'piece')} AS piece, e.{col('doc_entete', 'type')} AS type_doc, e.{col('doc_entete', 'date')} AS date_doc,
-                   e.{col('doc_entete', 'code_tiers')} AS code_tiers,
-                   c.{col('clients_fournisseurs', 'nom')} AS nom,
-                   COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS montant_ht
-            FROM {table('doc_entete')} e
-            LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
-            LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=? AND e.{col('doc_entete', 'date')}>=? AND e.{col('doc_entete', 'date')}<=?
+    SELECT e.{col('doc_entete', 'piece')} AS piece, e.{col('doc_entete', 'type')} AS type_doc,
+           e.{date_col} AS date_doc, e.{col('doc_entete', 'code_tiers')} AS code_tiers,
+           c.{col('clients_fournisseurs', 'nom')} AS nom,
+           COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS montant_ht
+    FROM {table('doc_entete')} e
+    LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
+    LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
+    WHERE e.{col('doc_entete', 'type')}=? AND e.{col('doc_entete', 'domaine')}=?
+      AND {date_cond}
         """
         if code_reel:
             rows = conn.execute(
-                base + f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC",
-                (do_type, date_debut, date_fin, code_reel),
+                base + f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'type')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC",
+                (do_type, do_domaine, date_debut, date_fin, code_reel),
             ).fetchall()
         else:
             rows = conn.execute(
-                base + f" GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC",
-                (do_type, date_debut, date_fin),
+                base + f" GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'type')}, e.{col('doc_entete', 'date')}, e.{col('doc_entete', 'code_tiers')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC",
+                (do_type, do_domaine, date_debut, date_fin),
             ).fetchall()
         conn.close()
 
@@ -2603,7 +3128,7 @@ def selectionner_documents_par_periode(
                 "date":       r["date_doc"],
                 "code":       r["code_tiers"],
                 "nom":        r["nom"] or r["code_tiers"],
-                "montant_ht": round(r["montant_ht"] or 0, 2),
+                "montant_ht": round(_f(r["montant_ht"]), 2),
             }
             for r in rows
         ]
@@ -2662,12 +3187,13 @@ def exporter_declaration_fiscale_excel() -> str:
     """Résumé fiscal — montants depuis doc_ligne."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         r = conn.execute(f"""
             SELECT COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS ca_ht,
                    COUNT(DISTINCT e.{col('doc_entete', 'piece')}) AS nb_fa
             FROM {table('doc_entete')} e
             JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
         """).fetchone()
         conn.close()
         ca_ht = _f(r["ca_ht"])
@@ -2688,16 +3214,18 @@ def generer_balance_agee_excel() -> str:
     """Balance âgée — factures absentes de reglements."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT e.{col('doc_entete', 'code_tiers')} AS code, c.{col('clients_fournisseurs', 'nom')} AS nom,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS montant_ht,
-                   CAST(JULIANDAY('now')-JULIANDAY(e.{col('doc_entete', 'date')}) AS INTEGER) AS jours
+                   CAST({_diff_jours(_now_date(), f"e.{col('doc_entete', 'date')}")} AS INTEGER) AS jours
             FROM {table('doc_entete')} e
             LEFT JOIN {table('clients_fournisseurs')}  c ON e.{col('doc_entete', 'code_tiers')} = c.{col('clients_fournisseurs', 'code')}
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
               AND e.{col('doc_entete', 'piece')} NOT IN (SELECT {col('reglements', 'piece')} FROM {table('reglements')})
-            GROUP BY e.{col('doc_entete', 'piece')}
+            GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')},
+                     c.{col('clients_fournisseurs', 'nom')}
             ORDER BY jours DESC
         """).fetchall()
         conn.close()
@@ -2707,7 +3235,7 @@ def generer_balance_agee_excel() -> str:
             code = r["code"]
             nom  = r["nom"] or code
             j    = int(r["jours"] or 0)
-            mnt  = r["montant_ht"] or 0.0
+            mnt  = _f(r["montant_ht"])
             if code not in tranches:
                 tranches[code] = {
                     "code": code, "nom": nom,
@@ -2742,12 +3270,13 @@ def generer_dashboard_kpi_excel() -> str:
     """KPI direction."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         r1 = conn.execute(f"""
             SELECT COUNT(DISTINCT e.{col('doc_entete', 'piece')})                AS nb_fa,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0) AS ca
             FROM {table('doc_entete')} e
             JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
-            WHERE e.{col('doc_entete', 'type')}=3 AND e.{col('doc_entete', 'domaine')}=0
+            WHERE e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
         """).fetchone()
         nb_fa    = r1["nb_fa"] or 0
         total_ca = _f(r1["ca"])
@@ -2776,13 +3305,14 @@ def lister_clients_actifs() -> str:
     """Clients actifs — validite != 'BLOQUE'."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6 (+ domaine=0 ajouté).
         rows = conn.execute(f"""
             SELECT c.{col('clients_fournisseurs', 'code')} AS code, c.{col('clients_fournisseurs', 'nom')} AS nom,
                    c.{col('clients_fournisseurs', 'encours')} AS encours, c.{col('clients_fournisseurs', 'validite')} AS validite,
                    COUNT(DISTINCT e.{col('doc_entete', 'piece')})                    AS nb_factures,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0)  AS ca_total
             FROM {table('clients_fournisseurs')} c
-            LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')}=3
+            LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             LEFT JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             WHERE c.{col('clients_fournisseurs', 'type_tiers')}=0
               AND UPPER(COALESCE(c.{col('clients_fournisseurs', 'validite')},'VALIDE')) != 'BLOQUE'
@@ -2814,13 +3344,14 @@ def lister_clients_bloques() -> str:
     """Clients bloqués — validite = 'BLOQUE'."""
     try:
         conn = _connect()
+        # FIX v4.3 : type=3 = BL, pas facture → type=6 (+ domaine=0 ajouté).
         rows = conn.execute(f"""
             SELECT c.{col('clients_fournisseurs', 'code')} AS code, c.{col('clients_fournisseurs', 'nom')} AS nom,
                    c.{col('clients_fournisseurs', 'encours')} AS encours, c.{col('clients_fournisseurs', 'validite')} AS validite,
                    COUNT(DISTINCT e.{col('doc_entete', 'piece')})                    AS nb_factures,
                    COALESCE(SUM(l.{col('doc_ligne', 'qte')}*l.{col('doc_ligne', 'prix_unitaire')}),0)  AS ca_total
             FROM {table('clients_fournisseurs')} c
-            LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')}=3
+            LEFT JOIN {table('doc_entete')} e ON c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')} AND e.{col('doc_entete', 'type')}=6 AND e.{col('doc_entete', 'domaine')}=0
             LEFT JOIN {table('doc_ligne')}  l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             WHERE c.{col('clients_fournisseurs', 'type_tiers')}=0
               AND UPPER(COALESCE(c.{col('clients_fournisseurs', 'validite')},'')) = 'BLOQUE'
@@ -2858,6 +3389,14 @@ def lister_clients_inactifs(duree_jours: int = 180) -> str:
         conn = _connect()
         date_limite = f"-{duree_jours} days"
 
+        if _is_mssql():
+            date_cond = f"MAX(e.{col('doc_entete', 'date')}) < DATEADD(day, ?, GETDATE())"
+            param_date = -duree_jours
+        else:
+            date_cond = f"MAX(e.{col('doc_entete', 'date')}) < DATE('now', ?)"
+            param_date = f"-{duree_jours} days"
+
+        # FIX v4.3 : type=3 = BL, pas facture → type=6.
         rows = conn.execute(f"""
             SELECT
                 c.{col('clients_fournisseurs', 'code')} AS code,
@@ -2870,7 +3409,7 @@ def lister_clients_inactifs(duree_jours: int = 180) -> str:
             FROM {table('clients_fournisseurs')} c
             LEFT JOIN {table('doc_entete')} e
                 ON  c.{col('clients_fournisseurs', 'code')}  = e.{col('doc_entete', 'code_tiers')}
-                AND e.{col('doc_entete', 'type')} = 3
+                AND e.{col('doc_entete', 'type')} = 6
                 AND e.{col('doc_entete', 'domaine')} = 0
             LEFT JOIN {table('doc_ligne')} l
                 ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
@@ -2878,9 +3417,9 @@ def lister_clients_inactifs(duree_jours: int = 180) -> str:
             GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}, c.{col('clients_fournisseurs', 'encours')}, c.{col('clients_fournisseurs', 'validite')}
             HAVING
                 MAX(e.{col('doc_entete', 'date')}) IS NULL
-                OR MAX(e.{col('doc_entete', 'date')}) < DATE('now', ?)
+                OR {date_cond}
             ORDER BY derniere_facture ASC, nom
-        """, (date_limite,)).fetchall()
+        """, (param_date,)).fetchall()
 
         conn.close()
 
@@ -2998,6 +3537,13 @@ def exporter_dashboard_kpi_excel() -> str:
 # ─────────────────────────────────────────────────────────────────────
 # FACTURES FOURNISSEURS NON RÉGLÉES
 # ─────────────────────────────────────────────────────────────────────
+# ⚠️ AUDIT FOURNISSEUR (NON CORRIGÉ) : ce bloc utilise type=3/domaine=1
+# pour "facture fournisseur", alors que _gen_factures_fournisseur_specifique
+# et le pattern "Factures fournisseur globales" utilisent type=16/domaine=1,
+# et analyser_top_fournisseurs utilise type=6/domaine=1. Trois codes
+# différents pour le même concept — à vérifier en base (GROUP BY type,
+# domaine côté domaine=1 + recoupement avec des pièces fournisseur connues)
+# avant de choisir lequel corriger. Ne pas supposer que 3 est correct ici.
 def lister_factures_fournisseurs_non_reglees_core(code_fourn: str = "") -> str:
     """
     Retourne les factures fournisseurs (type=3, domaine=1) absentes
@@ -3023,19 +3569,19 @@ def lister_factures_fournisseurs_non_reglees_core(code_fourn: str = "") -> str:
         """
         if code_reel:
             rows = conn.execute(
-                base_sql + f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC",
+                base_sql + f" AND e.{col('doc_entete', 'code_tiers')}=? GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')}, e.{col('doc_entete', 'date')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC",
                 (code_reel,)
             ).fetchall()
         else:
             rows = conn.execute(
-                base_sql + f" GROUP BY e.{col('doc_entete', 'piece')} ORDER BY e.{col('doc_entete', 'date')} DESC"
+                base_sql + f" GROUP BY e.{col('doc_entete', 'piece')}, e.{col('doc_entete', 'code_tiers')}, e.{col('doc_entete', 'date')}, c.{col('clients_fournisseurs', 'nom')} ORDER BY e.{col('doc_entete', 'date')} DESC"
             ).fetchall()
         conn.close()
 
         result   = []
         total_du = 0.0
         for f in rows:
-            mnt = f["montant_ht"] or 0.0
+            mnt = _f(f["montant_ht"])
             total_du += mnt
             result.append({
                 "piece": f["piece"],
@@ -3103,9 +3649,15 @@ def lister_fournisseurs() -> str:
 
 @mcp.tool()
 def analyser_top_fournisseurs(top_n: int = 10) -> str:
-    """Top N fournisseurs par volume d'achat (BC fournisseur, domaine=1)."""
+    """Top N fournisseurs par volume d'achat (BC fournisseur, domaine=1).
+    AUDIT FOURNISSEUR (non corrigé) : utilise type=6/domaine=1, à recouper
+    avec les 16 et 3 utilisés ailleurs pour "facture fournisseur"."""
     try:
         conn = _connect()
+        # FIX prob6 : type=6 domaine=1 n'existe pas dans la DB (0 résultats).
+        # On retient tous les documents côté fournisseur (domaine=1) — BC (11),
+        # réceptions (13) et factures fournisseur (16) — pour calculer le
+        # volume réel engagé par fournisseur.
         rows = conn.execute(f"""
             SELECT {_top(top_n)} c.{col('clients_fournisseurs', 'code')} AS code, c.{col('clients_fournisseurs', 'nom')} AS nom,
                    COUNT(DISTINCT e.{col('doc_entete', 'piece')})                    AS nb_commandes,
@@ -3113,7 +3665,6 @@ def analyser_top_fournisseurs(top_n: int = 10) -> str:
             FROM {table('clients_fournisseurs')} c
             LEFT JOIN {table('doc_entete')} e
                 ON  c.{col('clients_fournisseurs', 'code')} = e.{col('doc_entete', 'code_tiers')}
-                AND e.{col('doc_entete', 'type')}    = 6
                 AND e.{col('doc_entete', 'domaine')} = 1
             LEFT JOIN {table('doc_ligne')} l ON e.{col('doc_entete', 'piece')} = l.{col('doc_ligne', 'piece')}
             WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 1
@@ -3179,7 +3730,61 @@ def rechercher_fiche_fournisseur(code_fournisseur: str) -> str:
     except Exception as e:
         return json.dumps({"erreur": str(e)}, ensure_ascii=False)
 
+@mcp.tool()
+def lire_nomenclature_article(ref_article: str) -> str:
+    """Affiche la nomenclature (liste des composants) d'un article/produit fini."""
+    try:
+        conn = _connect()
+        base = f"""
+            SELECT {col('articles', 'ref')} AS ref, {col('articles', 'designation')} AS design
+            FROM {table('articles')}
+        """
+        row_pf = conn.execute(
+            base + f" WHERE UPPER({col('articles', 'ref')})=UPPER(?)",
+            (ref_article.strip(),),
+        ).fetchone()
+        if not row_pf:
+            row_pf = conn.execute(
+                base + f" WHERE UPPER({col('articles', 'designation')}) LIKE UPPER(?)",
+                (f"%{ref_article.strip()}%",),
+            ).fetchone()
+        if not row_pf:
+            conn.close()
+            return json.dumps({
+                "statut": "NON_TROUVE",
+                "message": f"Article '{ref_article}' introuvable.",
+            }, ensure_ascii=False)
 
+        ref_pf = row_pf["ref"]
+        rows = conn.execute(f"""
+            SELECT n.{col('nomenclature', 'ref_mp')} AS ref_composant,
+                   a.{col('articles', 'designation')} AS designation,
+                   n.{col('nomenclature', 'qte')} AS qte
+            FROM {table('nomenclature')} n
+            LEFT JOIN {table('articles')} a
+                ON UPPER(n.{col('nomenclature', 'ref_mp')}) = UPPER(a.{col('articles', 'ref')})
+            WHERE UPPER(n.{col('nomenclature', 'ref_pf')}) = UPPER(?)
+            ORDER BY n.{col('nomenclature', 'ref_mp')}
+        """, (ref_pf,)).fetchall()
+        conn.close()
+
+        composants = [
+            {
+                "ref": r["ref_composant"],
+                "designation": r["designation"] or r["ref_composant"],
+                "qte": round(_f(r["qte"]), 3),
+            }
+            for r in rows
+        ]
+        return json.dumps({
+            "statut": "OK",
+            "ref_parent": ref_pf,
+            "design_parent": row_pf["design"] or ref_pf,
+            "nb_composants": len(composants),
+            "composants": composants,
+        }, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"erreur": str(e)}, ensure_ascii=False)
 @mcp.tool()
 def verifier_document_deja_transforme(
     num_piece_source: str,
@@ -3190,12 +3795,17 @@ def verifier_document_deja_transforme(
     Retourne {"deja_transforme": bool, "nb": int, "message": str}.
     Types supportés : FACTURE | FA | FACTURE_ACHAT | FA_ACHAT | BF
     """
+    # FIX v4.3 : FACTURE/FA corrigés en (6,0) [type=3 était en réalité un
+    # BL]. BF corrigé en (26,2) pour matcher le pattern BF déjà correct
+    # utilisé ailleurs dans ce fichier. FACTURE_ACHAT/FA_ACHAT (domaine=1)
+    # laissés en l'état — AUDIT FOURNISSEUR non résolu, ne pas supposer
+    # que (3,1) est juste.
     _TYPE_MAP = {
-        "FACTURE":       (3, 0),
-        "FA":            (3, 0),
+        "FACTURE":       (6, 0),
+        "FA":            (6, 0),
         "FACTURE_ACHAT": (3, 1),
         "FA_ACHAT":      (3, 1),
-        "BF":            (4, 2),
+        "BF":            (26, 2),
     }
     _LABELS = {
         "FACTURE":       "facture de vente",

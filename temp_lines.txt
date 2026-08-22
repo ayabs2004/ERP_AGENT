@@ -1,0 +1,101 @@
+    ("top clients par chiffre d affaires",
+     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_total "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY ca_total DESC"),
+
+    ("factures impayees",
+     f"SELECT e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d}, "
+     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
+     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
+
+    ("factures impayees clients",
+     f"SELECT e.{_ce_ti}, c.{_cc_n}, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
+     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS total_impaye "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY total_impaye DESC"),
+
+    ("factures impayees par mois",
+     f"SELECT STRFTIME('%Y-%m', e.{_ce_d}) AS mois, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
+     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_impaye "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY STRFTIME('%Y-%m', e.{_ce_d}) ORDER BY mois DESC"),
+
+    ("top clients par chiffre d affaires",
+     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_total "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY ca_total DESC"),
+
+    ("factures impayees",
+     f"SELECT e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d}, "
+     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht "
+     f"FROM {_te} e LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY e.{_ce_p}, e.{_ce_ti}, c.{_cc_n}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
+
+    ("factures impayees clients",
+     f"SELECT e.{_ce_ti}, c.{_cc_n}, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
+     f"SUM(l.{_cl_q}*l.{_cl_p_u}) AS total_impaye "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY total_impaye DESC"),
+
+    ("factures impayees par mois",
+     f"SELECT STRFTIME('%Y-%m', e.{_ce_d}) AS mois, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
+     f"SUM(l.{_cl_q}*l.{_cl_p_u}) AS montant_impaye "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"AND NOT EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"GROUP BY STRFTIME('%Y-%m', e.{_ce_d}) ORDER BY mois DESC"),
+
+    ("top clients par chiffre d affaires",
+     f"SELECT e.{_ce_ti}, c.{_cc_n}, SUM(l.{_cl_q}*l.{_cl_p_u}) AS ca_total "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"LEFT JOIN {_tc} c ON e.{_ce_ti}=c.{_cc_id} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0 "
+     f"GROUP BY e.{_ce_ti}, c.{_cc_n} ORDER BY ca_total DESC")
+]     f"SELECT a.{_ca_r}, a.{_ca_d}, COALESCE(s.{_cs_q},0) AS stock "
+     f"FROM {_ta} a LEFT JOIN {_ts} s ON a.{_ca_r}=s.{_cs_r} "
+     f"WHERE COALESCE(s.{_cs_q},0)<=0 ORDER BY a.{_ca_r}"),
+
+    ("chiffre d affaires global total",
+     f"SELECT COUNT(DISTINCT e.{_ce_p}) AS nb_factures, COUNT(DISTINCT e.{_ce_ti}) AS nb_clients, "
+     f"SUM(l.{_cl_q}*l.{_cl_pu}) AS ca_ht "
+     f"FROM {_te} e JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_do}=0"),
+
+    ("clients bloqués",
+     f"SELECT {_cc_id}, {_cc_n}, {_cc_e} FROM {_tc} "
+     f"WHERE {_cc_ty}=0 AND {_c('clients_fournisseurs','sommeil')}=1 ORDER BY {_cc_n}"),
+
+    ("stock de l article ECRAN4K",
+     f"SELECT a.{_ca_r}, a.{_ca_d}, COALESCE(s.{_cs_q},0) AS stock, COALESCE(s.{_cs_c},0) AS en_commande "
+     f"FROM {_ta} a LEFT JOIN {_ts} s ON a.{_ca_r}=s.{_cs_r} "
+     f"WHERE UPPER(a.{_ca_r})='ECRAN4K'"),
+
+    ("factures du client CLI001",
+     f"SELECT e.{_ce_p}, e.{_ce_d}, SUM(l.{_cl_q}*l.{_cl_pu}) AS montant_ht, "
+     f"CASE WHEN EXISTS (SELECT 1 FROM {_tr} r WHERE r.{_cr_p} = e.{_ce_p}) "
+     f"THEN 'RÉGLÉE' ELSE 'EN ATTENTE' END AS statut "
+     f"FROM {_te} e LEFT JOIN {_tl} l ON e.{_ce_p}=l.{_cl_p} "
+     f"WHERE e.{_ce_ty}=6 AND e.{_ce_ti}='CLI001' "
+     f"GROUP BY e.{_ce_p}, e.{_ce_d} ORDER BY e.{_ce_d} DESC"),
+
+    ("CA mensuel par mois",
+     f"SELECT STRFTIME('%Y-%m', e.{_ce_d}) AS mois, COUNT(DISTINCT e.{_ce_p}) AS nb_factures, "
