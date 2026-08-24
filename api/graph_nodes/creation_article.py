@@ -21,14 +21,14 @@ AR_NATURE_OPTIONS = {
     1: "Nomenclature / Article composé",
     2: "Gamme",
     3: "Gamme + Nomenclature",
+    4: "Observé sur frais/remises (port, escompte, fidélité) — sens à confirmer",
 }
 
 AR_SUIVI_STOCK_OPTIONS = {
-    0: "Aucun suivi",
-    1: "CMUP (Coût Moyen Unitaire Pondéré)",
-    2: "Sérialisé (numéro de série)",
-    3: "Lot",
-    4: "CMUP + Lot",
+    0: "Aucun suivi (services, frais, remises...)",
+    1: "Suivi individuel par n° de série/lot (ex: montres, appareils)",
+    2: "Aucun suivi de lot observé actuellement sur cette base",
+    5: "Suivi par lot à quantité multiple (ex: lingots, matières en vrac)",
 }
 
 AR_UNITE_VEN_OPTIONS = {
@@ -46,7 +46,15 @@ AR_UNITE_VEN_OPTIONS = {
 
 def _formater_enum(options: dict) -> str:
     return "\n".join(f"  🔸 `{k}` — {v}" for k, v in options.items())
-
+def _formater_enum_suivi_stock(options: dict) -> str:
+    lignes = [f"  🔸 `{k}` — {v}" for k, v in options.items()]
+    lignes.append("")
+    lignes.append(
+        "⚠️ Ces libellés sont déduits de l'observation des articles existants, "
+        "pas de la documentation officielle Sage. En cas de doute, vérifiez le "
+        "paramétrage exact dans la fiche article Sage avant de valider."
+    )
+    return "\n".join(lignes)
 def _valider_smallint(question: str, options: dict):
     """Retourne (valeur_int, None) si valide, (None, message_erreur) sinon."""
     try:
@@ -302,7 +310,7 @@ async def noeud_creation_article(state: dict) -> dict:
         state["reponse_finale"] = (
             f"✅ Unité de vente : `{val}` — {unite_label}\n\n"
             "**Suivi de stock** (`AR_SuiviStock`) — Saisissez le numéro correspondant :\n\n"
-            + _formater_enum(AR_SUIVI_STOCK_OPTIONS)
+            + _formater_enum_suivi_stock(AR_SUIVI_STOCK_OPTIONS)
         )
         return state
 
@@ -310,7 +318,7 @@ async def noeud_creation_article(state: dict) -> dict:
     if etape == "ATTENTE_SUIVI_STOCK":
         val, err = _valider_smallint(question, AR_SUIVI_STOCK_OPTIONS)
         if err:
-            if _traiter_retry(state, c, "ATTENTE_SUIVI_STOCK", f"{err}\n\n**Suivi de stock** (`AR_SuiviStock`) :\n\n" + _formater_enum(AR_SUIVI_STOCK_OPTIONS)):
+            if _traiter_retry(state, c, "ATTENTE_SUIVI_STOCK", f"{err}\n\n**Suivi de stock** (`AR_SuiviStock`) :\n\n" + _formater_enum_suivi_stock(AR_SUIVI_STOCK_OPTIONS)):
                 return state
             return state
         c["suivi_stock"] = val

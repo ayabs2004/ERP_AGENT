@@ -97,6 +97,13 @@ def _date_sub_days(n_days: int, mssql: bool) -> str:
     return f"DATE('now', '-{n_days} days')"
 
 
+def _date_add_days(n_days: int, mssql: bool) -> str:
+    """Retourne une date future (péremption). MSSQL uniquement en production."""
+    if mssql:
+        return f"DATEADD(day, {n_days}, GETDATE())"
+    return f"DATE('now', '+{n_days} days')"
+
+
 def _limit_clause(n: int, mssql: bool) -> str:
     """Trailing clause. Empty under MSSQL (use TOP instead)."""
     return "" if mssql else f"LIMIT {n}"
@@ -149,6 +156,13 @@ def construire_exemples_entrainement(
     cs_q = col('stock', 'qte_stock');      cs_c  = col('stock', 'qte_commande')
     tr   = table('reglements');            cr_p  = col('reglements', 'piece')
     cr_dr = col('reglements', 'date_reglement')
+    # ── lot_serie ────────────────────────────────────────────────────
+    tls      = table('lot_serie')
+    cls_ref  = col('lot_serie', 'ref');         cls_num  = col('lot_serie', 'numero')
+    cls_qi   = col('lot_serie', 'qte_initiale'); cls_qr   = col('lot_serie', 'qte_restante')
+    cls_ep   = col('lot_serie', 'epuise');       cls_per  = col('lot_serie', 'peremption')
+    cls_fab  = col('lot_serie', 'fabrication')
+    cls_lin  = col('lot_serie', 'ligne_entree'); cls_lout = col('lot_serie', 'ligne_sortie')
 
     mois_expr    = _fmt_mois(f"e.{ce_d}", mssql)
     now_expr     = _now_date(mssql)
@@ -421,6 +435,60 @@ def construire_exemples_entrainement(
          f"LEFT JOIN {tr} r ON e.{ce_p}=r.{cr_p} "
          f"WHERE e.{ce_ty}=6 AND e.{ce_do}=0 "
          f"GROUP BY e.{ce_ti}, c.{cc_n} ORDER BY dso_jours DESC"),
+
+        # ── Lots / Séries ─────────────────────────────────────────────
+        ("lots disponibles pour MOBWAC01",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_ref})='MOBWAC01') "
+         f"SELECT {cls_num}, {cls_qr}, {cls_per} FROM DerniereLigne "
+         f"WHERE rn=1 AND COALESCE({cls_ep},0)=0 AND COALESCE({cls_qr},0)>0 ORDER BY {cls_per} ASC"),
+
+        ("quantite restante du lot MOB0098-77644",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_num})='MOB0098-77644') "
+         f"SELECT {cls_ref}, {cls_num}, {cls_qi}, {cls_qr} FROM DerniereLigne WHERE rn=1"),
+
+        ("le lot LOT-BDF9411123 est il encore disponible",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_num})='LOT-BDF9411123') "
+         f"SELECT {cls_num}, {cls_qr}, {cls_ep}, {cls_per} FROM DerniereLigne WHERE rn=1"),
+
+        ("d ou vient le lot LOT-2026-00042",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_num})='LOT-2026-00042') "
+         f"SELECT ls.{cls_num}, e.{ce_p} AS piece_origine, e.{ce_ty}, e.{ce_do}, e.{ce_d} "
+         f"FROM DerniereLigne ls "
+         f"LEFT JOIN {tl} l ON ls.{cls_lin}=l.{col('doc_ligne','id')} "
+         f"LEFT JOIN {te} e ON l.{cl_p}=e.{ce_p} WHERE ls.rn=1"),
+
+        ("sur quel bl est parti le lot MOB0098-77644",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_num})='MOB0098-77644') "
+         f"SELECT ls.{cls_num}, e.{ce_p} AS piece_sortie, e.{ce_ty}, e.{ce_d}, e.{ce_ti} "
+         f"FROM DerniereLigne ls "
+         f"LEFT JOIN {tl} l ON ls.{cls_lout}=l.{col('doc_ligne','id')} "
+         f"LEFT JOIN {te} e ON l.{cl_p}=e.{ce_p} WHERE ls.rn=1"),
+
+        ("lots qui expirent bientot peremption proche 30 jours",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls}) "
+         f"SELECT {cls_ref}, {cls_num}, {cls_per}, {cls_qr} FROM DerniereLigne "
+         f"WHERE rn=1 AND {cls_per} IS NOT NULL "
+         f"AND {cls_per} <= {_date_add_days(30, mssql)} AND {cls_per} >= {_now_date(mssql)} "
+         f"AND COALESCE({cls_ep},0)=0 ORDER BY {cls_per} ASC"),
+
+        ("lots epuises de MOBWOR01",
+         f"WITH DerniereLigne AS ("
+         f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY {cls_ref}, {cls_num} ORDER BY {col('lot_serie','cbmarq')} DESC) AS rn "
+         f"  FROM {tls} WHERE UPPER({cls_ref})='MOBWOR01') "
+         f"SELECT {cls_num}, {cls_qi}, {cls_fab} FROM DerniereLigne "
+         f"WHERE rn=1 AND COALESCE({cls_ep},0)=1 ORDER BY {cls_fab} ASC"),
     ]
 
     # Déduplication order-preserving (clé = question normalisée)

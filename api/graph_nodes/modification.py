@@ -70,7 +70,7 @@ CHAMPS_ARTICLE = {
     "designation":  {"label": "Désignation", "cle_data": "AR_Design"},
     "prix_achat":   {"label": "Prix d'achat", "cle_data": "AR_PrixAch"},
     "prix_vente":   {"label": "Prix de vente", "cle_data": "AR_PrixVen"},
-    "type_article": {"label": "Type d'article (0=Standard...)", "cle_data": "AR_Type"},
+    "type_article": {"label": "Type d'article (valeur numérique — voir fiche Sage)", "cle_data": "AR_Type"},
 }
 
 ALIAS_CHAMPS_ARTICLE = {
@@ -407,6 +407,7 @@ def _etape_afficher_champs(state, entity_type: str, entity_id: str, data: dict) 
     exemples = "**désignation**, **prix d'achat**" if entity_type == "article" else "**adresse**, **email**, **statut**, **encours**"
     state["reponse_finale"] = (
         f"{fiche}\n\n"
+        f"\n{'─' * 40}\n\n"
         f"🔧 **Quel champ souhaitez-vous modifier ?**\n"
         f"{champs_liste}\n\n"
         f"Tapez le nom du champ (ex : {exemples}…)"

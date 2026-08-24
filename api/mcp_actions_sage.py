@@ -21,8 +21,12 @@ v4.2 : CORRECTIF « détection de doublon trop tardive ».
        des champs complémentaires côté orchestrateur.
 """
 import asyncio
-_db_call_lock = asyncio.Lock()
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
+_db_call_lock = asyncio.Lock()
+import adaptation.db_adapter as sch
 import re
 import unicodedata
 import json
@@ -36,7 +40,21 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
-
+# En tête de fichier, avec les autres imports de sch.*
+T_LOT_SERIE = sch.T_LOT_SERIE
+C_LS_REF = sch.C_LS_REF
+C_LS_NUMERO = sch.C_LS_NUMERO
+C_LS_FABRICATION = sch.C_LS_FABRICATION
+C_LS_PEREMPTION = sch.C_LS_PEREMPTION
+C_LS_QTE_INIT = sch.C_LS_QTE_INIT
+C_LS_QTE_RESTE = sch.C_LS_QTE_RESTE
+C_LS_QTE_RES = sch.C_LS_QTE_RES
+C_LS_EPUISE = sch.C_LS_EPUISE
+C_LS_DEPOT = sch.C_LS_DEPOT
+C_LS_DL_IN = sch.C_LS_DL_IN
+C_LS_DL_OUT = sch.C_LS_DL_OUT
+C_LS_MVT = sch.C_LS_MVT
+C_LS_CBMARQ = sch.C_LS_CBMARQ
 _json_dumps_orig = json.dumps
 def _json_dumps_safe(obj, **kwargs):
     kwargs.setdefault("default", lambda o: float(o) if isinstance(o, Decimal) else str(o))
@@ -65,7 +83,7 @@ from database.schema_sage import (
 )
 
 # ── Mapping schéma DB centralisé (table/colonnes physiques) ───────────
-import adaptation.db_adapter as sch
+
 
 logger = logging.getLogger("sage.erp.actions")
 import sys
@@ -384,6 +402,7 @@ def _get_conn():
                     f"INSERT INTO {T_FAMILLE} ({C_FA_CODE}, {C_FA_INTITULE}) VALUES (?, ?)",
                     (f_code, f_intitule)
                 )
+        
     conn.commit()
     return conn
 
@@ -916,7 +935,180 @@ def _resoudre_depot_principal(conn, ref_article: str) -> int:
         return int(row[C_AS_DENO]) if row else DEPOT_DEFAUT
     except Exception:
         return DEPOT_DEFAUT
+def _article_a_des_lots(conn, ref_article: str) -> bool:
+    """
+    Détection par présence réelle en base, pas par AR_SuiviStock : la
+    correspondance documentée (0/1/2/3/4) ne concorde pas avec les données
+    observées (SuiviStock=1 alimente F_LOTSERIE, pas 2 ; SuiviStock=5 aussi).
+    """
+    row = conn.execute(
+        f"SELECT {_top(1)}1 FROM {T_LOT_SERIE} WHERE UPPER({C_LS_REF})=UPPER(?)",
+        (ref_article,) 
+    ).fetchone()
+    return row is not None
+    return row is not None
+def _necessite_creation_lot_au_bf(article: dict) -> bool:
+    """
+    Détermine si un BF doit créer un nouveau lot pour le produit fini.
 
+    Se base sur AR_SuiviStock choisi explicitement à la création de
+    l'article (valeurs 1 et 5, les deux seules confirmées par observation
+    sur cette instance comme liées à une présence réelle dans F_LOTSERIE) :
+      - AR_SuiviStock=1 : confirmé sur 46 lots (montres, appareils)
+      - AR_SuiviStock=5 : confirmé sur 2 lots (LINGOR18)
+
+    Contrairement à _article_a_des_lots (qui vérifie une présence déjà
+    existante en base et échoue donc pour le tout premier mouvement d'un
+    article neuf), cette fonction permet de créer le lot dès la première
+    fabrication.
+
+    ⚠️ Reste une déduction empirique basée sur les données observées, pas
+    une documentation officielle Sage confirmée pour AR_SuiviStock.
+    """
+    return int(article.get(C_AR_SUIVISTOCK) or 0) in (1, 5)
+def _lister_lots_disponibles(conn, ref_article: str, depot: int = None) -> list[dict]:
+    """
+    F_LOTSERIE est append-only (plusieurs lignes par lot : une par
+    mouvement). On ne garde que la DERNIÈRE ligne par (AR_Ref, LS_NoSerie),
+    déterminée par cbMarq, pour connaître l'état actuel du lot.
+    """
+    depot = depot if depot is not None else DEPOT_DEFAUT
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {C_LS_REF}, {C_LS_NUMERO}
+                       ORDER BY {C_LS_CBMARQ} DESC
+                   ) AS rn
+            FROM {T_LOT_SERIE}
+            WHERE UPPER({C_LS_REF}) = UPPER(?)
+        )
+        SELECT {C_LS_NUMERO} AS numero, {C_LS_FABRICATION} AS fabrication,
+               {C_LS_PEREMPTION} AS peremption, {C_LS_QTE_RESTE} AS qte_restante,
+               {C_LS_DEPOT} AS depot
+        FROM DerniereLigne
+        WHERE rn = 1
+          AND {C_LS_DEPOT} = ?
+          AND {C_LS_EPUISE} = 0
+          AND {C_LS_QTE_RESTE} > 0
+        ORDER BY {C_LS_FABRICATION}
+    """
+    rows = conn.execute(sql, (ref_article, depot)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _decrementer_lot(conn, numero_lot: str, ref_article: str, qte: float, num_ligne_doc: int) -> dict:
+    limit_clause = "" if _is_mssql() else "LIMIT 1"
+    row = conn.execute(
+        f"""SELECT {_top(1)}{C_LS_QTE_INIT}, {C_LS_QTE_RESTE}, {C_LS_FABRICATION},
+                    {C_LS_PEREMPTION}, {C_LS_DEPOT}, {C_LS_DL_IN}
+           FROM {T_LOT_SERIE}
+           WHERE UPPER({C_LS_REF})=UPPER(?) AND {C_LS_NUMERO}=?
+           ORDER BY {C_LS_CBMARQ} DESC {limit_clause}""",
+        (ref_article, numero_lot)
+    ).fetchone()
+    if not row:
+        return {"statut": "ERREUR", "message": f"Lot '{numero_lot}' introuvable."}
+
+    nouvelle_qte = float(row[C_LS_QTE_RESTE]) - qte
+    if nouvelle_qte < -1e-9:
+        return {"statut": "ERREUR", "message": f"Décrément invalide sur '{numero_lot}'."}
+
+    epuise = 1 if nouvelle_qte <= 1e-9 else 0
+    cbmarq = _generer_cbmarq(conn, T_LOT_SERIE, "cbMarq")
+
+    identity_col = _table_identity_column(conn, T_LOT_SERIE)
+
+    valeurs = {
+        C_LS_REF: ref_article,
+        C_LS_NUMERO: numero_lot,
+        C_LS_FABRICATION: row[C_LS_FABRICATION],
+        C_LS_PEREMPTION: row[C_LS_PEREMPTION],
+        C_LS_QTE_INIT: row[C_LS_QTE_INIT],
+        C_LS_QTE_RESTE: nouvelle_qte,
+        C_LS_EPUISE: epuise,
+        C_LS_DEPOT: row[C_LS_DEPOT],
+        C_LS_DL_IN: row[C_LS_DL_IN],
+        C_LS_DL_OUT: num_ligne_doc,
+        C_LS_MVT: 3,
+        "DE_No": 1,
+        C_LS_CBMARQ: cbmarq,
+    }
+
+    existing_cols = _get_table_columns(conn, T_LOT_SERIE)
+
+    cols_insert, vals_insert = [], []
+    for col_name, val in valeurs.items():
+        if val is None:
+            continue
+        match = next((c for c in existing_cols if c.lower() == col_name.lower()), None)
+        if match:
+            cols_insert.append(match)
+            vals_insert.append(val)
+
+    if identity_col:
+        conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} ON")
+    try:
+        ph = ", ".join(["?"] * len(cols_insert))
+        conn.execute(
+            f"INSERT INTO {T_LOT_SERIE} ({', '.join(cols_insert)}) VALUES ({ph})",
+            tuple(vals_insert)
+        )
+    finally:
+        if identity_col:
+            conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} OFF")
+
+    return {"statut": "OK", "qte_restante": nouvelle_qte, "epuise": bool(epuise)}
+def _creer_lot(conn, ref_article: str, quantite: float, depot: int, date_expiration=None, dl_no_entree: int = None) -> str:
+    """Crée un nouveau lot (entrée initiale). Retourne le numéro généré."""
+    numero_lot = f"LOT-{datetime.now():%Y}-{_generer_cbmarq(conn, T_LOT_SERIE, 'cbMarq'):05d}"
+    cbmarq = _generer_cbmarq(conn, T_LOT_SERIE, "cbMarq")
+
+    # cbMarq est très probablement IDENTITY en MSSQL, comme sur les autres
+    # tables Sage — mais contrairement aux tables où on OMET la colonne
+    # identity en MSSQL, ici on doit la FOURNIR explicitement quand
+    # IDENTITY_INSERT est ON (sinon SQL Server exige une valeur).
+    identity_col = _table_identity_column(conn, T_LOT_SERIE)
+
+    valeurs = {
+        C_LS_REF: ref_article,
+        C_LS_NUMERO: numero_lot,
+        C_LS_FABRICATION: datetime.now(),
+        C_LS_PEREMPTION: date_expiration,
+        C_LS_QTE_INIT: quantite,
+        C_LS_QTE_RESTE: quantite,
+        C_LS_EPUISE: 0,
+        C_LS_DEPOT: depot,
+        C_LS_DL_IN: dl_no_entree,
+        C_LS_MVT: 1,
+        "DE_No": 1,
+        C_LS_CBMARQ: cbmarq,   # toujours inclus, IDENTITY ou pas
+    }
+
+    existing_cols = _get_table_columns(conn, T_LOT_SERIE)
+
+    cols_insert, vals_insert = [], []
+    for col_name, val in valeurs.items():
+        if val is None:
+            continue
+        match = next((c for c in existing_cols if c.lower() == col_name.lower()), None)
+        if match:
+            cols_insert.append(match)
+            vals_insert.append(val)
+
+    if identity_col:
+        conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} ON")
+    try:
+        ph = ", ".join(["?"] * len(cols_insert))
+        conn.execute(
+            f"INSERT INTO {T_LOT_SERIE} ({', '.join(cols_insert)}) VALUES ({ph})",
+            tuple(vals_insert)
+        )
+    finally:
+        if identity_col:
+            conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} OFF")
+
+    return numero_lot
 
 def _ajuster_stock_db(
     conn,
@@ -1002,20 +1194,18 @@ def _ajuster_stock_db(
 def _calculer_encours_client(conn: sqlite3.Connection, code_client: str) -> Decimal:
     return _to_decimal(conn.execute(
         f"""
-        SELECT COALESCE(SUM(x.mnt), 0.0)
-        FROM (
-            SELECT
-                (SELECT COALESCE(SUM(l.{C_DL_QTE} * l.{C_DL_PRIX}), 0.0)
-                 FROM {T_DOC_LIGNE} l WHERE l.{C_DL_PIECE} = e.{C_DO_PIECE})
-                -
-                (SELECT COALESCE(SUM(r.{C_REGL_MONTANT}), 0.0)
-                 FROM {T_REGLEMENTS} r WHERE r.{C_REGL_PIECE} = e.{C_DO_PIECE})
-                AS mnt
-            FROM {T_DOC_ENTETE} e
-            WHERE e.{C_DO_TIERS} = ? AND e.{C_DO_TYPE} = 6 AND e.{C_DO_DOMAINE} = 0
-        ) x
+        SELECT 
+            (SELECT COALESCE(SUM(l.{C_DL_QTE} * l.{C_DL_PRIX}), 0.0)
+             FROM {T_DOC_ENTETE} e
+             JOIN {T_DOC_LIGNE} l ON l.{C_DL_PIECE} = e.{C_DO_PIECE}
+             WHERE e.{C_DO_TIERS} = ? AND e.{C_DO_TYPE} = 6 AND e.{C_DO_DOMAINE} = 0)
+            -
+            (SELECT COALESCE(SUM(r.{C_REGL_MONTANT}), 0.0)
+             FROM {T_DOC_ENTETE} e
+             JOIN {T_REGLEMENTS} r ON r.{C_REGL_PIECE} = e.{C_DO_PIECE}
+             WHERE e.{C_DO_TIERS} = ? AND e.{C_DO_TYPE} = 6 AND e.{C_DO_DOMAINE} = 0)
         """,
-        (code_client,),
+        (code_client, code_client)
     ).fetchone()[0])
 def _generer_prochain_code(conn: sqlite3.Connection, prefixe: str) -> str:
     """Génère le prochain code séquentiel disponible pour un préfixe (CLI, FOUR...).
@@ -1515,7 +1705,85 @@ def _workflow_bl(
                     "alerte_suspect": alerte_suspect,
                 },
             }
+        # ══════════ NOUVEAU : bifurcation gestion par lot ══════════
+        if _article_a_des_lots(conn, ref_reelle):
+            from lot_engine import allouer, Lot, _date_expiration_valide
 
+            rows = _lister_lots_disponibles(conn, ref_reelle, DEPOT_DEFAUT)
+            lots_obj = [
+        Lot(numero=r["numero"], qte_disponible=float(r["qte_restante"]),
+            date_expiration=_date_expiration_valide(r["peremption"]),
+            date_fabrication=r["fabrication"])
+                for r in rows
+    ]
+            strategie = "FEFO" if any(l.date_expiration for l in lots_obj) else "FIFO"
+            resultat = allouer(quantite, lots_obj, strategie)
+
+            if not resultat.ok:
+                lignes_lots = "\n".join(
+            f"   • {l.numero} : {l.qte_disponible} u"
+            + (f" (péremption {l.date_expiration})" if l.date_expiration else "")
+            for l in resultat.lots_disponibles
+        )
+                return {
+            "statut": "STOCK_INSUFFISANT",
+            "message": (
+                f"📦 Stock insuffisant pour '{desig}' ({ref_reelle}) — gestion par lot.\n\n"
+                f"   Demandé : {quantite} u | Disponible : {resultat.qte_allouee} u | "
+                f"Manque : {resultat.manque} u\n\n   Lots disponibles :\n{lignes_lots}"
+            ),
+            "stock_dispo": resultat.qte_allouee, "qte_demandee": quantite,
+            "manque": resultat.manque, "ref_article": ref_reelle, "code_client": code_reel,
+        }
+
+            num_bl = _generer_num_piece("BL", conn)
+            lignes_bl = []
+            for alloc in resultat.allocations:
+                mvt = _ajuster_stock_db(conn, ref_reelle, alloc.qte, "SORTIE",
+                                 motif=f"BL {num_bl} / lot {alloc.lot}")
+                lignes_bl.append({
+            "ref_article": ref_reelle, "qte": alloc.qte, "prix_unit": float(prix_final),
+            "mvt_stock": 3, "depot": DEPOT_DEFAUT,
+            "prix_ru": mvt["cout_ligne"], "cmup": mvt["cout_ligne"],
+        })
+
+            num_bl = _inserer_document(conn, "BL", num_bl, code_reel, lignes=lignes_bl)
+
+    # Récupérer les vrais DL_No pour tracer précisément quel lot a servi quelle ligne
+            lignes_inserees = conn.execute(
+        f"SELECT DL_No FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE}=? ORDER BY DL_No",
+        (num_bl,)
+    ).fetchall()
+            for alloc, ligne_doc in zip(resultat.allocations, lignes_inserees):
+                _decrementer_lot(conn, alloc.lot, ref_reelle, alloc.qte,
+                          num_ligne_doc=ligne_doc["DL_No"])
+
+            conn.commit()
+
+            lots_txt = ", ".join(f"{a.lot} ({a.qte:.0f} u)" for a in resultat.allocations)
+            dispos_txt = "\n".join(f"      - {r['numero']} ({r['qte_restante']:.0f} u) exp: {r.get('peremption') or 'N/A'}" for r in rows)
+            if not dispos_txt:
+                dispos_txt = "      - Aucun lot disponible"
+            
+            message = (
+        f"✅ Bon de Livraison créé (gestion par lot)\n\n"
+        f"  • Numéro BL   : {num_bl}\n"
+        f"  • Client      : {nom_client} ({code_reel})\n"
+        f"  • Article     : {desig} ({ref_reelle})\n"
+        f"  • Quantité    : {quantite} u\n"
+        f"  • Lots dispos :\n{dispos_txt}\n"
+        f"  • Lots choisis ({strategie}) : {lots_txt}\n"
+    )
+            return {
+        "statut": "GENERE", "DO_Piece": num_bl, "DO_Tiers": code_reel,
+        "AR_Ref": ref_reelle, "montant": montant, "message": message,
+        "suggestion_facture": {
+            "code_client": code_reel, "nom_client": nom_client,
+            "ref_article": ref_reelle, "quantite": quantite,
+            "prix_unitaire": prix_final, "montant": montant, "num_bl": num_bl,
+        },
+    }
+# ══════════ FIN bifurcation lot — sinon comportement existant ══════════
         # ── Création BL ───────────────────────────────────────────────
         if _est_article_stocke(conn, article):
             num_bl = _generer_num_piece("BL", conn)
@@ -1813,22 +2081,41 @@ def _workflow_bf(
             cout_unitaire=cout_unitaire_pf,
             motif=f"Production BF (OF {num_of})", depot=depot_pf
         )
-        
+
         lignes_bf.insert(0, {
             "ref_article": ref_reelle,
             "qte": quantite,
             "prix_unit": cout_unitaire_pf,
-            "mvt_stock": 2,
+            "mvt_stock": 1,          # ← 2 → 1 : aligné avec ce qu'exige le trigger
             "depot": depot_pf,
             "prix_ru": cout_unitaire_pf,
             "cmup": mvt_pf["cmup_apres"]
         })
 
-        # ── 3. Création Document ──
+        # ── 3. Création Document (AVANT la création du lot !) ──
         num_bf = _inserer_document(
             conn, "BF", "", code_client or "PROD-INT",
             lignes=lignes_bf, num_piece_of=num_of
         )
+
+        # ── 4. Récupérer le DL_No réel de la ligne produit fini qu'on vient d'insérer ──
+        limit_clause = "" if _is_mssql() else "LIMIT 1"
+        ligne_pf = conn.execute(
+            f"""SELECT {_top(1)}DL_No FROM {T_DOC_LIGNE}
+                WHERE {C_DL_PIECE} = ? AND UPPER({C_DL_REF}) = UPPER(?) AND {C_DL_MVTSTOCK} = 1
+                ORDER BY DL_No ASC {limit_clause}""",
+            (num_bf, ref_reelle)
+        ).fetchone()
+        dl_no_entree_pf = ligne_pf["DL_No"] if ligne_pf else None
+
+        # ── 5. Création du lot (une seule fois), avec DL_NoIn correctement renseigné ──
+        numero_lot_cree = None
+        if _necessite_creation_lot_au_bf(article):
+            numero_lot_cree = _creer_lot(
+                conn, ref_reelle, quantite, depot_pf,
+                dl_no_entree=dl_no_entree_pf,
+            )
+
         conn.commit()
 
         message = (
@@ -1838,6 +2125,8 @@ def _workflow_bf(
             + f"   • Article        : {desig} ({ref_reelle})\n"
             f"   • Qté fabriquée  : {quantite} u\n"
         )
+        if numero_lot_cree:
+            message += f"\n\n🏷️ Lot créé : **{numero_lot_cree}** ({quantite} u)"
         if rapport_compo:
             message += (
                 "\n📋 Nomenclature (sorties effectuées au CMUP) :\n"
@@ -1857,6 +2146,7 @@ def _workflow_bf(
             "AR_Ref":      ref_reelle,
             "num_of":      num_of,
             "stock_apres": mvt_pf["stock_apres"],
+            "numero_lot":  numero_lot_cree,
             "message":     message,
             "alertes":     [],
             "nomenclature": [
@@ -2684,7 +2974,18 @@ types.Tool(
                 "required": ["num_piece"],
             },
         ),
-
+        types.Tool(
+    name="lister_lots_disponibles",
+    description="Liste les lots disponibles (non épuisés) pour un article, triés par date de fabrication.",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "ref_article": {"type": "string"},
+            "depot": {"type": "integer", "default": 1},
+        },
+        "required": ["ref_article"],
+    },
+),
         types.Tool(
             name="ajuster_mouvement_stock",
             description=(
@@ -2908,7 +3209,13 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                 "message": f"❌ Type de document inconnu : '{arguments['type_doc']}'"
             }
         return _to_text(result)
-
+    elif name == "lister_lots_disponibles":
+        conn = _get_conn()
+        try:
+            rows = _lister_lots_disponibles(conn, arguments["ref_article"], arguments.get("depot", DEPOT_DEFAUT))
+            return _to_text({"statut": "SUCCES", "lots": rows})
+        finally:
+            conn.close()
     elif name == "workflow_bl":
         result = _workflow_bl(
             arguments["code_client"],

@@ -2005,3 +2005,122 @@
 {"ts": 1787324910.9156516, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
 {"ts": 1787324918.4917893, "question": "2026-08-22", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
 {"ts": 1787324921.5630028, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787392495.721078, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787393124.8634253, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787393139.6887634, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394037.334414, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787394399.549051, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787394403.968142, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394406.0225768, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394419.5967574, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394432.166024, "question": "crée le BF pour OF76DA833", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787394434.644501, "question": "1", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394445.5943317, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394632.803776, "question": "crée le BF pour OF76DA833", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787394635.5979831, "question": "1", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394638.246895, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394659.6597173, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787394662.4401371, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394672.9600484, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394675.334467, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394683.619421, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787394688.1722536, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395720.8328476, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787395738.2891762, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395744.1348414, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787395746.9589658, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395749.4172943, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395753.7427032, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395761.3302636, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787395763.656559, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398555.294453, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787398561.5540602, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398564.4695191, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398566.5383346, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398572.8897955, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398574.728027, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398692.8857317, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787398695.9239964, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398702.484048, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398703.8938367, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398707.984831, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787398711.0786757, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787399341.9961064, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787399343.7219007, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787399350.1618931, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787399352.2823732, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787399357.4095855, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787399387.643713, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787402206.3753748, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787402214.7256217, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787402225.3980048, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787402227.098743, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787402235.3623798, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787402238.2031753, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787409315.6691794, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787409320.98858, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787409333.6977706, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787409335.4004178, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787409340.6146204, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787409343.020334, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410369.7447, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787410398.0699978, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410399.9385993, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410403.3078103, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410414.6307275, "question": "crée le BF pour OFD4E83FC", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787410417.577294, "question": "1", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410419.4943054, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410877.149426, "question": "crée le BF pour OFD4E83FC", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787410879.5456138, "question": "1", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410881.7828817, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410895.017806, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787410906.7284966, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410919.9592035, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410921.5082235, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410927.7061682, "question": "2026-08-23", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410931.742534, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787410957.3783956, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479182.560519, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479221.6187303, "question": "quantité restante du lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479397.9455588, "question": "lot LOT-2026-00068 est-il encore disponible?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479447.1273212, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479449.071719, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479458.692681, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479460.7104702, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479471.4128067, "question": "2026-08-30", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479474.2742567, "question": "ANNULER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479500.7597392, "question": "quantité restante du lot MOB001", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479533.0459895, "question": "lot MOB001 est-il encore disponible?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479587.9182003, "question": "d'où vient le lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479628.4635465, "question": "sur quel BL est parti le lot MOB001", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479662.3796997, "question": "CREE BL", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479664.4070387, "question": "CARAT", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479678.127947, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479680.233236, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479684.8533003, "question": "2026-08-30", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479686.2049694, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479704.9585938, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787479734.1709042, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479752.74233, "question": "quantité restante du lot MOB002", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479780.7504435, "question": "lot MOB002 est-il encore disponible", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479796.208435, "question": "d'où vient le lot MOB002", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479815.3571515, "question": "d'où vient le lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479831.573412, "question": "sur quel BL est parti le lot MOB002", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479844.7151139, "question": "lots qui expirent bientôt", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787479947.3864112, "question": "lots épuisés de MOBWOR01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787481625.149471, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787481655.1948063, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787481743.015161, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787482892.4650733, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787483458.2036676, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485248.3501227, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485295.738723, "question": "quantité restante du lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485310.0890381, "question": "quels lots disponibles pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485343.0314295, "question": "d'où vient le lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485361.6011279, "question": "d'où vient le lot LOT-2026-00042", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485393.5575318, "question": "sur quel BL est parti le lot LOT-2026-00068", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485432.70709, "question": "sur quel BL est parti le lot MOB001", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485444.9596236, "question": "lots qui expirent bientôt", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787485464.055579, "question": "lots épuisés de MOBWOR01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787488713.8293757, "question": "lots épuisés de bbbb", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787488727.2315667, "question": "sur quel BL est parti le lot MOB007", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}

@@ -1,4 +1,4 @@
-﻿"""
+"""
 orchestrateur_general.py — Le Maître Orchestrateur Multi-Agents v9.6
 ================================================================================
 v9.3 — 7 corrections appliquées :
@@ -142,20 +142,21 @@ def _fix_encoding():
 _fix_encoding()
 from dotenv import load_dotenv
 load_dotenv()
+import sys
 from adaptation.db_adapter import get_sqlite_path
 _db_path = get_sqlite_path()  # None si DB_DRIVER=mssql (pas de fichier local à vérifier)
 if _db_path is not None and (not _db_path.exists() or _db_path.stat().st_size < 1000):
     from database.init_db_complet import init_database_complete as _init_db
-    print("🗄️  [DB] Initialisation automatique...")
+    print("🗄️  [DB] Initialisation automatique...", file=sys.stderr)
     _init_db(str(_db_path))
-    print("✅ [DB] Base initialisée.")
+    print("✅ [DB] Base initialisée.", file=sys.stderr)
 else:
     # Si c'est MSSQL, on lance l'init des migrations MSSQL
     try:
         from database.init_db_complet import init_database_mssql
         init_database_mssql()
     except Exception as e:
-        print(f"⚠️  [DB] Erreur initialisation MSSQL : {e}")
+        print(f"⚠️  [DB] Erreur initialisation MSSQL : {e}", file=sys.stderr)
 
 from typing import TypedDict, Optional
 from langchain_ollama import ChatOllama  # noqa: F401  (gardé pour retour arrière rapide)
@@ -503,11 +504,12 @@ def _get_mem0_sync() -> object | None:
                 },
             },
             "llm": {
-                "provider": "ollama",
+                "provider": "openai",
                 "config": {
                     "model":           MODELE_FAST,
                     "temperature":     0,
-                    "ollama_base_url": OLLAMA_BASE_URL,
+                    "api_key":         GROQ_KEY,
+                    "openai_base_url": GROQ_URL,
                 },
             },
             "embedder": {
@@ -1061,6 +1063,17 @@ def _clean(v: str) -> str:
 # PRÉ-CLASSIFICATION REGEX — v9.6 (patchée)
 # ═════════════════════════════════════════════════════════════════════
 _PATTERNS_PRECLASS = [
+    # ── Lots / Séries — à placer avant tous les patterns génériques ───
+    (r"lots?\s+(?:encore\s+)?disponibles?\s+(?:pour|de|du|d['\u2019])", "NL2SQL_LIBRE"),
+    (r"quels?\s+lots?\s+disponibles?\s+(?:pour|de|du|d['\u2019])",       "NL2SQL_LIBRE"),
+    (r"quantit[eé]\s+restante\s+(?:du\s+|de\s+)?lot\b",                  "NL2SQL_LIBRE"),
+    (r"\blot\b.{0,20}est[\s-]il\s+(?:encore\s+)?disponible",             "NL2SQL_LIBRE"),
+    (r"d['\u2019]o[u\u00f9]\s+vient\s+(?:le\s+)?lot\b",                  "NL2SQL_LIBRE"),
+    (r"origine\s+(?:du\s+)?lot\b",                                        "NL2SQL_LIBRE"),
+    (r"sur\s+quel\s+bl\s+.{0,20}lot\b",                                   "NL2SQL_LIBRE"),
+    (r"lots?\s+.{0,20}(?:expirent?|p[eé]rim[eé]s?|p[eé]remption)",       "NL2SQL_LIBRE"),
+    (r"lots?\s+[eé]puis[eé]s?",                                           "NL2SQL_LIBRE"),
+    # ─────────────────────────────────────────────────────────────────
         (r"marge\s+(?:brute\s+)?(?:sur|de|pour)\s+(?:l['\u2019]article\s+)?[A-Za-z0-9\-]+", "NL2SQL_LIBRE"),
     (r"liste[s\s]*(?:de[s\s]*)?(?:bf|of|bl|factures?|bc)\b", "NL2SQL_LIBRE"),
     (r"transform[e\s]+.{0,60}\bof\b.{0,60}\bbf\b",            "TRANSFORMER_DOC"),
@@ -2152,6 +2165,12 @@ async def _verifier_client_draft(code_client: str) -> str:
             f"🚫 Client **'{code_client}'** introuvable dans la base. "
             f"Vérifiez le code et réessayez."
         )
+
+    # ── Exception : PROD-INT est le tiers technique interne (CT_Type=2),
+    #    pas un vrai client — ne pas appliquer la contrainte CT_Type==0.
+    if code_client.upper() == "PROD-INT":
+        return ""
+
     if data.get("CT_Type") != 0:
         return (
             f"🚫 **'{code_client}'** existe mais n'est pas un client (c'est un fournisseur). "
@@ -2166,8 +2185,6 @@ async def _verifier_client_draft(code_client: str) -> str:
             f"Contactez le service comptabilité."
         )
     return ""
-
-
 async def _verifier_fournisseur_draft(code_fournisseur: str) -> str:
     data = await _resoudre_tiers_mcp(code_fournisseur)
     if data.get("statut") != "SUCCES":
@@ -2361,7 +2378,7 @@ async def noeud_collecte_draft(state: CopilotState) -> CopilotState:
                 return state
 
     except Exception as e:
-        logger.error(f"Erreur inattendue lors de la vérification initiale : {e}")
+        print(f"Erreur inattendue lors de la vérification initiale : {_safe_str(e)}")
 
     manquants = df_champs_manquants(state["document_draft"].get("type_doc", ""), state["document_draft"])
     if manquants:

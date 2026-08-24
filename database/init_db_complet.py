@@ -387,12 +387,13 @@ def init_database_mssql():
     from pathlib import Path
     from adaptation.db_adapter import get_connection
 
+    import sys
     mig_file = Path(__file__).parent / "migrations" / "mssql_fix_82086.sql"
     if not mig_file.exists():
-        print(f"⚠️  Script de migration introuvable : {mig_file}")
+        print(f"⚠️  Script de migration introuvable : {mig_file}", file=sys.stderr)
         return
 
-    print("🗄️  [MSSQL] Vérification et application des migrations...")
+    print("🗄️  [MSSQL] Vérification et application des migrations...", file=sys.stderr)
     try:
         with open(mig_file, "r", encoding="utf-8") as f:
             sql = f.read()
@@ -402,6 +403,6 @@ def init_database_mssql():
         cursor.execute(sql)
         conn.commit()
         conn.close()
-        print("✅ [MSSQL] Migrations appliquées avec succès (message 82086).")
+        print("✅ [MSSQL] Migrations appliquées avec succès (message 82086).", file=sys.stderr)
     except Exception as e:
-        print(f"⚠️  [MSSQL] Échec de l'application des migrations : {e}")
+        print(f"⚠️  [MSSQL] Échec de l'application des migrations : {e}", file=sys.stderr)

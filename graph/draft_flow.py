@@ -406,6 +406,22 @@ async def generer_preview(draft: dict) -> tuple[str, str]:
         montant_total = float(draft.get('quantite', 0) or 0) * float(draft['prix_unitaire'])
         lignes.append(f"  Prix unit.   : {draft['prix_unitaire']:.3f}")
         lignes.append(f"  Total HT     : {montant_total:.3f}")
+    
+    if draft.get("ref_article") and type_doc in ("BL", "BF"):
+        try:
+            from api.mcp_actions_sage import _article_a_des_lots, _lister_lots_disponibles, _get_conn
+            conn = _get_conn()
+            if _article_a_des_lots(conn, draft["ref_article"]):
+                lots = _lister_lots_disponibles(conn, draft["ref_article"])
+                if lots:
+                    lignes.append("  Lots dispo.  :")
+                    for lot in lots:
+                        lignes.append(f"    - {lot['numero']} ({lot['qte_restante']:.0f} u) exp: {lot.get('peremption') or 'N/A'}")
+                else:
+                    lignes.append("  Lots dispo.  : ⚠️ Aucun lot en stock")
+            conn.close()
+        except Exception:
+            pass
     if draft.get("num_of"):
         lignes.append(f"  OF lié       : {draft['num_of']}")
     if draft.get("nomenclature"):

@@ -304,7 +304,7 @@ def _executer_sql(
 ) -> list[dict]:
     sql_clean = sql.strip()
     sql_clean = sql_clean.split(";")[0].strip()
-    if not re.match(r"^\s*SELECT\b", sql_clean, re.IGNORECASE):
+    if not re.match(r"^\s*(SELECT|WITH)\b", sql_clean, re.IGNORECASE):
         return [{"erreur": "Seules les requêtes SELECT sont autorisées."}]
 
     has_limit = re.search(r"\bLIMIT\b|\bFETCH\s+FIRST\b|\bTOP\s+\d+\b", sql_clean, re.IGNORECASE)
@@ -372,6 +372,7 @@ def _date_sub_days(n_days: int) -> str:
     if _is_mssql():
         return f"DATEADD(day, -{n_days}, GETDATE())"
     return f"DATE('now', '-{n_days} days')"
+
 
 def _limit(n: int) -> str:
     """Trailing clause — empty for MSSQL (use _top() prefix instead). SQLite: LIMIT N."""
@@ -449,7 +450,24 @@ def _resoudre_fournisseur(conn, code_ou_nom: str):
         (f"%{code_ou_nom.strip()}%",),
     ).fetchone()
     return row
+def _article_existe(conn, ref: str) -> bool:
+    """Vérifie qu'une référence article existe dans le catalogue."""
+    if not ref:
+        return False
+    return conn.execute(
+        f"SELECT 1 FROM {table('articles')} WHERE UPPER({col('articles','ref')})=UPPER(?)",
+        (ref.strip(),)
+    ).fetchone() is not None
 
+
+def _lot_existe(conn, numero: str) -> bool:
+    """Vérifie qu'un numéro de lot existe dans F_LOTSERIE."""
+    if not numero:
+        return False
+    return conn.execute(
+        f"SELECT 1 FROM {table('lot_serie')} WHERE UPPER({col('lot_serie','numero')})=UPPER(?)",
+        (numero.strip(),)
+    ).fetchone() is not None
 @mcp.tool()
 def lister_references_articles() -> str:
     """Liste toutes les références d'articles (fuzzy-matching côté orchestrateur)."""
@@ -548,7 +566,7 @@ def _executer_sql(
 ) -> list[dict]:
     sql_clean = sql.strip()
     sql_clean = sql_clean.split(";")[0].strip()
-    if not re.match(r"^\s*SELECT\b", sql_clean, re.IGNORECASE):
+    if not re.match(r"^\s*(SELECT|WITH)\b", sql_clean, re.IGNORECASE):
         return [{"erreur": "Seules les requêtes SELECT sont autorisées."}]
 
     sql_clean = _corriger_group_by_mssql(sql_clean)
@@ -1077,9 +1095,246 @@ def _gen_marge_article_specifique(m, conn):
 # ─────────────────────────────────────────────────────────────────────
 # CATALOGUE DE PATTERNS NL→SQL — neutre (table()/col())
 # ─────────────────────────────────────────────────────────────────────
+def _gen_lots_disponibles(m, conn):
+    ref = next(g for g in m.groups() if g)
+    if not _article_existe(conn, ref):
+        return {"sql": "", "description": f"Article '{ref}' introuvable dans le catalogue"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','ref')}) = UPPER('{ref}')
+        )
+        SELECT {col('lot_serie','numero')} AS numero,
+               {col('lot_serie','qte_restante')} AS qte_restante,
+               {col('lot_serie','qte_reservee')} AS qte_reservee,
+               {col('lot_serie','fabrication')} AS date_fabrication,
+               {col('lot_serie','peremption')} AS date_peremption
+        FROM DerniereLigne
+        WHERE rn = 1
+          AND COALESCE({col('lot_serie','epuise')}, 0) = 0
+          AND COALESCE({col('lot_serie','qte_restante')}, 0) > 0
+        ORDER BY {col('lot_serie','fabrication')} ASC
+    """
+    return {"sql": sql, "description": f"Lots disponibles pour l'article {ref}"}
+def _gen_quantite_restante_lot(m, conn):
+    numero = m.group(1)
+    if not _lot_existe(conn, numero):
+        return {"sql": "", "description": f"Lot '{numero}' introuvable dans la base"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','numero')}) = UPPER('{numero}')
+        )
+        SELECT {col('lot_serie','ref')} AS ref,
+               {col('lot_serie','numero')} AS numero,
+               {col('lot_serie','qte_initiale')} AS qte_initiale,
+               {col('lot_serie','qte_restante')} AS qte_restante,
+               {col('lot_serie','qte_reservee')} AS qte_reservee
+        FROM DerniereLigne
+        WHERE rn = 1
+    """
+    return {"sql": sql, "description": f"Quantité restante du lot {numero}"}
+def _gen_lot_disponibilite(m, conn):
+    numero = m.group(1)
+    if not _lot_existe(conn, numero):
+        return {"sql": "", "description": f"Lot '{numero}' introuvable dans la base"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','numero')}) = UPPER('{numero}')
+        )
+        SELECT {col('lot_serie','ref')} AS ref,
+               {col('lot_serie','numero')} AS numero,
+               {col('lot_serie','qte_restante')} AS qte_restante,
+               {col('lot_serie','epuise')} AS epuise,
+               {col('lot_serie','peremption')} AS date_peremption
+        FROM DerniereLigne
+        WHERE rn = 1
+    """
+    return {"sql": sql, "description": f"Disponibilité du lot {numero}"}
+def _gen_lot_origine(m, conn):
+    numero = next(g for g in m.groups() if g)
+    if not _lot_existe(conn, numero):
+        return {"sql": "", "description": f"Lot '{numero}' introuvable dans la base"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','numero')}) = UPPER('{numero}')
+        )
+        SELECT ls.{col('lot_serie','numero')} AS numero,
+               e.{col('doc_entete','piece')} AS piece_origine,
+               e.{col('doc_entete','type')} AS type_doc,
+               e.{col('doc_entete','domaine')} AS domaine,
+               e.{col('doc_entete','date')} AS date_doc,
+               CASE
+                   WHEN e.{col('doc_entete','type')}=25 AND e.{col('doc_entete','domaine')}=2 THEN 'Ordre de fabrication (OF)'
+                   WHEN e.{col('doc_entete','type')}=26 AND e.{col('doc_entete','domaine')}=2 THEN 'Bon de fabrication (BF)'
+                   WHEN e.{col('doc_entete','type')}=13 AND e.{col('doc_entete','domaine')}=1 THEN 'Bon de réception fournisseur'
+                   WHEN e.{col('doc_entete','type')}=16 AND e.{col('doc_entete','domaine')}=1 THEN 'Facture fournisseur (achat)'
+                   ELSE 'Origine inconnue'
+               END AS origine_libelle
+        FROM DerniereLigne ls
+        LEFT JOIN {table('doc_ligne')} l ON ls.{col('lot_serie','ligne_entree')} = l.{col('doc_ligne','id')}
+        LEFT JOIN {table('doc_entete')} e ON l.{col('doc_ligne','piece')} = e.{col('doc_entete','piece')}
+        WHERE ls.rn = 1
+    """
+    return {"sql": sql, "description": f"Origine (document d'entrée) du lot {numero}"}
+def _gen_lot_destination(m, conn):
+    numero = next(g for g in m.groups() if g)
+    if not _lot_existe(conn, numero):
+        return {"sql": "", "description": f"Lot '{numero}' introuvable dans la base"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','numero')}) = UPPER('{numero}')
+        )
+        SELECT ls.{col('lot_serie','numero')} AS numero,
+               e.{col('doc_entete','piece')} AS piece_sortie,
+               e.{col('doc_entete','type')} AS type_doc,
+               e.{col('doc_entete','domaine')} AS domaine,
+               e.{col('doc_entete','date')} AS date_doc,
+               e.{col('doc_entete','code_tiers')} AS code_client
+        FROM DerniereLigne ls
+        LEFT JOIN {table('doc_ligne')} l ON ls.{col('lot_serie','ligne_sortie')} = l.{col('doc_ligne','id')}
+        LEFT JOIN {table('doc_entete')} e ON l.{col('doc_ligne','piece')} = e.{col('doc_entete','piece')}
+        WHERE ls.rn = 1
+    """
+    return {"sql": sql, "description": f"Document de sortie du lot {numero}"}
+def _date_add_days(n_days: int) -> str:
+    if _is_mssql():
+        return f"DATEADD(day, {n_days}, GETDATE())"
+    return f"DATE('now', '+{n_days} days')"
+def _gen_lots_epuises(m, conn):
+    ref = next(g for g in m.groups() if g)
+    if not _article_existe(conn, ref):
+        return {"sql": "", "description": f"Article '{ref}' introuvable dans le catalogue"}
+    sql = f"""
+        WITH DerniereLigne AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                       ORDER BY {col('lot_serie','cbmarq')} DESC
+                   ) AS rn
+            FROM {table('lot_serie')}
+            WHERE UPPER({col('lot_serie','ref')}) = UPPER('{ref}')
+        )
+        SELECT {col('lot_serie','numero')} AS numero,
+               {col('lot_serie','qte_initiale')} AS qte_initiale,
+               {col('lot_serie','fabrication')} AS date_fabrication
+        FROM DerniereLigne
+        WHERE rn = 1
+          AND COALESCE({col('lot_serie','epuise')}, 0) = 1
+        ORDER BY {col('lot_serie','fabrication')} ASC
+    """
+    return {"sql": sql, "description": f"Lots épuisés pour l'article {ref}"}
 _FOURNISSEUR_RX = r"fou?r?n+i?s+e?u?r"
 
 _NL_PATTERNS: list[tuple] = [
+
+
+    # LOTS / SÉRIES (F_LOTSERIE) — 7 formulations
+    # F_LOTSERIE est append-only : on déduplique via ROW_NUMBER() OVER
+    # (PARTITION BY ref, numero ORDER BY cbmarq DESC) pour ne garder
+    # que la dernière ligne par lot.
+    # Les jointures origine/destination utilisent DL_No (id), pas DL_Ligne.
+    # ══════════════════════════════════════════════════════════════════
+
+    # ── 1. Lots disponibles pour un article ───────────────────────────
+    (
+        r"quels?\s+(?:sont\s+les\s+)?lots?\s+(?:encore\s+)?disponibles?\s+(?:pour|de|du|d['\u2019])\s+([A-Za-z0-9\-]+)"
+        r"|lots?\s+disponibles?\s+(?:pour|de|du|d['\u2019])\s+([A-Za-z0-9\-]+)",
+                _gen_lots_disponibles,
+    ),
+
+    # ── 2. Quantité restante d'un lot précis ──────────────────────────
+    
+            (
+        r"quantit[eé]\s+restante\s+(?:du\s+|de\s+)?lot\s+([A-Za-z0-9\-]+)",
+        _gen_quantite_restante_lot,
+    ),
+    
+
+    # ── 3. Un lot est-il encore disponible ? ──────────────────────────
+        (
+        r"lot\s+([A-Za-z0-9\-]+)\s+est[\s-]il\s+(?:encore\s+)?disponible",
+        _gen_lot_disponibilite,
+    ),
+    # ── 4. Origine d'un lot (document d'entrée : OF/BF/achat) ────────
+        (
+        r"d['\u2019]o[u\u00f9]\s+vient\s+(?:le\s+)?lot\s+([A-Za-z0-9\-]+)"
+        r"|origine\s+(?:du\s+)?lot\s+([A-Za-z0-9\-]+)"
+        r"|quel\s+document\s+d['\u2019]entr[eé]e\s+.{0,20}lot\s+([A-Za-z0-9\-]+)",
+        _gen_lot_origine,
+    ),
+    # ── 5. Sur quel BL/document le lot est-il sorti ───────────────────
+        (
+        r"sur\s+quel\s+bl\s+.{0,20}lot\s+([A-Za-z0-9\-]+)"
+        r"|lot\s+([A-Za-z0-9\-]+)\s+.{0,20}(?:est\s+)?parti(?:e)?"
+        r"|destination\s+(?:du\s+)?lot\s+([A-Za-z0-9\-]+)",
+        _gen_lot_destination,
+    ),
+
+    # ── 6. Lots dont la péremption approche (30 jours) ────────────────
+    (
+        r"lots?\s+.{0,20}(?:expirent?|p[eé]rim[eé]s?|p[eé]remption)\s+.{0,20}(?:bient[o\u00f4]t|proche|prochaine)"
+        r"|p[eé]remption\s+proche",
+        lambda m, conn: {
+            "sql": f"""
+                WITH DerniereLigne AS (
+                    SELECT *,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY {col('lot_serie','ref')}, {col('lot_serie','numero')}
+                               ORDER BY {col('lot_serie','cbmarq')} DESC
+                           ) AS rn
+                    FROM {table('lot_serie')}
+                )
+                SELECT {col('lot_serie','ref')} AS ref,
+                       {col('lot_serie','numero')} AS numero,
+                       {col('lot_serie','peremption')} AS date_peremption,
+                       {col('lot_serie','qte_restante')} AS qte_restante
+                FROM DerniereLigne
+                WHERE rn = 1
+                  AND {col('lot_serie','peremption')} IS NOT NULL
+                  AND {col('lot_serie','peremption')} <= {_date_add_days(30)}
+                  AND {col('lot_serie','peremption')} >= {_now_date()}
+                  AND COALESCE({col('lot_serie','epuise')}, 0) = 0
+                ORDER BY {col('lot_serie','peremption')} ASC
+            """,
+            "description": "Lots dont la péremption approche (30 jours)",
+        }
+    ),
+
+    # ── 7. Lots épuisés d'un article ──────────────────────────────────
+        (
+        r"lots?\s+(?:de\s+)?([A-Za-z0-9\-]+)\s+.{0,20}(?:sont\s+)?[eé]puis[eé]s?"
+        r"|lots?\s+[eé]puis[eé]s?\s+(?:de|pour)\s+([A-Za-z0-9\-]+)",
+        _gen_lots_epuises,
+    ),
 
     # ── Clients classés par nombre de commandes ───────────────────
     # FIX v4.3 : type=3 = BL, pas facture → type=6.

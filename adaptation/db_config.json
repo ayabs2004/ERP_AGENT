@@ -9,7 +9,8 @@
         "doc_ligne": "F_DOCLIGNE",
         "reglements": "F_DOCREGL",
         "nomenclature": "F_NOMENCLAT",
-        "familles": "F_FAMILLE"
+        "familles": "F_FAMILLE",
+        "lot_serie": "F_LOTSERIE"
     },
     "columns": {
         "clients_fournisseurs": {
@@ -22,16 +23,16 @@
             "encours_max": "CT_Encours",
             "cb_marq": "cbMarq",
             "adresse":      "CT_Adresse",
-"complement":   "CT_Complement",
-"code_postal":  "CT_CodePostal",
-"ville":        "CT_Ville",
-"pays":         "CT_Pays",
-"contact":      "CT_Contact",
-"telephone":    "CT_Telephone",
-"telecopie":    "CT_Telecopie",
-"email":        "CT_EMail",
-"site":         "CT_Site",
-"cg_num_princ": "CG_NumPrinc"
+            "complement":   "CT_Complement",
+            "code_postal":  "CT_CodePostal",
+            "ville":        "CT_Ville",
+            "pays":         "CT_Pays",
+            "contact":      "CT_Contact",
+            "telephone":    "CT_Telephone",
+            "telecopie":    "CT_Telecopie",
+            "email":        "CT_EMail",
+            "site":         "CT_Site",
+            "cg_num_princ": "CG_NumPrinc"
         },
         "articles": {
             "ref": "AR_Ref",
@@ -69,6 +70,7 @@
             "qte": "DL_Qte",
             "prix_unitaire": "DL_PrixUnitaire",
             "ligne": "DL_Ligne",
+            "id": "DL_No",
             "cb_marq": "cbMarq",
             "pf_num": "PF_Num",
             "mvt_stock": "DL_MvtStock",
@@ -96,11 +98,27 @@
         "nomenclature": {
             "ref_pf": "AR_Ref",
             "ref_mp": "NO_RefDet",
-            "qte": "NO_Qte", "cb_marq": "cbMarq"
+            "qte": "NO_Qte",
+            "cb_marq": "cbMarq"
         },
         "familles": {
             "code": "FA_CodeFamille",
             "intitule": "FA_Intitule"
+        },
+        "lot_serie": {
+            "ref": "AR_Ref",
+            "numero": "LS_NoSerie",
+            "fabrication": "LS_Fabrication",
+            "peremption": "LS_Peremption",
+            "qte_initiale": "LS_Qte",
+            "qte_restante": "LS_QteRestant",
+            "qte_reservee": "LS_QteRes",
+            "epuise": "LS_LotEpuise",
+            "depot": "DE_No",
+            "ligne_entree": "DL_NoIn",
+            "ligne_sortie": "DL_NoOut",
+            "type_mouvement": "LS_MvtStock",
+            "cbmarq": "cbMarq"
         }
     }
 }
