@@ -1,102 +1,12 @@
+"""Utility script that analyses the coverage of semantic examples per action.
+
+It reads the semantic examples configuration, optionally reads production
+classification logs, computes for each action the number of examples,
+the traffic volume, the average confidence, and a priority score that
+highlights under‑covered actions with high usage or low confidence.
+The results are printed as a formatted table.
 """
-Ce fichier analyser_couverture.py sert à répondre à une question très précise dans ton système :
 
-“Est-ce que mes actions (LISTE_CLIENTS, FACTURE, etc.) sont bien couvertes par assez d’exemples et utilisées dans la vraie vie ?”
-analyser_couverture.py — Rapport de couverture des exemples par action
-2. Ce que fait le code étape par étape
-🟦 Étape 1 — Lecture du dataset (semantic_examples.yaml)
-exemples_par_action[action] = len(act_data.get("examples", []))
-
-👉 Résultat :
-
-LISTE_CLIENTS → 25 exemples
-GENERER_DOC   → 80 exemples
-RFM           → 5 exemples
-🟦 Étape 2 — Lecture des logs (production)
-volume_par_action = Counter(l["action"] for l in logs)
-
-👉 Résultat :
-
-LISTE_CLIENTS → 120 requêtes utilisateurs
-GENERER_DOC   → 300 requêtes
-RFM           → 8 requêtes
-🟦 Étape 3 — Confiance moyenne par action
-confiances_par_action[action].append(confidence)
-
-👉 Exemple :
-
-LISTE_CLIENTS → 0.91
-RFM           → 0.62 (faible)
-🟦 Étape 4 — Calcul d’un “score de priorité”
-
-C’est le cœur du script :
-
-priorite = 0.0
-
-if nb_ex < min_exemples:
-    priorite += (min_exemples - nb_ex)
-
-priorite += volume * 0.5
-
-if conf_moy < 0.75:
-    priorite += bonus
-📌 Interprétation
-
-Une action est PRIORITAIRE si :
-
-elle a peu d’exemples
-MAIS beaucoup de requêtes utilisateurs
-OU une faible confiance
-Exemple concret :
-Action	Exemples	Trafic	Confiance	Priorité
-RFM	5	8	0.62	🔥 très prioritaire
-LISTE_CLIENTS	25	120	0.91	moyen
-GENERER_DOC	80	300	0.95	faible priorité
-🟦 Étape 5 — Tri et affichage
-lignes.sort(key=lambda x: -x[5])
-
-👉 Il classe du plus critique au moins critique
-
-🟦 Étape 6 — Affichage final
-
-Tu obtiens un tableau :
-
-Action              Exemples   Trafic   Conf moy   Priorité
-RFM                 5          8        0.62       42.3 ⚠️
-LISTE_CLIENTS      25        120       0.91       31.2
-...
-🚨 3. Ce que le script te dit vraiment
-
-Il te répond :
-
-❗ “Ton dataset est-il bien équilibré ?”
-
-Il détecte :
-
-1. Sous-représentation
-actions avec trop peu d’exemples
-2. Sur-utilisation en production
-actions souvent utilisées mais mal couvertes
-3. Faible confiance
-actions où ton modèle hésite
-=========================================================================
-Amélioration #5 : "1505 exemples pour 39 actions" ne dit rien sur la
-répartition réelle — certaines actions peuvent avoir 100 exemples,
-d'autres 10. Ce script :
-
-  1. Compte les exemples par action dans semantic_examples.yaml.
-  2. Si logs_classification.jsonl existe (produit par
-     interaction_logger.logger_decision, maintenant appelé depuis
-     orchestrateur_general.noeud_classifier — voir amélioration #4),
-     croise avec le volume réel de trafic par action et le taux de
-     décisions à faible confiance (< SEUIL_COUVERTURE_FAIBLE).
-  3. Priorise : peu d'exemples + beaucoup de trafic + confiance moyenne
-     basse = candidat prioritaire pour enrichissement.
-
-Usage :
-    python analyser_couverture.py
-    python analyser_couverture.py --min-exemples 15
-"""
 from __future__ import annotations
 
 import argparse
@@ -112,6 +22,12 @@ SEUIL_COUVERTURE_FAIBLE = 0.75
 
 
 def _lire_logs() -> list[dict]:
+    """Read classification logs and return a list of log entries.
+
+    Each line of the JSONL file is parsed into a dictionary. Empty lines
+    and lines that cannot be decoded as JSON are ignored. If the log file
+    does not exist, an empty list is returned.
+    """
     if not LOGS_PATH.exists():
         return []
     out = []
@@ -127,9 +43,21 @@ def _lire_logs() -> list[dict]:
 
 
 def main():
+    """Generate a coverage report for each action.
+
+    The function parses the optional ``--min-exemples`` argument, loads the
+    semantic examples configuration, computes example counts per action,
+    aggregates log statistics (traffic volume and confidence values),
+    calculates a priority score, sorts actions by priority, and prints a
+    formatted table summarising the findings.
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--min-exemples", type=int, default=15,
-                         help="Seuil en dessous duquel une action est signalée comme sous-couverte")
+    parser.add_argument(
+        "--min-exemples",
+        type=int,
+        default=15,
+        help="Seuil en dessous duquel une action est signalée comme sous-couverte",
+    )
     args = parser.parse_args()
 
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -151,8 +79,6 @@ def main():
         confs = confiances_par_action.get(action, [])
         conf_moy = sum(confs) / len(confs) if confs else None
         sous_couvert = nb_ex < args.min_exemples
-        # Score de priorité : sous-couverture pondérée par le trafic réel
-        # et par une confiance moyenne faible (si connue).
         priorite = 0.0
         if sous_couvert:
             priorite += (args.min_exemples - nb_ex)
@@ -174,10 +100,12 @@ def main():
         print(f"{action:<28}{nb_ex:>10}{volume:>16}{conf_str:>12}{priorite:>12.1f}{marqueur}")
 
     if not logs:
-        print(f"\nℹ️  {LOGS_PATH} introuvable ou vide — le tri par priorité ne reflète "
-              f"que la sous-couverture brute (< {args.min_exemples} exemples), pas le "
-              f"trafic réel. Lance l'agent en production (ou rejoue des cas via "
-              f"extraire_cas_logs.py) pour affiner ce rapport.")
+        print(
+            f"\nℹ️  {LOGS_PATH} introuvable ou vide — le tri par priorité ne reflète "
+            f"que la sous-couverture brute (< {args.min_exemples} exemples), pas le "
+            f"trafic réel. Lance l'agent en production (ou rejoue des cas via "
+            f"extraire_cas_logs.py) pour affiner ce rapport."
+        )
 
     nb_sous_couvertes = sum(1 for l in lignes if l[4])
     print(f"\n{nb_sous_couvertes} action(s) sous {args.min_exemples} exemples.")

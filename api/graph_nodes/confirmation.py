@@ -1,17 +1,30 @@
-"""
-Confirmation node for the orchestrator.
-Extracted from orchestrateur_general.py lines 3931-4004.
-"""
+"""Module providing the confirmation node used by the orchestrator.
+It validates actions, interacts with the hub for validation, prepares pending
+action details, and returns an updated state awaiting user confirmation."""
 
 import json
 import logging
 
 logger = logging.getLogger(__name__)
 
-
 async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande, _construire_detail_confirmation):
-    """
-    Validates the action and asks for user confirmation if needed.
+    """Validate the action and prepare a confirmation request.
+
+    Parameters
+    ----------
+    state : dict
+        Current workflow state.
+    TYPES_DOC_FABRICATION : iterable
+        Document types considered as fabrication.
+    _hub_valider_demande : coroutine
+        Callable to send a validation request to the hub.
+    _construire_detail_confirmation : callable
+        Function that builds a human‑readable detail string for the confirmation.
+
+    Returns
+    -------
+    dict
+        Updated state with validation results and pending action information.
     """
     if state.get("statut_confirmation") == "CONFIRME":
         state["validation_ok"] = True
@@ -32,7 +45,7 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
         champs_requis_map = {
             "CREER_CLIENT":      ["code_client", "nom_client_brut"],
             "CREER_FOURNISSEUR": ["code_client", "nom_client_brut"],
-            "MODIFIER_STATUT":   ["code_client"],  # Will be checked dynamically for client OR supplier
+            "MODIFIER_STATUT":   ["code_client"],
             "GENERER_DOC":       ["ref_article"],
             "TRANSFORMER_DOC":   ["num_piece", "type_doc"],
             "CREER_AVOIR":       ["num_piece"],
@@ -41,21 +54,22 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
             "PROPOSITION_ACHAT": ["ref_article"],
         }
         champs_requis = champs_requis_map.get(act, [])
-        
-        # Special handling for MODIFIER_STATUT: accept either code_client OR code_fournisseur
         if act == "MODIFIER_STATUT":
             if state.get("code_client") or state.get("code_fournisseur"):
-                champs_requis = []  # Already has required field
+                champs_requis = []
 
     _code_pour_hub = state["code_client"]
-    if type_d == "BL_ACHAT" or act == "REGLEMENT":
+    if type_d == "BL_ACHAT" or act in ("REGLEMENT", "PROPOSITION_ACHAT"):
         _code_pour_hub = ""
 
     hub_result = await _hub_valider_demande("ECRITURE", {
-        "action": act, "code_client": _code_pour_hub,
+        "action": act,
+        "code_client": _code_pour_hub,
         "nom_client_brut": state.get("nom_client_brut", ""),
-        "ref_article": state["ref_article"], "quantite": state["quantite"],
-        "num_piece": state["num_piece"], "type_doc": state["type_doc"],
+        "ref_article": state["ref_article"],
+        "quantite": state["quantite"],
+        "num_piece": state["num_piece"],
+        "type_doc": state["type_doc"],
         "champs_requis": champs_requis,
     })
     state["hub_validation"] = json.dumps(hub_result, ensure_ascii=False)
@@ -65,10 +79,8 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
         state["reponse_brute"] = f"🚫 Validation refusée : {hub_result.get('message')}"
         return state
 
-    # Détail affiché : uniquement les champs pertinents pour l'action
     detail = _construire_detail_confirmation(state)
 
-    # Sauvegarde de tout le contexte nécessaire pour réhydrater l'action
     state["pending_action"] = {
         "action":                state["action"],
         "code_client":           state["code_client"],
@@ -80,7 +92,6 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
         "type_doc":              state["type_doc"],
         "mode_paiement":         state["mode_paiement"],
         "numero_piece_paiement": state.get("numero_piece_paiement", ""),
-        # ── Champs CREER_CLIENT / CREER_FOURNISSEUR ──
         "intitule":              state.get("intitule", ""),
         "adresse":               state.get("adresse", ""),
         "complement":            state.get("complement", ""),
@@ -92,12 +103,8 @@ async def noeud_confirmation(state, TYPES_DOC_FABRICATION, _hub_valider_demande,
         "email":                 state.get("email", ""),
         "site":                  state.get("site", ""),
         "ct_validite":           state.get("ct_validite", "VALIDE"),
-        "ct_encours_max":        state.get("ct_encours_max", 0.0),
-        # ── Conservé pour compat (mais noeud_ecriture ne les lit pas) ──
         "ct_sommeil":            state.get("ct_sommeil", 0),
         "ct_encours":            state.get("ct_encours", 0.0),
-        # ── pending_document doit aussi survivre : c'est lui que
-        # noeud_ecriture lit en priorité (pd.get("adresse") or state.get(...))
         "pending_document":      state.get("pending_document", {}),
     }
     state["statut_confirmation"] = "ATTENTE"

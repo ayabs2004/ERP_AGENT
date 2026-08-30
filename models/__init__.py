@@ -34,7 +34,6 @@ class Client(Base):
     ct_intitule = Column(String(100), nullable=False)
     ct_type = Column(Integer, nullable=False)  # 0=client, 1=fournisseur, 2=tiers interne
     ct_validite = Column(String(20), nullable=False, default="VALIDE")  # VALIDE, SUSPECT, BLOQUE
-    ct_encours_max = Column(Float, nullable=False, default=0.0)
     ct_encours = Column(Float, nullable=False, default=0.0)
     
     # Relations

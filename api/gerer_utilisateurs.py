@@ -1,15 +1,8 @@
-"""
-scripts/gerer_utilisateurs.py — Gestion des comptes en ligne de commande.
+"""Command-line utility for managing user accounts.
 
-Il n'y a volontairement AUCUNE route d'inscription publique ("/register") sur
-l'API : sur un outil ERP interne, les comptes doivent être créés par un admin,
-pas par n'importe qui qui trouve l'URL. Ce script fait ça depuis le serveur.
-
-Usage :
-    python -m scripts.gerer_utilisateurs creer <username> <role> [nom complet...]
-    python -m scripts.gerer_utilisateurs desactiver <username>
-    python -m scripts.gerer_utilisateurs liste
+Provides commands to create, deactivate, and list users by invoking functions from the auth module. Intended for internal admin use; no public registration route is exposed.
 """
+
 import getpass
 import sys
 
@@ -19,6 +12,13 @@ from auth import creer_utilisateur, desactiver_utilisateur, _charger_utilisateur
 
 
 def main():
+    """Parse command‑line arguments and execute user‑management actions.
+
+    Supported commands:
+    - creer: create a new user with a password, role, and optional full name.
+    - desactiver: deactivate an existing user.
+    - liste: display a list of all users with their status.
+    """
     if len(sys.argv) < 2:
         print(__doc__)
         return

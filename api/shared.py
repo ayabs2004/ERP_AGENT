@@ -1,9 +1,11 @@
-"""
-Shared constants and helper functions for the orchestrator.
-This module breaks circular dependencies between orchestrateur_general.py and graph_nodes.
+"""Shared constants for the orchestrator.
+
+This module defines the various action sets, document types, and MCP error
+status constants used throughout the orchestrator. It isolates these definitions
+to avoid circular imports between ``orchestrateur_general.py`` and
+``graph_nodes``.
 """
 
-# Action sets
 ACTIONS_LECTURE = {
     "TOP_CLIENTS", "LISTE_CLIENTS", "LISTE_ARTICLES", "PALMARES_ARTICLES",
     "CA_GLOBAL", "CLIENTS_BAISSE", "CLIENTS_INACTIFS", "FACTURES_NON_REGLEES", "FACTURES_NON_REGLEES_FOURN",
@@ -45,10 +47,8 @@ ACTIONS_SYNTHESE_LITE = {
     "VERIFIER_STOCK", "FICHE_CLIENT", "STATUT_CLIENT",
 }
 
-# Document types
 TYPES_DOC_FABRICATION = {"OF", "BF"}
 
-# MCP error statuses
 _STATUTS_ERREUR_MCP = {
     "CLIENT_NON_TROUVE", "CLIENT_BLOQUE", "ARTICLE_NON_TROUVE",
     "STOCK_INSUFFISANT", "COMPOSANTS_INSUFFISANTS", "NON_TROUVE", "EXISTE_DEJA",

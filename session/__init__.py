@@ -55,7 +55,6 @@ class CopilotState(TypedDict):
     derniere_question_classifiee: str
     statut_confirmation: str
     ct_validite: str
-    ct_encours_max: float
     numero_piece_paiement: str
 
 
@@ -103,7 +102,6 @@ def _etat_initial(demande: str, contexte_session: dict | None = None) -> Copilot
         pdf_path="",
         pending_document={},
         attente_complements=False,
-        ct_encours_max=ctx.get("ct_encours_max", 0.0),
         ct_validite=ctx.get("ct_validite", "VALIDE"),
         num_of_resolu="",
         dernier_action_classifiee=ctx.get("dernier_action_classifiee", ""),

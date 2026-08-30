@@ -2124,3 +2124,260 @@
 {"ts": 1787485464.055579, "question": "lots épuisés de MOBWOR01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
 {"ts": 1787488713.8293757, "question": "lots épuisés de bbbb", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
 {"ts": 1787488727.2315667, "question": "sur quel BL est parti le lot MOB007", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787655815.547051, "question": "Montre-moi la fiche du client CLI001", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787655856.4704883, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787656448.4871876, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787656610.3506587, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787657139.4129097, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658459.4614766, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658476.5135787, "question": "Montre-moi la fiche du client carat", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658521.0019288, "question": "Quel est le chiffre d'affaires du client carat", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 0.7}
+{"ts": 1787658538.5317569, "question": "Quel est le chiffre d'affaires du client carat cette annee", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.7}
+{"ts": 1787658555.9548218, "question": "Liste les 10 clients avec le plus de factures non réglées", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658571.1093485, "question": "Quels fournisseurs sont actuellement en sommeil ?", "action": "LISTE_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658607.2872992, "question": "Quel est le stock disponible de l'article CHORFA ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658621.2542236, "question": "Quel est le stock disponible de l'article MONTRE01 ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658654.1294773, "question": "Montre-moi tous les articles dont le stock est inférieur à 2", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658692.7230027, "question": "Quelle est la nomenclature de l'article MONTRE01 ?", "action": "AFFICHER_NOMENCLATURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658718.8428013, "question": "Quel est le CMUP actuel de l'article CHORFA ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787658797.1793299, "question": "Liste les lots disponibles pour l'article CHORFA", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658829.475767, "question": "Liste les lots disponibles pour l'article MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658860.025174, "question": "Montre-moi les bons de livraison du mois d'août 2026", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658876.6723197, "question": "BL AOUT", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787658887.2036972, "question": "liste des bl", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658897.9139583, "question": "liste des bl du mois aout", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658915.4198723, "question": "liste les of", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658928.1118422, "question": "liste les of en cours", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658945.4312174, "question": "Quelles sont les 5 dernières factures de vente ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1787658978.943049, "question": "Quel est le chiffre d'affaires total de juillet 2026 ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787658988.0064363, "question": "Donne-moi le top 5 des articles les plus vendus en 2026", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659002.4919517, "question": "Quelle est la marge brute par article", "action": "RENTABILITE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659015.337654, "question": "Quels clients n'ont pas commandé depuis plus de 90 jours ?", "action": "CLIENTS_INACTIFS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659025.8429585, "question": "cree of", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659038.7239819, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659040.6831543, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659042.8312905, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659052.223577, "question": "crée le BF pour OFC32DF9B", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659055.353051, "question": "1", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659057.270006, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659069.7467008, "question": "cree bl", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659078.8018382, "question": "carat", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659093.3213806, "question": "MOBWAC01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659095.8336833, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659100.7120852, "question": "2026-08-26", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659102.3819191, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659110.540745, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787659120.0597777, "question": "cree nomenclature", "action": "CREER_NOMENCLATURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659145.9533117, "question": "modifier nomenclature de montre01", "action": "AFFICHER_NOMENCLATURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659157.7007601, "question": "modifier nomenclature", "action": "MODIFIER_NOMENCLATURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659165.7150753, "question": "montre01", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.95}
+{"ts": 1787659169.1467826, "question": "Modifier", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.5}
+{"ts": 1787659220.9407737, "question": "regle la facture  FA670EFC2", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787659225.7547503, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787665524.9620433, "question": "regle la facture FA670EFC2", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787665528.7375498, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787666266.7581773, "question": "regle la facture FA670EFC2", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787666270.679799, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787666274.3446105, "question": "CONFIRMER", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787666447.7228477, "question": "Quel est le stock disponible de l'article montre01 ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787666570.3941922, "question": "le stock de montre01", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787666611.4983764, "question": "les articles dont le stock est inferieur a 2", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787666624.0817232, "question": "les factures qui depassent 1000", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.95}
+{"ts": 1787666636.0892699, "question": "les factures du mois juillet", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787739072.0750942, "question": "regle la facture FA53D627A", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787739078.9729276, "question": "12345", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787739080.9648228, "question": "CONFIRMER", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787739810.312115, "question": "regle la facture FAB94CD91", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787739813.727704, "question": "virement", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787739815.5796437, "question": "CONFIRMER", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787740786.4567585, "question": "regle la facture FAB94CD91", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787740797.3361127, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787740799.6567445, "question": "CONFIRMER", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787740869.511266, "question": "regle la facture FAB0F0E58", "action": "REGLEMENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787740887.7855723, "question": "especes", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787740892.6041868, "question": "CONFIRMER", "action": "REGLEMENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787741627.2501855, "question": "Liste-moi les clients", "action": "LISTE_CLIENTS", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787741640.8184314, "question": "Top 10 clients par CA", "action": "TOP_CLIENTS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741656.6813316, "question": "Liste des articles", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787741675.4748092, "question": "Palmarès des articles les plus vendus", "action": "PALMARES_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741683.798375, "question": "Quel est le CA global ce mois-ci ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741696.6206818, "question": "Quels clients sont en baisse de commandes ?", "action": "CLIENTS_BAISSE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787741752.8581038, "question": "Rentabilité de l'article chorfa", "action": "RENTABILITE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787741813.5228705, "question": "Analyse de saisonnalité pour carat", "action": "SAISONNALITE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787741843.6656687, "question": "DSO actuel", "action": "DSO", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741893.6946647, "question": "Analyse RFM des clients", "action": "RFM", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741910.7974718, "question": "Encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741933.2676935, "question": "Toutes les factures du client carat", "action": "TOUTES_FACTURES_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741942.3169184, "question": "Factures non réglées", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741951.8471332, "question": "Factures impayées fournisseur", "action": "FACTURES_NON_REGLEES_FOURN", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741984.1292603, "question": "Liste des documents entre le 01/06/2026 et 26/08/2026", "action": "DOCS_PERIODE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787741991.5302453, "question": "Liste des BL", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787741998.1801836, "question": "Liste des BC", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742008.8517323, "question": "LISTE LES OF", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742018.882671, "question": "Fiche client CARAT", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742057.3602796, "question": "Statut du client CARAT", "action": "STATUT_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742069.6245944, "question": "Stock disponible pour l'article MONTRE01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742090.1782289, "question": "Top fournisseurs", "action": "TOP_FOURNISSEURS", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742120.7276514, "question": "Affiche la nomenclature de  MONTRE01", "action": "AFFICHER_NOMENCLATURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742161.8276775, "question": "Quels lots sont disponibles pour MOBWAC01", "action": "MOUVEMENT_STOCK", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787742199.7887135, "question": "Génère une offre de prix", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787742209.515579, "question": "MONTRE01", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787742235.103657, "question": "donne moi declaration juin", "action": "DECLARATION_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742252.2936954, "question": "Génère le dashboard KPI", "action": "DASHBOARD_EXCEL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742265.2634978, "question": "Export de la balance âgée", "action": "BALANCE_AGEE_EXCEL", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787742300.862688, "question": "Proposition d'achat pour MOBWAC01", "action": "PROPOSITION_ACHAT", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787742360.0630445, "question": "LISTE DES PRODUITS FINIS", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742375.4477205, "question": "STOCK POUR ENSHF", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787742390.3324218, "question": "LISTE DES MATIERES PREMIERES", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742395.7757475, "question": "CREE BL", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787742399.410628, "question": "CARAT", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787742410.2271192, "question": "ENSHF", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787742413.0597193, "question": "2", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787742417.9229565, "question": "2026-08-29", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787743694.107612, "question": "stock disponible pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787753879.764633, "question": "stock disponible pour mobxac01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787753899.161299, "question": "stock disponible pour mobwac01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787753955.0510387, "question": "lots disponibles pour mobwac01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754170.268036, "question": "quantité restante du lot LOT-2026-00071", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754188.3105254, "question": "lot LOT-001 est-il encore disponible", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754209.5928776, "question": "lots qui expirent bientôt", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754232.6266518, "question": "origine du lot LOT-2026-00071", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754552.4353049, "question": "Encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754601.0569723, "question": "Fiche client CARAT", "action": "FICHE_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787754633.9110508, "question": "Génère une offre de prix", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787754646.3850281, "question": "MONTRE01", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787754668.7898042, "question": "ANNULER", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787754698.9713037, "question": "Génère une offre de prix pour MONTRE01", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787754724.4339573, "question": "1800", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787754733.2925715, "question": "NON", "action": "OFFRE_PRIX", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787754781.112506, "question": "Proposition d'achat pour MOBWAC01", "action": "PROPOSITION_ACHAT", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787757483.9601161, "question": "stock disponible pour mobwac01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787757525.9716194, "question": "stock disponible pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787757536.8529317, "question": "stock de MOBWAC01", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787757566.704726, "question": "Encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787757980.9081585, "question": "encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787758019.4783328, "question": "stock de MOBWAC01", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787758049.9197018, "question": "stock disponible pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787759268.2486198, "question": "stock disponible pour MOBWAC01", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787759288.253677, "question": "stock de MOBWAC01", "action": "VERIFIER_STOCK", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787759955.7937467, "question": "stock disponible pour MOBWAC01", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787759973.1977832, "question": "encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787759989.0644443, "question": "encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787761437.6361887, "question": "encours du client carat", "action": "LIRE_ENCOURS_CLIENT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787761470.7361636, "question": "bloque le client carat", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787761472.778927, "question": "CONFIRMER", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787761482.9873588, "question": "debloque le client carat", "action": "MODIFIER_STATUT", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787761484.8060837, "question": "CONFIRMER", "action": "MODIFIER_STATUT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787762580.3398535, "question": "la liste des factures qui depassent 10010", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787762605.4526317, "question": "la liste des factures qui depassent 1000", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787762628.0842547, "question": "liste des articles dont le prix de vente depasse 100", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787762666.489234, "question": "factures de juin", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787762936.7350261, "question": "Combien de composants entrent dans la fabrication de MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787763186.4736571, "question": "comment est fabriquee le produit montre01", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787763568.3280587, "question": "quelle est la Relance commerciale pour le produit bonjour", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1787763637.7913878, "question": "quel est le Dossier recouvrement de WEBEXPORT", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.8}
+{"ts": 1787763891.624707, "question": "Quel est le coût matière première de la nomenclature MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787763906.9036603, "question": "Quels articles sont utilisés dans plus d'une nomenclature ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787763919.1385436, "question": "Quel est le délai moyen de paiement de nos clients ?", "action": "DSO", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787763944.8096037, "question": "uels clients ont acheté pour plus de 2000", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787763958.9000826, "question": "clients qui  ont acheté pour plus de 2000", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787763993.3192146, "question": "la Relance commerciale pour bonjour", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.6}
+{"ts": 1787785929.0059803, "question": "Quelle est la garantie de l'article MONTRE01", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787785954.194185, "question": "Quelle remise fidélité est accordée au client CARAT ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787786070.3449576, "question": "Quel est le motif de la réclamation SAV sur BAOR01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787786466.5548453, "question": "Quel est le prix de vente de MONTRE01 ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787786484.4003391, "question": "Quel est le prix  de MONTRE01 ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787787139.8819826, "question": "Quelle est la garantie de l'article MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787787976.3343368, "question": "Quelle est la garantie de l'article MONTRE01", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787788331.9029245, "question": "Quelle est la garantie de l'article MONTRE01", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787789683.5264244, "question": "Quelle est la garantie de l'article MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787789914.7107356, "question": "Quelle est la garantie de l'article MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787790528.3265686, "question": "Quelle est la garantie de l'article MONTRE01 ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787790563.668251, "question": "Quelle remise fidélité est accordée au client CARAT ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787792406.732349, "question": "Quelle remise fidélité est accordée au client CARAT ?", "action": "RECHERCHE_PROCEDURE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787792459.7679477, "question": "Combien de clients avons-nous au total ?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787792478.135982, "question": "Liste-moi les 10 derniers articles créés.", "action": "LISTE_ARTICLES", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787792538.1328392, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787792563.0927672, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787792575.7396803, "question": "les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787821268.571546, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787821363.0952573, "question": "Liste les articles dont le stock est inférieur à 10", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787821399.0954316, "question": "Quel est le chiffre d'affaires total du mois dernier ?", "action": "CA_GLOBAL", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787821434.4902596, "question": "Quelle est la moyenne du montant des factures par trimestre cette année ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787821459.1396155, "question": "Quelle est la moyenne du montant des factures par trimestre cette année ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787821489.3219223, "question": "Donne-moi le nom du client et le montant total pour chaque facture", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787821516.08364, "question": "Quels articles ont été commandés par le client carat le mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787821593.134139, "question": "Quelles sont les ventes de la semaine dernière ?", "action": "DOCS_PERIODE", "origine": "INCONNUE", "confidence": 0.95}
+{"ts": 1787821621.193323, "question": "Compare le chiffre d'affaires de ce mois-ci avec le même mois l'année dernière", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823264.1835475, "question": "Quel est le chiffre d'affaires de la semaine dernière comparé à celui d'il y a deux semaines ?", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823283.8180132, "question": "Combien de factures ont été émises entre le 1er et le 15 août ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787823304.1488981, "question": "Quels articles ont été vendus le plus au deuxième trimestre 2026 ?", "action": "PALMARES_ARTICLES", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823349.871561, "question": "Quel est le panier moyen des commandes de Carat S.a.r.l ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823361.469655, "question": "Quel client a le ratio commandes/impayés le plus élevé ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823375.5567427, "question": "Donne-moi la marge moyenne par catégorie d'articles", "action": "RENTABILITE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787823395.1549084, "question": "Quel est le taux de croissance du CA client par client cette année ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823405.6632771, "question": "Combien de clients ont un encours supérieur à la moyenne ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823447.5256424, "question": "Quels clients ont achete montre01 cette semaine?", "action": "LISTE_CLIENTS", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823459.108892, "question": "Liste les clients qui ont plus de 3 factures impayées ET un encours supérieur à 20000 DT", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823493.773356, "question": "Classe les clients par nombre de factures décroissant", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823513.7407672, "question": "Quels sont les 5 articles les moins vendus cette année ?", "action": "PALMARES_ARTICLES", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823532.8267171, "question": "Trie les fournisseurs par montant total d'achats sur 2026", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787823555.8345318, "question": "Quel est le top 3 des clients par panier moyen (pas par CA total) ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823588.7188683, "question": "Liste les articles jamais vendus depuis leur création", "action": "LISTE_ARTICLES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787823604.12466, "question": "Donne-moi les 10 dernières transactions, triées par montant décroissant", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787824177.378069, "question": "Quel est le chiffre d'affaires de la semaine dernière comparé à celui d'il y a deux semaines ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787824196.1535456, "question": "Donne-moi le CA par mois sur les 6 derniers mois", "action": "SAISONNALITE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787824213.3474636, "question": "Quelle est l'évolution du chiffre d'affaires sur les 3 dernières années ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787824232.7726576, "question": "Combien de clients ont commandé pour la première fois ce mois-ci ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787824279.9701915, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787824313.0800533, "question": "Quel est le chiffre d'affaires total du mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787824334.4457088, "question": "Quels articles ont été commandés par le client carat le mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787824370.9541163, "question": "Compare le chiffre d'affaires de ce mois-ci avec le même mois l'année dernière", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787829904.328583, "question": "Quels clients ont acheté MONTRE01 cette semaine ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787829932.9136965, "question": "Quel est le stock de montre01", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830282.3608856, "question": "Quels clients ont acheté MONTRE01 cette semaine ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787830294.6518624, "question": "Quel est le stock de montre01 ?", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830312.7197814, "question": "Combien coûte l'article montre01", "action": "LISTE_ARTICLES", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787830337.8987162, "question": "prix de montre011", "action": "VERIFIER_STOCK", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830344.2513688, "question": "Quel est le chiffre d'affaires total du mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830358.6257133, "question": "Compare le CA de ce mois-ci avec le même mois l'an dernier", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830387.0574195, "question": "Quel est le CA de la semaine dernière comparé à il y a deux semaines ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830396.3046162, "question": "Quelle est l'évolution du CA sur les 3 dernières années ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830402.5602908, "question": "Donne-moi le CA par mois sur les 6 derniers mois", "action": "SAISONNALITE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830413.7281702, "question": "CA total", "action": "CA_GLOBAL", "origine": "INCONNUE", "confidence": 0.95}
+{"ts": 1787830421.6548767, "question": "Liste les articles jamais vendus depuis leur création", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830460.248064, "question": "Quels articles ont été commandés par le client Carat le mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830472.6334229, "question": "Donne-moi les articles sans ventes", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830482.5604317, "question": "Donne-moi la marge moyenne par catégorie d'articles", "action": "RENTABILITE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787830499.00096, "question": "Montre-moi les factures impayées", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830505.5988343, "question": "Explique-moi la rentabilité par article", "action": "RENTABILITE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787830514.7914426, "question": "Montre-moi les factures impayées", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830526.0470695, "question": "Quels sont les 5 articles les moins vendus cette année ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830538.3602934, "question": "Quels sont les articles les plus vendus ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830548.9595244, "question": "Quelles sont les moins bonnes ventes du mois ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830578.063084, "question": "Combien de factures ont été émises entre le 1er et le 15 août ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787830596.871018, "question": "Chiffre d'affaires du mois dernier", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830610.9575343, "question": "Compare le CA de ce mois-ci avec le même mois l'année dernière", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830634.818704, "question": "Évolution du chiffre d'affaires sur les 3 dernières années", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830653.5316966, "question": "Combien de clients ont commandé pour la première fois ce mois-ci ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787830786.3287866, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830801.74855, "question": "Classe les clients par nombre de factures décroissant", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830829.454836, "question": "Clients avec un ratio commandes/impayés supérieur à 0.5", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787830865.7007897, "question": "Clients avec un ratio commandes/impayés supérieur à 0.5", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845057.3028243, "question": "Montre-moi les factures impayées de plus de 30 jours", "action": "FACTURES_NON_REGLEES", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845084.278263, "question": "Liste les articles dont le stock est inférieur à 10", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845105.3650858, "question": "Quel est le chiffre d'affaires total du mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845167.805643, "question": "Quelles sont les ventes de la semaine dernière ?", "action": "DOCS_PERIODE", "origine": "INCONNUE", "confidence": 0.95}
+{"ts": 1787845177.6051693, "question": "Compare le chiffre d'affaires de ce mois-ci avec le même mois l'année dernière", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845241.7212179, "question": "Combien de factures ont été émises entre le 1er et le 15 août ?", "action": "TOUTES_FACTURES_CLIENT", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1787845263.8658907, "question": "Quels articles ont été vendus le plus au deuxième trimestre 2026", "action": "PALMARES_ARTICLES", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787845300.5044956, "question": "Donne-moi la marge moyenne par catégorie d'articles", "action": "RENTABILITE", "origine": "SEMANTIQUE", "confidence": 1.0}
+{"ts": 1787845319.1819994, "question": "Quels clients ont achete montre01 cette semaine?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787845372.7083426, "question": "Liste les clients qui ont plus de 3 factures impayées ET un encours supérieur à 20000 DT", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845402.5994098, "question": "Classe les clients par nombre de factures décroissant", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845419.1303706, "question": "Quels sont les 5 articles les moins vendus cette année ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845482.653054, "question": "Trie les fournisseurs par montant total d'achats sur 2026", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787845500.995431, "question": "Quel est le top 3 des clients par panier moyen (pas par CA total) ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845534.6810713, "question": "Liste les articles jamais vendus depuis leur création", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1787845643.2509327, "question": "Combien de clients ont commandé pour la première fois ce mois-ci ?", "action": "NL2SQL_LIBRE", "origine": "INCONNUE", "confidence": 0.9}
+{"ts": 1787845664.137348, "question": "Quels articles ont été commandés par le client carat le mois dernier ?", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}

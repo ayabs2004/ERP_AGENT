@@ -1,7 +1,8 @@
-"""
-extraction.py — Extraction client / article.
-Utilise exclusivement common.py comme source de vérité pour les constantes.
-"""
+"""extraction.py – Module for extracting client and article information.
+
+Provides utilities to parse text, extract entities using GLiNER, clean and validate client names,
+detect client codes or names, load and correct article references, and search for client codes
+by name via asynchronous MCP calls. Relies on constants and helpers defined in `api.common`."""
 import re
 import json
 import asyncio
@@ -17,6 +18,12 @@ from api.common import (
 
 
 def _ner_extraire_entites(texte: str) -> dict:
+    """Extract named entities from the given text using the GLiNER model.
+
+    Returns a dictionary mapping entity keys (client, article, piece, etc.) to their
+    extracted text values. If the model is unavailable or an error occurs, returns an
+    empty dictionary.
+    """
     model = _get_gliner_sync()
     if model is None:
         return {}
@@ -47,28 +54,25 @@ def _ner_extraire_entites(texte: str) -> dict:
 
 
 def _nettoyer_nom_client(nom: str) -> str:
+    """Clean a raw client name by removing known prefix and suffix parasites and normalising spaces."""
     nom = _PREFIXES_PARASITES.sub("", nom).strip()
     nom = _SUFFIXES_PARASITES.sub("", nom).strip()
     return re.sub(r"\s{2,}", " ", nom).strip()
 
 
 def _est_nom_valide(nom: str) -> bool:
+    """Validate a cleaned client name according to length, character content, and stop‑word rules."""
     if not nom or len(nom) < 2:
         return False
     if re.search(r'\d', nom):
         return False
     mots = nom.strip().split()
     mots_lower = [m.lower() for m in mots]
-    
-    # Refuser les captures trop longues (> 4 mots) sauf noms composés connus
     if len(mots) > 4:
         return False
-    
-    # Refuser si plus d'un mot est un stop-word ou mot interrogatif
     nb_stop = sum(1 for m in mots_lower if m in _MOTS_VIDES_NOM)
     if nb_stop >= 2:
         return False
-    
     if all(m in _MOTS_VIDES_NOM for m in mots_lower):
         return False
     if len(mots) >= 2:
@@ -86,6 +90,23 @@ def _est_nom_valide(nom: str) -> bool:
 
 
 def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
+    """Extract either a client code or a client name from free‑form text.
+
+    Returns a tuple `(code, nom)` where only one element is non‑empty depending on what
+    was detected. Returns empty strings when no valid code or name is found.
+    """
+    _EXPRESSIONS_FR_EXCLUES = {
+        "A-T-IL", "A-T-ELLE", "A-T-ON", "EST-CE", "EST-IL", "EST-ELLE",
+        "SONT-ILS", "SONT-ELLES", "Y-A-T-IL", "N-EST-CE-PAS", "QU-EST-CE",
+        "PEUT-IL", "PEUT-ELLE", "DOIT-IL", "DOIT-ELLE", "FAUT-IL",
+        "VA-T-IL", "VA-T-ELLE", "AVAIT-IL", "POURRAIT-IL", "POURRAIT-ELLE",
+        "DONNE-MOI", "DIS-MOI", "MONTRE-MOI", "LAISSE-MOI", "PRETE-MOI",
+        "PARLE-MOI", "EXPLIQUE-MOI", "ENVOIE-MOI", "PRECISE-MOI",
+        "INDIQUE-MOI", "RAPPELLE-MOI", "CONFIRME-MOI",
+    }
+    for excl in _EXPRESSIONS_FR_EXCLUES:
+        if excl in db.upper():
+            db = re.sub(r"\b" + re.escape(excl) + r"\b", "", db, flags=re.IGNORECASE)
     m_code = re.search(r"\b([A-Z]{2,6}\d{2,})\b", db, re.IGNORECASE)
     if m_code:
         code = m_code.group(1).upper()
@@ -107,10 +128,12 @@ def _extraire_code_ou_nom_depuis_texte(db: str) -> tuple[str, str]:
     return "", ""
 
 
-# ──────────────────────────────────────────────────────────────
-# Références articles — cache mutable dans common (via `import common`)
-# ──────────────────────────────────────────────────────────────
 def _parse_mcp_response(raw: str | dict) -> dict:
+    """Parse a raw MCP response that may be a JSON string or a dictionary.
+
+    Returns a dictionary representation of the response, handling empty or malformed
+    inputs by returning an error structure.
+    """
     if isinstance(raw, dict):
         return raw
     if not raw:
@@ -125,8 +148,7 @@ _articles_refs_lock: asyncio.Lock | None = None
 
 
 async def _charger_refs_articles(mcp_pool) -> list[str]:
-    """Charge (une fois) les refs articles via MCP. Mute common._articles_refs_cache
-    directement (via `import common`) pour que le cache soit réellement partagé."""
+    """Load article references once via MCP and cache them in `api.common`."""
     global _articles_refs_lock
     if api.common._articles_refs_cache is not None:
         return api.common._articles_refs_cache
@@ -146,25 +168,40 @@ async def _charger_refs_articles(mcp_pool) -> list[str]:
 
 
 async def _corriger_ref_article(ref: str, mcp_pool) -> str:
-    if not ref:
-        return ref
+    """Correct an article reference using cached references and fuzzy matching.
+
+    Returns the corrected reference in uppercase, or an empty string if the input is
+    invalid or cannot be matched.
+    """
+    _EXPRESSIONS_FR_EXCLUES = {
+        "A-T-IL", "A-T-ELLE", "A-T-ON", "EST-CE", "EST-IL", "EST-ELLE",
+        "SONT-ILS", "SONT-ELLES", "Y-A-T-IL", "N-EST-CE-PAS", "QU-EST-CE",
+        "PEUT-IL", "PEUT-ELLE", "DOIT-IL", "DOIT-ELLE", "FAUT-IL",
+        "VA-T-IL", "VA-T-ELLE", "AVAIT-IL", "POURRAIT-IL", "POURRAIT-ELLE",
+        "DONNE-MOI", "DIS-MOI", "MONTRE-MOI", "LAISSE-MOI", "PRETE-MOI",
+        "PARLE-MOI", "EXPLIQUE-MOI", "ENVOIE-MOI", "PRECISE-MOI",
+        "INDIQUE-MOI", "RAPPELLE-MOI", "CONFIRME-MOI",
+    }
+    if not ref or ref.upper() in _EXPRESSIONS_FR_EXCLUES or ref.upper() in {"MONTRE-MOI", "DONNE-MOI", "DIS-MOI", "AFFICHE-MOI"}:
+        return ""
     refs = await _charger_refs_articles(mcp_pool)
     if ref.upper() in refs:
         return ref.upper()
-    matches = difflib.get_close_matches(ref.upper(), refs, n=1, cutoff=0.72)
+    matches = difflib.get_close_matches(ref.upper(), refs, n=1, cutoff=0.82)
     if matches:
         print(f"   🔧 [Fuzzy] '{ref}' → '{matches[0]}' (correction automatique)")
         return matches[0]
     return ref
 
 
-# ──────────────────────────────────────────────────────────────
-# Recherche client par nom (async/MCP)
-# ──────────────────────────────────────────────────────────────
 _client_nom_cache: dict[str, str] = {}
 
 
 async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
+    """Search for a client code given a client name using MCP calls with caching.
+
+    Returns the found client code or an empty string if no match is found.
+    """
     if not nom or len(nom.strip()) < 2:
         return ""
     nom_lower = nom.lower().strip()
@@ -173,8 +210,6 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
         if cached:
             print(f"   ⚡ [Cache Nom] '{nom}' → {cached}")
         return cached
-
-    # 1) essai code exact d'abord (e.g. GRENA, CARAT)
     try:
         raw = await mcp_pool.call("actions", "resoudre_tiers", {"code_ou_nom": nom.strip()})
         data = json.loads(raw) if isinstance(raw, str) else raw
@@ -185,7 +220,6 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
             return ct_num
     except Exception:
         pass
-
     _MOTS_PARASITES = {"le", "la", "les", "du", "de", "des", "et", "ou", "un", "une", "pour", "avec", "sur"}
     mots_significatifs = [
         m for m in nom_lower.split()
@@ -198,82 +232,7 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
         _client_nom_cache[nom_lower] = ""
         print(f"   ⚠️  [Recherche Nom] '{nom}' → aucun mot significatif, abandon")
         return ""
-
     print(f"   🔍 [Recherche Nom] '{nom}' → mots : {mots_significatifs}")
-
     async def _appel_fiche(query: str) -> str:
         try:
-            return await mcp_pool.call("nl2sql", "rechercher_fiche_client", {"code_client": query})
-        except Exception:
-            return ""
-
-    async def _appel_statut(query: str) -> str:
-        try:
-            return await mcp_pool.call("nl2sql", "verifier_statut_client", {"code_client": query})
-        except Exception:
-            return ""
-
-    _CODES_INVALIDES_CACHE = {
-        "client", "clients", "tiers", "societe", "société",
-        "entreprise", "none", "null", "inconnu", "unknown",
-        "non_trouve", "vide", "absent",
-    }
-
-    def _extraire_code(text: str) -> str:
-        try:
-            data = json.loads(text)
-            code = data.get("CT_Num", "")
-            if (code
-                    and code not in ("NON_TROUVE", "")
-                    and code.lower() not in _CODES_INVALIDES_CACHE
-                    and len(code) >= 3):
-                return code
-        except Exception:
-            pass
-        m = re.search(r"CT_Num[:\s]+([A-Z0-9]+)", text, re.IGNORECASE)
-        code_m = m.group(1).strip() if m else ""
-        return code_m if code_m.lower() not in _CODES_INVALIDES_CACHE else ""
-
-    MAX_RECHERCHE_NOM_CALLS = 6  # plafond configurable d'appels MCP
-
-    # Si trop de mots significatifs, la phrase ressemble à une requête NL2SQL → abandon
-    if len(mots_significatifs) > 3:
-        _client_nom_cache[nom_lower] = ""
-        print(f"   ⚠️  [Recherche Nom] '{nom}' trop long ({len(mots_significatifs)} mots) → NL2SQL_LIBRE")
-        return ""
-
-    _nb_appels = 0
-    for essai_fn, essai_val in [(_appel_fiche, nom), (_appel_fiche, " ".join(mots_significatifs))]:
-        if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
-            break
-        t = await essai_fn(essai_val)
-        _nb_appels += 1
-        if t:
-            code = _extraire_code(t)
-            if code:
-                _client_nom_cache[nom_lower] = code
-                print(f"   ✅ [MCP] '{essai_val}' → {code}")
-                return code
-
-    for taille in range(len(mots_significatifs), 0, -1):
-        for combo in itertools.combinations(mots_significatifs, taille):
-            if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
-                break
-            sous_nom = " ".join(combo)
-            if len(sous_nom) < 2:
-                continue
-            for fn in (_appel_fiche, _appel_statut):
-                if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
-                    break
-                t = await fn(sous_nom)
-                _nb_appels += 1
-                if t:
-                    code = _extraire_code(t)
-                    if code:
-                        _client_nom_cache[nom_lower] = code
-                        print(f"   ✅ [MCP Combo] '{sous_nom}' → {code}")
-                        return code
-
-    _client_nom_cache[nom_lower] = ""
-    print(f"   ⚠️  [Recherche Nom] '{nom}' introuvable")
-    return ""
+            return await mcp_pool.call("nl

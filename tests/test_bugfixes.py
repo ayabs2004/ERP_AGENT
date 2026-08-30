@@ -68,3 +68,15 @@ def test_generer_sql_thread_safe_ignores_leading_comments_and_example_anti_join_
     examples = construire_exemples_entrainement(True, table=lambda name: name, col=lambda name, col_name: col_name)
     for _, qsql in examples:
         assert "NOT EXISTS (SELECT 1" not in qsql.upper()
+
+
+def test_ca_avec_periode_classification():
+    # 1. Chiffre d'affaires total du mois dernier -> NL2SQL_LIBRE
+    assert _pre_classifier("chiffre d'affaires total du mois dernier") == "NL2SQL_LIBRE"
+    # 2. Compare le CA de ce mois-ci vs l'an dernier -> NL2SQL_LIBRE
+    assert _pre_classifier("Compare le CA de ce mois-ci vs l'année dernière") == "NL2SQL_LIBRE"
+    # 3. La moyenne du montant des factures par trimestre cette année -> NL2SQL_LIBRE
+    assert _pre_classifier("la moyenne du montant des factures par trimestre cette année") == "NL2SQL_LIBRE"
+    # 4. CA global (sans période) -> CA_GLOBAL
+    assert _pre_classifier("chiffre d'affaires total") == "CA_GLOBAL"
+    assert _pre_classifier("chiffre d'affaires global") == "CA_GLOBAL"

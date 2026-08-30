@@ -15,3 +15,16 @@ BEGIN
         @msgtext = N'Erreur de validation du document (stock ou nomenclature).',
         @lang = 'French';
 END
+
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[ERP_OPERATION]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE ERP_OPERATION (
+        operation_id VARCHAR(36) PRIMARY KEY,
+        tool_name VARCHAR(100) NOT NULL,
+        status VARCHAR(20) NOT NULL,
+        request_payload NVARCHAR(MAX),
+        response_payload NVARCHAR(MAX),
+        created_at DATETIME DEFAULT GETDATE(),
+        updated_at DATETIME DEFAULT GETDATE()
+    );
+END

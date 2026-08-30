@@ -1,8 +1,14 @@
-# api/test2.py
+"""Module for testing MCP pool actions.
+It initializes the pool, performs a series of calls to demonstrate resolution before and after creation,
+and prints the results."""
+
 import asyncio
 from mcp_pool import pool as mcp_pool
 
 async def test():
+    """Asynchronous test routine that initializes the MCP pool,
+    performs three calls to the 'actions' service (resolution before creation,
+    ensuring internal tier, and resolution after creation), and prints the raw responses."""
     await mcp_pool.init()
 
     print("=== 1. Résolution avant création ===")

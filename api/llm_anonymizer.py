@@ -140,9 +140,46 @@ def _load_db_values() -> None:
               f"({len(clients)} clients, {len(fournisseurs)} fourn., "
               f"{len(articles)} articles, {len(pieces)} pieces, {len(noms)} noms)")
 
+
+        _rebuild_ac_automaton()
+
     except Exception as e:
         print(f"   [Anonymiseur] DB inaccessible ({e}) -- fallback regex seul")
         _DB_VALUES = {"clients": [], "fournisseurs": [], "articles": [], "pieces": [], "noms": []}
+        _rebuild_ac_automaton()
+
+
+# Cache de l'automate Aho-Corasick — (re)construit à chaque rechargement DB
+_AC_AUTOMATON = None
+
+def _rebuild_ac_automaton():
+    """Construit (ou reconstruit) l'automate Aho-Corasick à partir de _DB_VALUES."""
+    global _AC_AUTOMATON
+    try:
+        import ahocorasick
+        A = ahocorasick.Automaton()
+        _CATEGORY_MAP = {
+            "noms":         ("NOM",     "<<NOM_{i}>>"),
+            "pieces":       ("PIECE",   "<<PIECE_{i}>>"),
+            "clients":      ("CLIENT",  "<<CLIENT_{i}>>"),
+            "fournisseurs": ("FOUR",    "<<FOUR_{i}>>"),
+            "articles":     ("ARTICLE", "<<ARTICLE_{i}>>"),
+        }
+        for key, (category, template) in _CATEGORY_MAP.items():
+            for val in _DB_VALUES.get(key, []):
+                if val and len(val) >= 2:
+                    A.add_word(val.lower(), (val.lower(), val, category, template))
+        if len(A) > 0:
+            A.make_automaton()
+            _AC_AUTOMATON = A
+        else:
+            _AC_AUTOMATON = None
+    except (ImportError, Exception):
+        _AC_AUTOMATON = None
+
+def _get_ac_automaton():
+    """Retourne l'automate courant (None si vide ou pyahocorasick absent)."""
+    return _AC_AUTOMATON
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -221,45 +258,75 @@ class _Anonymizer:
         self._reverse[val] = tok
         return tok
 
-    # ── Passe 1 : valeurs exactes DB ────────────────────────────────
+    # ── Passe 1 : valeurs exactes DB — Aho-Corasick O(M+K) ─────────
     def _anonymise_db_values(self, text: str) -> str:
+        """Remplace toutes les valeurs DB en un seul passage via Aho-Corasick.
+        
+        Complexité : O(M + K) où M = longueur du texte, K = nb de correspondances.
+        Avant : O(N*M) avec N boucles regex compilées à la volée.
+        """
+        try:
+            import ahocorasick
+        except ImportError:
+            # Fallback gracieux si pyahocorasick n'est pas installé
+            return self._anonymise_db_values_fallback(text)
+
+        # Construction de l'automate (compilé une fois par session via _AC_AUTOMATON)
+        automaton = _get_ac_automaton()
+        if automaton is None:
+            return self._anonymise_db_values_fallback(text)
+
+        # Parcours du texte en un seul scan
+        # Collecte des matches : (start, end, val, category)
+        text_lower = text.lower()
+        hits: list[tuple[int, int, str, str, str]] = []
+        for end_idx, (val_lower, original, category, template) in automaton.iter(text_lower):
+            start_idx = end_idx - len(val_lower) + 1
+            # Vérifier qu'on est bien sur des word boundaries
+            before_ok = (start_idx == 0 or not text[start_idx - 1].isalnum() and text[start_idx - 1] != '_')
+            after_ok = (end_idx + 1 >= len(text) or not text[end_idx + 1].isalnum() and text[end_idx + 1] != '_')
+            if before_ok and after_ok:
+                hits.append((start_idx, end_idx + 1, original, category, template))
+
+        if not hits:
+            return text
+
+        # Résolution des chevauchements : garder le match le plus long
+        hits.sort(key=lambda h: (h[0], -(h[1] - h[0])))
+        resolved: list[tuple[int, int, str, str, str]] = []
+        last_end = -1
+        for h in hits:
+            if h[0] >= last_end:
+                resolved.append(h)
+                last_end = h[1]
+
+        # Reconstruction du texte avec substitutions
+        result_parts = []
+        cursor = 0
+        for start, end, original, category, template in resolved:
+            result_parts.append(text[cursor:start])
+            tok = self._register(original, category, template)
+            result_parts.append(tok)
+            cursor = end
+        result_parts.append(text[cursor:])
+        return "".join(result_parts)
+
+    def _anonymise_db_values_fallback(self, text: str) -> str:
+        """Passe 1 originale O(N) — utilisée uniquement si pyahocorasick est absent."""
         result = text
-
-        # Noms de sociétés en premier (plus longs → moins de risque de collision)
-        for nom in _DB_VALUES.get("noms", []):
-            if nom in result:
-                tok = self._register(nom, "NOM", "<<NOM_{i}>>")
-                result = result.replace(nom, tok)
-
-        # Pièces (avant les codes tiers pour éviter substring match)
-        for piece in _DB_VALUES.get("pieces", []):
-            # Chercher mot-entier (case-insensitive)
-            pattern = re.compile(r"\b" + re.escape(piece) + r"\b", re.IGNORECASE)
-            if pattern.search(result):
-                tok = self._register(piece, "PIECE", "<<PIECE_{i}>>")
-                result = pattern.sub(tok, result)
-
-        # Codes clients
-        for ct_num in _DB_VALUES.get("clients", []):
-            pattern = re.compile(r"\b" + re.escape(ct_num) + r"\b", re.IGNORECASE)
-            if pattern.search(result):
-                tok = self._register(ct_num, "CLIENT", "<<CLIENT_{i}>>")
-                result = pattern.sub(tok, result)
-
-        # Codes fournisseurs
-        for ct_num in _DB_VALUES.get("fournisseurs", []):
-            pattern = re.compile(r"\b" + re.escape(ct_num) + r"\b", re.IGNORECASE)
-            if pattern.search(result):
-                tok = self._register(ct_num, "FOUR", "<<FOUR_{i}>>")
-                result = pattern.sub(tok, result)
-
-        # Références articles
-        for ar_ref in _DB_VALUES.get("articles", []):
-            pattern = re.compile(r"\b" + re.escape(ar_ref) + r"\b", re.IGNORECASE)
-            if pattern.search(result):
-                tok = self._register(ar_ref, "ARTICLE", "<<ARTICLE_{i}>>")
-                result = pattern.sub(tok, result)
-
+        all_values = (
+            [("noms", "NOM", "<<NOM_{i}>>")]
+            + [("pieces", "PIECE", "<<PIECE_{i}>>")]
+            + [("clients", "CLIENT", "<<CLIENT_{i}>>")]
+            + [("fournisseurs", "FOUR", "<<FOUR_{i}>>")]
+            + [("articles", "ARTICLE", "<<ARTICLE_{i}>>")]
+        )
+        for key, category, template in all_values:
+            for val in _DB_VALUES.get(key, []):
+                pattern = re.compile(r"\b" + re.escape(val) + r"\b", re.IGNORECASE)
+                if pattern.search(result):
+                    tok = self._register(val, category, template)
+                    result = pattern.sub(tok, result)
         return result
 
     # ── Passe 2 : regex pour nouvelles valeurs non encore en DB ─────

@@ -1,6 +1,6 @@
 {
     "_comment": "Table de correspondance UNIQUE. Ne jamais coder un nom de colonne en dur ailleurs.",
-    "driver": "sqlite",
+    "driver": "mssql",
     "tables": {
         "clients_fournisseurs": "F_COMPTET",
         "articles": "F_ARTICLE",
@@ -20,7 +20,6 @@
             "sommeil": "CT_Sommeil",
             "validite": "CT_Sommeil",
             "encours": "CT_Encours",
-            "encours_max": "CT_Encours",
             "cb_marq": "cbMarq",
             "adresse":      "CT_Adresse",
             "complement":   "CT_Complement",
@@ -93,6 +92,7 @@
             "montant":        "DR_Montant",
             "mode_paiement":  "DR_TypeRegl",
             "date_reglement": "DR_Date",
+            "reference_paiement": "numero_piece_paiement",
             "cb_marq":        "cbMarq"
         },
         "nomenclature": {

@@ -1,21 +1,27 @@
-"""
-Suggestions executor for the orchestrator.
-Extracted from orchestrateur_general.py lines 4963-5167.
+"""Module providing the suggestion executor for the orchestrator.
+
+This module defines the asynchronous function `_executer_suggestion` which processes
+different suggestion types, interacts with the MCP pool, updates the session
+context, and returns a textual status message.
 """
 
 from datetime import datetime
 from api.mcp_pool import pool as mcp_pool
 import logging
-# en tête de graph_nodes/suggestions.py
 import json
 from datetime import datetime
 logger = logging.getLogger(__name__)
 
-
 async def _executer_suggestion(suggestion: dict, contexte_session: dict, _STATUTS_ERREUR_MCP,
                                _parse_mcp_response, _mcp_workflow_bf, _mcp_workflow_of,
                                _mcp_workflow_bl, generer_preview, _safe_str) -> str:
-    """Execute a suggestion action."""
+    """Execute a suggestion action and return a status message.
+
+    The function examines the `type` field of the suggestion and performs the
+    corresponding operation (e.g., creating invoices, drafts, payments, etc.).
+    It updates `contexte_session` with relevant information and handles MCP
+    responses, returning a human‑readable string describing the outcome.
+    """
     type_sugg = suggestion.get("type", "")
     params    = suggestion.get("params", {})
     logger.info(f"\n   ✅ [Suggestion] {suggestion.get('description', type_sugg)}")
@@ -43,7 +49,7 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict, _STATUT
                 f"   • Numéro Facture  : {num_fa}\n"
                 f"   • Fournisseur     : {nom_fournisseur}\n"
                 f"   • Montant HT      : {montant:.2f} €\n"
-                f"   ℹ️  Document enregistré en achat (DO_Domaine=1, DO_Type=3)"
+                f"   ℹ️  Document enregistré en achat (DO_Domaine=1, DO_Type=16)"
             )
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             return f"❌ Erreur création facture fournisseur : {_safe_str(e)}"
@@ -199,39 +205,3 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict, _STATUT
     elif type_sugg == "FACTURE_ACHAT":
         num_bl = params.get("num_bl", "")
         try:
-            raw  = await mcp_pool.call("actions", "transformer_document", {
-                "num_piece_source": num_bl,
-                "type_destination": "FACTURE_ACHAT",
-            })
-            data   = _parse_mcp_response(raw)
-            if data.get("statut") in _STATUTS_ERREUR_MCP:
-                return data.get("message", f"❌ Erreur création facture achat depuis {num_bl}.")
-            num_fa = data.get("DO_Piece") or data.get("num_piece_dest", "?")
-            contexte_session["suggestion_en_attente"] = {}
-            return (
-                f"✅ Facture Fournisseur créée depuis {num_bl} !\n"
-                f"   • Numéro Facture : {num_fa}\n"
-                f"   ℹ️  Document enregistré en achat (DO_Domaine=1, DO_Type=3)"
-            )
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            return f"❌ Erreur création facture fournisseur : {_safe_str(e)}"
-
-    elif type_sugg == "DRAFT_FACTURE_DEPUIS_BL":
-        params = suggestion.get("params", {})
-        draft = {
-            "type_doc":      "FACTURE",
-            "code_client":   params.get("code_client", ""),
-            "ref_article":   params.get("ref_article", ""),
-            "quantite":      params.get("quantite", 0.0),
-            "prix_unitaire": params.get("prix_unitaire", 0.0),
-            "date_str":      datetime.now().strftime("%d/%m/%Y"),
-            "num_piece_source": params.get("num_bl", ""),
-        }
-        contexte_session["document_draft"] = draft
-        contexte_session["statut_draft"]   = "PREVIEW"
-        contexte_session["suggestion_en_attente"] = {}
-        texte, pdf_path = await generer_preview(draft)
-        contexte_session["pdf_path"] = pdf_path
-        return texte
-
-    return f"⚠️  Suggestion '{type_sugg}' non reconnue."

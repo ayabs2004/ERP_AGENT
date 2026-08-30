@@ -228,7 +228,17 @@ def deviner_metadata(chemin_pdf: Path, pages: list[dict]) -> dict:
     elif m_fourn:
         code_client = m_fourn.group(0).upper()
 
-    ref_article = m_article.group(0).upper().replace("AR-", "AR") if m_article else None
+    if m_article:
+        # Cas historique : référence au format AR### (ex: AR001)
+        ref_article = m_article.group(0).upper().replace("AR-", "AR")
+    elif doc_type == "fiche_article":
+        # Convention du dossier fiche_article/ : le nom du fichier EST la
+        # référence article (MONTRE01.pdf, X1BLOCAC.pdf, ...). La regex
+        # _RX_CODE_ARTICLE ne couvre que le format AR###, donc pour ce
+        # doc_type on fait confiance au nom de fichier plutôt qu'à la regex.
+        ref_article = nom_fichier.upper()
+    else:
+        ref_article = None
     date_iso = None
     if m_date:
         j, mo, an = m_date.groups()
@@ -514,7 +524,17 @@ def rechercher(
     source_file, page, score, dans_vecteur, dans_bm25.
     """
     client = QdrantClient(path=KB_QDRANT_PATH)
-    vecteur = embed(requete)
+
+    try:
+        vecteur = embed(requete)
+    except Exception as e:
+        # Ollama down / modèle absent / timeout réseau : on ne bloque pas la
+        # recherche pour autant, on bascule en lexical (BM25) seul.
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[KB] Embedding indisponible ({e!r}) → fallback BM25 seul pour la requête."
+        )
+        vecteur = None
 
     conditions = []
     if doc_type:
@@ -525,14 +545,23 @@ def rechercher(
         conditions.append(FieldCondition(key="ref_article", match=MatchValue(value=ref_article)))
     filtre = Filter(must=conditions) if conditions else None
 
-    resp_vec = client.query_points(
-        collection_name=KB_COLLECTION,
-        query=vecteur,
-        query_filter=filtre,
-        limit=n_candidats,
-    )
-    ranks_vecteur = [p.id for p in resp_vec.points]
-    payloads_par_id = {p.id: p.payload for p in resp_vec.points}
+    if vecteur is not None:
+        resp_vec = client.query_points(
+            collection_name=KB_COLLECTION,
+            query=vecteur,
+            query_filter=filtre,
+            limit=n_candidats,
+        )
+        ranks_vecteur = [p.id for p in resp_vec.points]
+        payloads_par_id = {p.id: p.payload for p in resp_vec.points}
+    else:
+        ranks_vecteur = []
+        payloads_par_id = {}
+
+    if not hybride and vecteur is None:
+        # Pas de vecteur dispo et recherche non hybride demandée explicitement :
+        # on force quand même le passage par BM25 plutôt que de renvoyer rien.
+        hybride = True
 
     if not hybride:
         resultats = [

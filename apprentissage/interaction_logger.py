@@ -1,48 +1,40 @@
+"""Utilities for logging classifier decisions and detecting user corrections.
+
+This module provides two main functions:
+- `logger_decision` records each classifier decision (question, predicted action,
+  source, and confidence) to a JSON Lines log file.
+- `detecter_correction` applies a lightweight heuristic to identify when a user
+  corrects a previous system action (e.g., by replying with "non" followed by a
+  document type). Detected corrections are queued for human review in a separate
+  log file.
 """
-interaction_logger.py — journal des décisions de classification et
-détection heuristique de corrections utilisateur.
-Ne modifie JAMAIS EXEMPLES_PAR_ACTION automatiquement : ça reste une
-validation humaine via enrichir_exemples.py, pour éviter qu'une
-mauvaise interprétation ("non" pour une tout autre raison) ne pollue
-le classifieur de référence.
-C’est un système de journalisation + détection de feedback utilisateur.
-🧠 1. Rôle global du fichier
 
-Il fait 2 choses principales :
-
-1) 📊 Logger les décisions du classifieur
-
-Chaque fois que ton système choisit une action (ex: LISTE_CLIENTS, GENERER_DOC), il enregistre :
-
-la question utilisateur
-l’action prédite
-la source (regex / sémantique / LLM)
-la confiance
-
-➡️ dans :
-
-logs_classification.jsonl
-2) 🚨 Détecter si l’utilisateur corrige le système
-
-Exemple :
-
-Système : “je vais créer une facture”
-Utilisateur : “non je voulais un bon de livraison”
-
-➡️ le fichier détecte ça automatiquement
-"""
 import json
 import time
 from pathlib import Path
 
-_LOG_PATH         = Path("./logs_classification.jsonl")
+_LOG_PATH = Path("./logs_classification.jsonl")
 _CORRECTIONS_PATH = Path("./corrections_a_verifier.jsonl")
 
-
 def logger_decision(question: str, action: str, origine: str, confidence: float):
+    """Log a classifier decision to the decision log file.
+
+    Parameters
+    ----------
+    question: str
+        The user's original question.
+    action: str
+        The action predicted by the classifier.
+    origine: str
+        The source of the prediction (e.g., regex, semantic, LLM).
+    confidence: float
+        The confidence score of the prediction; stored rounded to three decimals.
+    """
     entry = {
-        "ts": time.time(), "question": question,
-        "action": action, "origine": origine,
+        "ts": time.time(),
+        "question": question,
+        "action": action,
+        "origine": origine,
         "confidence": round(confidence, 3),
     }
     try:
@@ -51,25 +43,44 @@ def logger_decision(question: str, action: str, origine: str, confidence: float)
     except Exception:
         pass
 
-
 _MOTS_TYPE_DOC = {
-    "bl": "BL", "bon de livraison": "BL",
-    "bc": "BC", "bon de commande": "BC",
-    "of": "OF", "ordre de fabrication": "OF",
-    "bf": "BF", "bon de fabrication": "BF",
+    "bl": "BL",
+    "bon de livraison": "BL",
+    "bc": "BC",
+    "bon de commande": "BC",
+    "of": "OF",
+    "ordre de fabrication": "OF",
+    "bf": "BF",
+    "bon de fabrication": "BF",
     "facture": "FACTURE",
     "avoir": "CREER_AVOIR",
     "client": "CREER_CLIENT",
     "fournisseur": "CREER_FOURNISSEUR",
 }
 
-
 def detecter_correction(demande_precedente: str, action_predite: str,
-                          demande_courante: str) -> dict | None:
-    """
-    Heuristique légère (pas une IA) : 'non' + mention d'un type de
-    document juste après une action classifiée = correction probable.
-    Mise en file d'attente pour revue humaine, jamais appliquée seule.
+                        demande_courante: str) -> dict | None:
+    """Detect a possible user correction based on a simple heuristic.
+
+    The function checks whether the current user input starts with a negation
+    keyword (e.g., "non", "faux", "erreur") and contains a known document type.
+    If such a pattern is found, it records a correction entry for later human
+    verification.
+
+    Parameters
+    ----------
+    demande_precedente: str
+        The previous user request that was classified.
+    action_predite: str
+        The action that was predicted for the previous request.
+    demande_courante: str
+        The current user input, potentially containing a correction.
+
+    Returns
+    -------
+    dict | None
+        A dictionary describing the detected correction, or ``None`` if no
+        correction is identified.
     """
     if not demande_precedente or not action_predite:
         return None

@@ -1,7 +1,6 @@
-"""
-Planner node for the orchestrator.
-Extracted from orchestrateur_general.py lines 3745-3766.
-"""
+"""Module providing the planner node for the orchestrator.
+It builds an execution plan based on the requested action, using a direct plan for simple actions
+or delegating to a language model for complex actions."""
 
 import asyncio
 import json
@@ -9,13 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-async def noeud_planner(state, ACTIONS_LECTURE, ACTIONS_EXPORT, ACTIONS_KB, ACTIONS_NL2SQL, 
-                         _invoke_llm, PLANNER_TIMEOUT):
-    """
-    Constructs an execution plan for the given action.
-    For simple actions (read, export, KB, NL2SQL), uses a direct plan.
-    For complex actions, uses LLM to generate a plan.
+async def noeud_planner(state, ACTIONS_LECTURE, ACTIONS_EXPORT, ACTIONS_KB, ACTIONS_NL2SQL, _invoke_llm, PLANNER_TIMEOUT):
+    """Construct an execution plan for the given state.
+    
+    For simple actions (read, export, knowledge base, NL2SQL), a direct plan is created.
+    For complex actions, a language model is invoked to generate a plan within a timeout.
     """
     logger.info("🧩 [Planner] Construction du plan...")
     if state["action"] in (ACTIONS_LECTURE | ACTIONS_EXPORT | ACTIONS_KB | ACTIONS_NL2SQL):

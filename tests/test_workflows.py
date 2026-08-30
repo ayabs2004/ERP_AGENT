@@ -1,4 +1,4 @@
-import sqlite3
+
 import pytest
 from datetime import datetime
 

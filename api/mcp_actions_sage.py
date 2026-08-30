@@ -31,7 +31,8 @@ import re
 import unicodedata
 import json
 import logging
-import sqlite3
+
+from typing import Any
 import os
 import sys
 import time
@@ -40,6 +41,15 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
+
+
+def _is_mssql() -> bool:
+    """Dialecte SQL courant (mssql vs sqlite/mock). Doit rester identique
+    à la version dans declaration.py / mcp_nl2sql.py — logique volontairement
+    dupliquée pour éviter tout import circulaire entre ces modules."""
+    return os.getenv("DB_DRIVER", "sqlite").lower() == "mssql"
+
+
 # En tête de fichier, avec les autres imports de sch.*
 T_LOT_SERIE = sch.T_LOT_SERIE
 C_LS_REF = sch.C_LS_REF
@@ -61,17 +71,9 @@ def _json_dumps_safe(obj, **kwargs):
     return _json_dumps_orig(obj, **kwargs)
 json.dumps = _json_dumps_safe
 
-def _is_mssql() -> bool:
-    import os as _os
-    return _os.getenv('DB_DRIVER', 'sqlite').lower() == 'mssql'
-
-def _limit(n: int) -> str:
-    """Trailing LIMIT clause — returns empty string for MSSQL (use _top() instead). SQLite: LIMIT N."""
-    return '' if _is_mssql() else f'LIMIT {n}'
-
 def _top(n: int) -> str:
-    """SELECT prefix for row limiting — TOP N for MSSQL, empty for SQLite."""
-    return f'TOP {n} ' if _is_mssql() else ''
+    """SELECT prefix for row limiting (TOP N)."""
+    return f'TOP {n} '
 
 
 # Add parent directory to path for database import
@@ -238,6 +240,7 @@ C_REGL_PIECE    = sch.C_REGL_PIECE
 C_REGL_TYPE     = sch.C_REGL_TYPE
 C_REGL_MONTANT  = sch.C_REGL_MONTANT
 C_REGL_DATE     = sch.C_REGL_DATE
+C_REGL_REFERENCE = sch.C_REGL_REFERENCE
 C_REGL_MODE_PAI = sch.C_REGL_MODE_PAI
 # Colonnes requises par le trigger TG_INS_F_DOCREGL (jointure avec F_DOCENTETE)
 C_REGL_DOMAINE  = sch.C_REGL_DOMAINE    # DO_Domaine
@@ -304,17 +307,13 @@ def _get_table_columns(conn, table_name: str) -> set[str]:
     if table_name in _table_columns_cache:
         return _table_columns_cache[table_name]
     try:
-        if not _is_mssql():
-            cursor = conn.execute(f"PRAGMA table_info({table_name})")
-            cols = {r[1] for r in cursor.fetchall()}
-        else:
-            cursor = conn.execute(
-                "SELECT c.name FROM sys.columns c "
-                "JOIN sys.objects o ON c.object_id = o.object_id "
-                "WHERE o.name = ? AND c.is_computed = 0",
-                (table_name,)
-            )
-            cols = {r[0] for r in cursor.fetchall()}
+        cursor = conn.execute(
+            "SELECT c.name FROM sys.columns c "
+            "JOIN sys.objects o ON c.object_id = o.object_id "
+            "WHERE o.name = ? AND c.is_computed = 0",
+            (table_name,)
+        )
+        cols = {r[0] for r in cursor.fetchall()}
         _table_columns_cache[table_name] = cols
         return cols
     except Exception as e:
@@ -336,7 +335,13 @@ def _normaliser_valeur(val):
         return None
     return val
 
+import contextvars
+_conn_override = contextvars.ContextVar('conn_override', default=None)
+
 def _get_conn():
+    override = _conn_override.get()
+    if override is not None:
+        return override
     conn = sch.get_connection()
     # Création des tables annexes manquantes au premier accès.
     # Ces tables sont internes à l'application (pas des tables Sage) :
@@ -352,93 +357,61 @@ def _get_conn():
     #         date_mouvement TEXT
     #     )
     # """)
-    if _is_mssql():
-        pass
-    else:
-        conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS {T_REGLEMENTS} (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                {C_DO_PIECE}   TEXT,
-                mode_paiement  TEXT,
-                montant        REAL,
-                date_reglement TEXT,
-                numero_piece_paiement TEXT
-            )
-        """)
-        try:
-            conn.execute(f"ALTER TABLE {T_REGLEMENTS} ADD COLUMN numero_piece_paiement TEXT")
-        except sqlite3.OperationalError:
-            pass
-        for col_const in (C_CT_ADRESSE, C_CT_COMPLEMENT, C_CT_CODEPOSTAL, C_CT_VILLE,
-                          C_CT_PAYS, C_CT_CONTACT, C_CT_TELEPHONE, C_CT_EMAIL, C_CT_SITE):
-            try:
-                conn.execute(f"ALTER TABLE {T_TIERS} ADD COLUMN {col_const} TEXT")
-            except sqlite3.OperationalError:
-                pass
-        
-        for col_const in (C_AR_FAMILLE, C_AR_NATURE, C_AR_UNITEVEN, C_AR_SUIVISTOCK):
-            try:
-                conn.execute(f"ALTER TABLE {T_ARTICLE} ADD COLUMN {col_const} TEXT")
-            except sqlite3.OperationalError:
-                pass
 
-        conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS {T_FAMILLE} (
-                {C_FA_CODE} TEXT PRIMARY KEY,
-                {C_FA_INTITULE} TEXT
-            )
-        """)
-        # Insérer des données de test si la table familles est vide
-        cur = conn.execute(f"SELECT COUNT(*) FROM {T_FAMILLE}")
-        if cur.fetchone()[0] == 0:
-            familles_mock = [
-                ("FAM01", "Matières premières"),
-                ("FAM02", "Produits finis"),
-                ("FAM03", "Services"),
-                ("FAM04", "Consommables")
-            ]
-            for f_code, f_intitule in familles_mock:
-                conn.execute(
-                    f"INSERT INTO {T_FAMILLE} ({C_FA_CODE}, {C_FA_INTITULE}) VALUES (?, ?)",
-                    (f_code, f_intitule)
-                )
-        
-    conn.commit()
     return conn
-
-
-def _generer_num_piece(type_doc: str, conn: Optional[sqlite3.Connection] = None) -> str:
+def _generer_num_piece(type_doc: str, conn: Optional[Any] = None) -> str:
     prefix = DOC_PREFIXES.get(type_doc.upper(), type_doc[:2].upper())
     # Budget total : 9 caractères (limite de certaines bases Sage pour DO_Piece / PF_Num)
     suffix = uuid4().hex[:7].upper()                   # 7 caractères aléatoires
     return f"{prefix}{suffix}"
 
-def _generer_cbmarq(conn: sqlite3.Connection, table: str, cbmarq_col: str) -> int:
+def _generer_cbmarq(conn: Any, table: str, cbmarq_col: str) -> int:
     row = conn.execute(
         f"SELECT COALESCE(MAX({cbmarq_col}), 0) + 1 FROM {table}"
     ).fetchone()
     return int(row[0]) if row and row[0] is not None else 1
 
-def _resolve_client(conn: sqlite3.Connection, code_ou_nom: str) -> Optional[dict]:
+def _resolve_client_with_suggestions(conn: Any, code_ou_nom: str) -> tuple[Optional[dict], list[dict]]:
     """
     Recherche dans la table tiers par code exact, puis par nom partiel.
+    Retourne (tiers_dict, candidats) :
+      - (row, [])           → trouvé exactement
+      - (None, [])          → introuvable
+      - (None, [c1, c2...]) → ambigu : plusieurs candidats LIKE
     """
     if not code_ou_nom:
-        return None
+        return None, []
     row = conn.execute(
         f"SELECT * FROM {T_TIERS} WHERE UPPER({C_CT_NUM}) = UPPER(?)",
         (code_ou_nom,)
     ).fetchone()
     if row:
-        return dict(row)
-    row = conn.execute(
-        f"SELECT * FROM {T_TIERS} WHERE UPPER({C_CT_INTITULE}) LIKE UPPER(?)",
+        return dict(row), []
+    rows = conn.execute(
+        f"SELECT {_top(5)}* FROM {T_TIERS} WHERE UPPER({C_CT_INTITULE}) LIKE UPPER(?)",
         (f"%{code_ou_nom}%",)
-    ).fetchone()
-    return dict(row) if row else None
+    ).fetchall()
+    if not rows:
+        return None, []
+    if len(rows) > 1:
+        candidats = [
+            {C_CT_NUM: r[C_CT_NUM], C_CT_INTITULE: r[C_CT_INTITULE], C_CT_TYPE: r.get(C_CT_TYPE, "?")}
+            for r in rows
+        ]
+        return None, candidats
+    return dict(rows[0]), []
 
 
-def _verifier_nom_tiers_existe(conn: sqlite3.Connection, intitule: str, type_tiers: int) -> bool:
+def _resolve_client(conn: Any, code_ou_nom: str) -> Optional[dict]:
+    """
+    Wrapper rétro-compatible : retourne le tiers unique ou None.
+    Utiliser _resolve_client_with_suggestions pour les messages d'erreur détaillés.
+    """
+    tiers, _ = _resolve_client_with_suggestions(conn, code_ou_nom)
+    return tiers
+
+
+def _verifier_nom_tiers_existe(conn: Any, intitule: str, type_tiers: int) -> bool:
     if not intitule or not str(intitule).strip():
         return False
     row = conn.execute(
@@ -448,10 +421,19 @@ def _verifier_nom_tiers_existe(conn: sqlite3.Connection, intitule: str, type_tie
     return bool(row)
 
 
-def _lire_client(conn: sqlite3.Connection, code_ou_nom: str) -> dict:
+def _lire_client(conn: Any, code_ou_nom: str) -> dict:
     """Lit les détails d'un client depuis la table tiers."""
-    row = _resolve_client(conn, code_ou_nom)
+    row, candidats = _resolve_client_with_suggestions(conn, code_ou_nom)
     if not row:
+        if candidats:
+            return {
+                "statut": "AMBIGU",
+                "message": (
+                    f"⚠️ '{code_ou_nom}' correspond à {len(candidats)} clients différents. "
+                    f"Précisez le code exact (CT_Num)."
+                ),
+                "suggestions": candidats,
+            }
         return {"statut": "ERREUR", "message": f"Client '{code_ou_nom}' non trouvé"}
     if row.get(C_CT_TYPE) != 0:
         return {"statut": "ERREUR", "message": f"'{code_ou_nom}' n'est pas un client"}
@@ -477,10 +459,19 @@ def _lire_client(conn: sqlite3.Connection, code_ou_nom: str) -> dict:
     }
 
 
-def _lire_fournisseur(conn: sqlite3.Connection, code_ou_nom: str) -> dict:
+def _lire_fournisseur(conn: Any, code_ou_nom: str) -> dict:
     """Lit les détails d'un fournisseur depuis la table tiers."""
-    row = _resolve_client(conn, code_ou_nom)
+    row, candidats = _resolve_client_with_suggestions(conn, code_ou_nom)
     if not row:
+        if candidats:
+            return {
+                "statut": "AMBIGU",
+                "message": (
+                    f"⚠️ '{code_ou_nom}' correspond à {len(candidats)} tiers différents. "
+                    f"Précisez le code exact (CT_Num)."
+                ),
+                "suggestions": candidats,
+            }
         return {"statut": "ERREUR", "message": f"Fournisseur '{code_ou_nom}' non trouvé"}
     if row.get(C_CT_TYPE) != 1:
         return {"statut": "ERREUR", "message": f"'{code_ou_nom}' n'est pas un fournisseur"}
@@ -506,7 +497,7 @@ def _lire_fournisseur(conn: sqlite3.Connection, code_ou_nom: str) -> dict:
     }
 
 
-def _lire_article(conn: sqlite3.Connection, ref_ou_design: str) -> dict:
+def _lire_article(conn: Any, ref_ou_design: str) -> dict:
     """Lit les détails d'un article depuis la table articles et la table stock."""
     row = _resolve_article(conn, ref_ou_design)
     if not row:
@@ -529,7 +520,7 @@ def _lire_article(conn: sqlite3.Connection, ref_ou_design: str) -> dict:
     }
 
 
-def _assurer_tiers_interne(conn: sqlite3.Connection, code_client: str = "PROD-INT") -> None:
+def _assurer_tiers_interne(conn: Any, code_client: str = "PROD-INT") -> None:
     """
     Garantit l'existence du tiers interne utilisé par défaut comme "client"
     des OF/BF de fabrication.
@@ -563,7 +554,7 @@ _CHAMPS_TEXTE_OPTIONNELS_TIERS = {
 }
 
 
-def _modifier_client(conn: sqlite3.Connection, code_client: str, **kwargs) -> dict:
+def _modifier_client(conn: Any, code_client: str, **kwargs) -> dict:
     """Modifie les champs d'un client dans la table tiers (sauf code)."""
     row = conn.execute(
         f"SELECT * FROM {T_TIERS} WHERE UPPER({C_CT_NUM}) = UPPER(?)",
@@ -584,15 +575,6 @@ def _modifier_client(conn: sqlite3.Connection, code_client: str, **kwargs) -> di
         sommeil_val = 1 if str(val).upper() in ("1", "BLOQUE", "SOMMEIL", "TRUE") else 0
         updates.append(f"{C_CT_SOMMEIL} = ?")
         params.append(sommeil_val)
-    # "encours_max" et "encours" écrivent désormais dans la même colonne
-    # C_CT_ENCOURS (plafond). Priorité à "encours_max" s'il est fourni.
-    if "encours_max" in kwargs:
-        updates.append(f"{C_CT_ENCOURS} = ?")
-        params.append(kwargs["encours_max"])
-    elif "encours" in kwargs:
-        updates.append(f"{C_CT_ENCOURS} = ?")
-        params.append(kwargs["encours"])
-
     existing_cols = _get_table_columns(conn, T_TIERS)
     existing_cols_lower = [c.lower() for c in existing_cols]
     colonnes_ignorees = []
@@ -620,7 +602,7 @@ def _modifier_client(conn: sqlite3.Connection, code_client: str, **kwargs) -> di
         msg += f"\n⚠️ Champs non enregistrés (colonnes absentes du schéma) : {', '.join(colonnes_ignorees)}"
     return {"statut": "SUCCES", "message": msg}
 
-def _modifier_fournisseur(conn: sqlite3.Connection, code_fournisseur: str, **kwargs) -> dict:
+def _modifier_fournisseur(conn: Any, code_fournisseur: str, **kwargs) -> dict:
     """Modifie les champs d'un fournisseur dans la table tiers (sauf code)."""
     row = conn.execute(
         f"SELECT * FROM {T_TIERS} WHERE UPPER({C_CT_NUM}) = UPPER(?)",
@@ -641,9 +623,6 @@ def _modifier_fournisseur(conn: sqlite3.Connection, code_fournisseur: str, **kwa
         sommeil_val = 1 if str(val).upper() in ("1", "BLOQUE", "SOMMEIL", "TRUE") else 0
         updates.append(f"{C_CT_SOMMEIL} = ?")
         params.append(sommeil_val)
-    if "encours_max" in kwargs:
-        updates.append(f"{C_CT_ENCOURS} = ?")
-        params.append(kwargs["encours_max"])
     elif "encours" in kwargs:
         updates.append(f"{C_CT_ENCOURS} = ?")
         params.append(kwargs["encours"])
@@ -675,7 +654,7 @@ def _modifier_fournisseur(conn: sqlite3.Connection, code_fournisseur: str, **kwa
         msg += f"\n⚠️ Champs non enregistrés (colonnes absentes du schéma) : {', '.join(colonnes_ignorees)}"
     return {"statut": "SUCCES", "message": msg}
 
-def _modifier_article(conn: sqlite3.Connection, ref_article: str, **kwargs) -> dict:
+def _modifier_article(conn: Any, ref_article: str, **kwargs) -> dict:
     """Modifie les champs d'un article dans la table articles (sauf ref)."""
     row = conn.execute(
         f"SELECT * FROM {T_ARTICLE} WHERE UPPER({C_AR_REF}) = UPPER(?)",
@@ -711,7 +690,7 @@ def _modifier_article(conn: sqlite3.Connection, ref_article: str, **kwargs) -> d
     return {"statut": "SUCCES", "message": f"Article '{ref_article}' modifié avec succès"}
 
 
-def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[dict]:
+def _resolve_article(conn: Any, ref_ou_nom: str) -> Optional[dict]:
     """
     Recherche dans la table articles par référence exacte, puis par
     désignation partielle.
@@ -735,7 +714,7 @@ def _resolve_article(conn: sqlite3.Connection, ref_ou_nom: str) -> Optional[dict
     return dict(rows[0])
 
 
-def _creer_ligne_nomenclature(conn: sqlite3.Connection, ref_parent: str, ref_composant: str, qte: float, commentaire: str = "") -> dict:
+def _creer_ligne_nomenclature(conn: Any, ref_parent: str, ref_composant: str, qte: float, commentaire: str = "") -> dict:
     """Ajoute une ligne de composant à la nomenclature d'un produit."""
 
     # ── Pré-requis trigger TG_INS_F_NOMENCLAT : l'article parent DOIT
@@ -828,13 +807,18 @@ def _creer_ligne_nomenclature(conn: sqlite3.Connection, ref_parent: str, ref_com
     return {"statut": "SUCCES", "message": f"Composant {ref_composant} ajouté à la nomenclature de {ref_parent}."}
 
 
-def _lire_nomenclature(conn: sqlite3.Connection, ref_parent: str) -> list[dict]:
-    """Retourne la liste des composants de la nomenclature d'un article."""
-    # Sélection basique des composants avec jointure pour la désignation
+def _lire_nomenclature(conn: Any, ref_parent: str) -> list[dict]:
+    """Retourne la liste des composants de la nomenclature d'un article sans faire de N+1."""
+    cols = _get_table_columns(conn, NOMENCLAT_TABLE)
+    has_comment = "NO_Commentaire" in cols or "no_commentaire" in cols or "NO_COMMENTAIRE" in cols
+    
+    select_commentaire = "N.NO_Commentaire" if has_comment else "'' AS NO_Commentaire"
+    
     query = f"""
         SELECT N.{NOMENCLAT_REF_MP} AS ref_composant, 
                N.{NOMENCLAT_QTE} AS qte, 
-               A.{C_AR_DESIGN} AS design_composant
+               A.{C_AR_DESIGN} AS design_composant,
+               {select_commentaire}
         FROM {NOMENCLAT_TABLE} N
         LEFT JOIN {T_ARTICLE} A ON UPPER(A.{C_AR_REF}) = UPPER(N.{NOMENCLAT_REF_MP})
         WHERE UPPER(N.{NOMENCLAT_REF_PF}) = UPPER(?)
@@ -842,22 +826,18 @@ def _lire_nomenclature(conn: sqlite3.Connection, ref_parent: str) -> list[dict]:
     """
     try:
         rows = conn.execute(query, (ref_parent,)).fetchall()
-        res = [dict(r) for r in rows]
-        # Essayer de lire NO_Commentaire si dispo
-        try:
-            for r in res:
-                c_row = conn.execute(f"SELECT NO_Commentaire FROM {NOMENCLAT_TABLE} WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?) AND UPPER({NOMENCLAT_REF_MP}) = UPPER(?)", (ref_parent, r["ref_composant"])).fetchone()
-                r["commentaire"] = c_row[0] if c_row and c_row[0] else ""
-        except Exception:
-            for r in res:
-                r["commentaire"] = ""
+        res = []
+        for r in rows:
+            d = dict(r)
+            d["commentaire"] = d.get("NO_Commentaire") or ""
+            res.append(d)
         return res
     except Exception as e:
         logger.error(f"[_lire_nomenclature] Erreur: {e}")
         return []
 
 
-def _modifier_ligne_nomenclature(conn: sqlite3.Connection, ref_parent: str, ref_composant: str, qte: float) -> dict:
+def _modifier_ligne_nomenclature(conn: Any, ref_parent: str, ref_composant: str, qte: float) -> dict:
     """Modifie la quantité d'un composant existant."""
     conn.execute(
         f"UPDATE {NOMENCLAT_TABLE} SET {NOMENCLAT_QTE} = ? WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?) AND UPPER({NOMENCLAT_REF_MP}) = UPPER(?)",
@@ -867,7 +847,7 @@ def _modifier_ligne_nomenclature(conn: sqlite3.Connection, ref_parent: str, ref_
     return {"statut": "SUCCES", "message": f"Quantité mise à jour pour {ref_composant}."}
 
 
-def _supprimer_ligne_nomenclature(conn: sqlite3.Connection, ref_parent: str, ref_composant: str) -> dict:
+def _supprimer_ligne_nomenclature(conn: Any, ref_parent: str, ref_composant: str) -> dict:
     """Supprime un composant de la nomenclature."""
     conn.execute(
         f"DELETE FROM {NOMENCLAT_TABLE} WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?) AND UPPER({NOMENCLAT_REF_MP}) = UPPER(?)",
@@ -889,7 +869,7 @@ def _decimal_sum(values) -> Decimal:
     return sum((_to_decimal(value) for value in values), Decimal("0.00"))
 
 
-def _get_stock(conn: sqlite3.Connection, ref_article: str, depot: int = None) -> float:
+def _get_stock(conn: Any, ref_article: str, depot: int = None) -> float:
     """Lit la quantité en stock pour un article et un dépôt donnés."""
     depot = depot if depot is not None else DEPOT_DEFAUT
     row = conn.execute(
@@ -900,7 +880,7 @@ def _get_stock(conn: sqlite3.Connection, ref_article: str, depot: int = None) ->
     return float(row[C_AS_QTESTO]) if row else 0.0
 
 
-def _get_montant_stock(conn: sqlite3.Connection, ref_article: str, depot: int = None) -> float:
+def _get_montant_stock(conn: Any, ref_article: str, depot: int = None) -> float:
     """Lit le montant valorisé en stock (AS_MontSto) pour un article et dépôt donnés."""
     depot = depot if depot is not None else DEPOT_DEFAUT
     existing_cols = _get_table_columns(conn, T_STOCK)
@@ -914,7 +894,7 @@ def _get_montant_stock(conn: sqlite3.Connection, ref_article: str, depot: int = 
     return float(row[C_AS_MONTSTO]) if row and row[C_AS_MONTSTO] is not None else 0.0
 
 
-def _lire_cmup(conn: sqlite3.Connection, ref_article: str, depot: int = None) -> float:
+def _lire_cmup(conn: Any, ref_article: str, depot: int = None) -> float:
     """CMUP dérivé : AS_MontSto / AS_QteSto (mécanisme natif Sage, pas de colonne dédiée)."""
     stock = _get_stock(conn, ref_article, depot)
     if stock <= 0:
@@ -945,7 +925,6 @@ def _article_a_des_lots(conn, ref_article: str) -> bool:
         f"SELECT {_top(1)}1 FROM {T_LOT_SERIE} WHERE UPPER({C_LS_REF})=UPPER(?)",
         (ref_article,) 
     ).fetchone()
-    return row is not None
     return row is not None
 def _necessite_creation_lot_au_bf(article: dict) -> bool:
     """
@@ -998,7 +977,24 @@ def _lister_lots_disponibles(conn, ref_article: str, depot: int = None) -> list[
 
 
 def _decrementer_lot(conn, numero_lot: str, ref_article: str, qte: float, num_ligne_doc: int) -> dict:
-    limit_clause = "" if _is_mssql() else "LIMIT 1"
+    if qte < 0:
+        return {"statut": "ERREUR", "message": "Quantité négative interdite."}
+
+    # 1. UPDATE atomique avec garde : on met à jour toutes les lignes historiques du lot
+    # Cela garantit l'atomicité et empêche deux threads de consommer le même stock.
+    conn.execute(
+        f"""UPDATE {T_LOT_SERIE}
+            SET {C_LS_QTE_RESTE} = {C_LS_QTE_RESTE} - ?
+            WHERE UPPER({C_LS_REF}) = UPPER(?) AND {C_LS_NUMERO} = ?
+            AND {C_LS_QTE_RESTE} >= ?""",
+        (qte, ref_article, numero_lot, qte)
+    )
+    rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+    if rowcount == 0:
+        return {"statut": "ERREUR", "message": f"Stock insuffisant ou lot '{numero_lot}' introuvable au moment du verrouillage atomique."}
+
+    # 2. Lecture des informations pour créer la ligne de mouvement (append-only)
+    limit_clause = ""
     row = conn.execute(
         f"""SELECT {_top(1)}{C_LS_QTE_INIT}, {C_LS_QTE_RESTE}, {C_LS_FABRICATION},
                     {C_LS_PEREMPTION}, {C_LS_DEPOT}, {C_LS_DL_IN}
@@ -1007,12 +1003,11 @@ def _decrementer_lot(conn, numero_lot: str, ref_article: str, qte: float, num_li
            ORDER BY {C_LS_CBMARQ} DESC {limit_clause}""",
         (ref_article, numero_lot)
     ).fetchone()
+    
     if not row:
-        return {"statut": "ERREUR", "message": f"Lot '{numero_lot}' introuvable."}
+        return {"statut": "ERREUR", "message": f"Anomalie: Lot '{numero_lot}' introuvable après UPDATE."}
 
-    nouvelle_qte = float(row[C_LS_QTE_RESTE]) - qte
-    if nouvelle_qte < -1e-9:
-        return {"statut": "ERREUR", "message": f"Décrément invalide sur '{numero_lot}'."}
+    nouvelle_qte = float(row[C_LS_QTE_RESTE]) # Déjà décrémentée par l'UPDATE précédent
 
     epuise = 1 if nouvelle_qte <= 1e-9 else 0
     cbmarq = _generer_cbmarq(conn, T_LOT_SERIE, "cbMarq")
@@ -1121,8 +1116,14 @@ def _ajuster_stock_db(
 ) -> dict:
     """
     Met à jour AS_QteSto ET AS_MontSto (valorisation), par dépôt.
+
+    P0-3 — Verrouillage atomique :
+      Pour les SORTIES, l'UPDATE inclut la condition `AS_QteSto >= qte`
+      directement dans le WHERE, et on vérifie @@ROWCOUNT. Cela évite
+      toute race condition entre threads sans SELECT préalable non protégé.
+
     cout_unitaire :
-      - SORTIE : ignoré, on sort valorisé au CMUP courant (calculé avant décrément)
+      - SORTIE : ignoré, on sort valorisé au CMUP courant
       - ENTREE : obligatoire, coût unitaire du produit qui entre
     """
     if qte < 0:
@@ -1133,53 +1134,94 @@ def _ajuster_stock_db(
     existing_cols = _get_table_columns(conn, T_STOCK)
     has_mont = C_AS_MONTSTO in existing_cols
 
-    if has_mont:
-        row = conn.execute(
-            f"SELECT {C_AS_QTESTO}, {C_AS_MONTSTO} FROM {T_STOCK} "
-            f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
-            (ref_article, depot)
-        ).fetchone()
-    else:
-        row = conn.execute(
-            f"SELECT {C_AS_QTESTO} FROM {T_STOCK} "
-            f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
-            (ref_article, depot)
-        ).fetchone()
-
-    if row is None:
-        raise ValueError(f"Article inconnu au dépôt {depot}: {ref_article}")
-
-    stock_avant   = float(row[C_AS_QTESTO] or 0.0)
-    montant_avant = float(row[C_AS_MONTSTO] or 0.0) if has_mont else 0.0
-    cmup_avant    = (montant_avant / stock_avant) if stock_avant > 0 else 0.0
-
     if type_mouvement == "SORTIE":
-        if stock_avant < qte:
-            raise ValueError(f"Stock insuffisant pour {ref_article}: {stock_avant} < {qte}")
-        cout_ligne = cmup_avant
-        nouveau_stock = stock_avant - qte
+        # ── SORTIE : UPDATE atomique — le WHERE inclut la garde de stock ──
+        # On lit d'abord le CMUP pour valoriser, puis on fait l'UPDATE atomique.
+        # La lecture du CMUP n'est pas une condition critique : si le stock baisse
+        # entre la lecture du CMUP et l'UPDATE, l'UPDATE échoue (@@ROWCOUNT = 0).
+        if has_mont:
+            row = conn.execute(
+                f"SELECT {C_AS_QTESTO}, {C_AS_MONTSTO} FROM {T_STOCK} "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
+                (ref_article, depot)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                f"SELECT {C_AS_QTESTO} FROM {T_STOCK} "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
+                (ref_article, depot)
+            ).fetchone()
+
+        if row is None:
+            raise ValueError(f"Article inconnu au dépôt {depot}: {ref_article}")
+
+        stock_avant   = float(row[C_AS_QTESTO] or 0.0)
+        montant_avant = float(row[C_AS_MONTSTO] or 0.0) if has_mont else 0.0
+        cmup_avant    = (montant_avant / stock_avant) if stock_avant > 0 else 0.0
         nouveau_montant = montant_avant - (qte * cmup_avant)
+
+        if has_mont:
+            conn.execute(
+                f"UPDATE {T_STOCK} "
+                f"SET {C_AS_QTESTO} = {C_AS_QTESTO} - ?, {C_AS_MONTSTO} = ? "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ? "
+                f"AND {C_AS_QTESTO} >= ?",
+                (qte, nouveau_montant, ref_article, depot, qte)
+            )
+        else:
+            conn.execute(
+                f"UPDATE {T_STOCK} "
+                f"SET {C_AS_QTESTO} = {C_AS_QTESTO} - ? "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ? "
+                f"AND {C_AS_QTESTO} >= ?",
+                (qte, ref_article, depot, qte)
+            )
+
+        # Vérification atomique : @@ROWCOUNT = 0 signifie stock insuffisant au moment de l'UPDATE
+        rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+        if rowcount == 0:
+            raise ValueError(
+                f"Stock insuffisant (race condition ou stock épuisé) pour {ref_article} au dépôt {depot}. "
+                f"Stock estimé avant : {stock_avant}, quantité demandée : {qte}."
+            )
+
+        nouveau_stock = stock_avant - qte
+        cout_ligne = cmup_avant
+        nouveau_cmup = (nouveau_montant / nouveau_stock) if (has_mont and nouveau_stock > 0) else 0.0
+
     else:  # ENTREE
         if cout_unitaire is None:
             raise ValueError("cout_unitaire requis pour une ENTREE")
-        cout_ligne = cout_unitaire
-        nouveau_stock = stock_avant + qte
+
+        row = conn.execute(
+            f"SELECT {C_AS_QTESTO}{', ' + C_AS_MONTSTO if has_mont else ''} FROM {T_STOCK} "
+            f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
+            (ref_article, depot)
+        ).fetchone()
+
+        if row is None:
+            raise ValueError(f"Article inconnu au dépôt {depot}: {ref_article}")
+
+        stock_avant   = float(row[C_AS_QTESTO] or 0.0)
+        montant_avant = float(row[C_AS_MONTSTO] or 0.0) if has_mont else 0.0
+        nouveau_stock   = stock_avant + qte
         nouveau_montant = montant_avant + (qte * cout_unitaire)
+        cout_ligne = cout_unitaire
 
-    if has_mont:
-        conn.execute(
-            f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ?, {C_AS_MONTSTO} = ? "
-            f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
-            (nouveau_stock, nouveau_montant, ref_article, depot)
-        )
-    else:
-        conn.execute(
-            f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ? "
-            f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
-            (nouveau_stock, ref_article, depot)
-        )
+        if has_mont:
+            conn.execute(
+                f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ?, {C_AS_MONTSTO} = ? "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
+                (nouveau_stock, nouveau_montant, ref_article, depot)
+            )
+        else:
+            conn.execute(
+                f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ? "
+                f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ?",
+                (nouveau_stock, ref_article, depot)
+            )
 
-    nouveau_cmup = (nouveau_montant / nouveau_stock) if (has_mont and nouveau_stock > 0) else 0.0
+        nouveau_cmup = (nouveau_montant / nouveau_stock) if (has_mont and nouveau_stock > 0) else 0.0
 
     return {
         "ok":          True,
@@ -1191,7 +1233,7 @@ def _ajuster_stock_db(
         "cmup_apres":  nouveau_cmup,
     }
 
-def _calculer_encours_client(conn: sqlite3.Connection, code_client: str) -> Decimal:
+def _calculer_encours_client(conn: Any, code_client: str) -> Decimal:
     return _to_decimal(conn.execute(
         f"""
         SELECT 
@@ -1207,7 +1249,7 @@ def _calculer_encours_client(conn: sqlite3.Connection, code_client: str) -> Deci
         """,
         (code_client, code_client)
     ).fetchone()[0])
-def _generer_prochain_code(conn: sqlite3.Connection, prefixe: str) -> str:
+def _generer_prochain_code(conn: Any, prefixe: str) -> str:
     """Génère le prochain code séquentiel disponible pour un préfixe (CLI, FOUR...).
 
     Filtre désormais sur le préfixe via LIKE (au lieu de fetch toute la table),
@@ -1261,7 +1303,7 @@ def _generer_code_depuis_nom(nom: str, longueur: int = 8) -> str:
     return nom_clean[:longueur]
 
 
-def _generer_code_tiers_unique(conn: sqlite3.Connection, nom: str, longueur: int = 8) -> str:
+def _generer_code_tiers_unique(conn: Any, nom: str, longueur: int = 8) -> str:
     """Génère un code tiers unique dérivé du nom, avec suffixe numérique en cas de collision."""
     base = _generer_code_depuis_nom(nom, longueur)
 
@@ -1284,42 +1326,14 @@ def _generer_code_tiers_unique(conn: sqlite3.Connection, nom: str, longueur: int
     raise RuntimeError(f"Impossible de générer un code tiers unique pour '{nom}' (base '{base}' épuisée)")
 
 
-def _verifier_encours_client(code_client: str, montant_supplementaire: float) -> dict:
-    conn = _get_conn()
-    try:
-        client = _resolve_client(conn, code_client)
-        if not client:
-            return {"statut": "CLIENT_NON_TROUVE", "message": f"Client '{code_client}' introuvable."}
-        encours_max = _to_decimal(client.get(C_CT_ENCOURS) or 0.0)
-        if encours_max <= 0:
-            return {"statut": "OK", "depasse": False, "encours_actuel": 0.0,
-                     "encours_max": 0.0, "encours_projete": 0.0}
-        encours_actuel = _calculer_encours_client(conn, client[C_CT_NUM])
-        montant = _to_decimal(montant_supplementaire)
-        encours_projete = encours_actuel + montant
-        depasse = encours_projete > encours_max
-        return {
-            "statut": "OK",
-            "depasse": depasse,
-            "encours_actuel": float(encours_actuel),
-            "encours_max": float(encours_max),
-            "encours_projete": float(encours_projete),
-            "message": (
-                f"🚫 Encours client dépassé : ce document porterait l'encours de "
-                f"**{client[C_CT_NUM]}** à **{float(encours_projete):.2f} TND** alors que "
-                f"le plafond autorisé est de **{float(encours_max):.2f} TND**.\n"
-                f"La création est annulée. Contactez le service commercial pour régulariser la situation."
-            ) if depasse else "",
-        }
-    finally:
-        conn.close()
+
 def _generer_code_tiers(prefixe: str) -> dict:
     conn = _get_conn()
     try:
         return {"statut": "OK", "code": _generer_prochain_code(conn, prefixe)}
     finally:
         conn.close()
-def _get_nomenclature(conn: sqlite3.Connection, ref_article: str) -> list[dict]:
+def _get_nomenclature(conn: Any, ref_article: str) -> list[dict]:
     """
     Lit la nomenclature (composants) et joint la table articles pour la
     désignation et les prix du composant. Noms physiques résolus via
@@ -1350,7 +1364,7 @@ def _get_nomenclature(conn: sqlite3.Connection, ref_article: str) -> list[dict]:
     ]
 
 
-def _verifier_nomenclature(conn: sqlite3.Connection, ref_article: str) -> bool:
+def _verifier_nomenclature(conn: Any, ref_article: str) -> bool:
     """Vérifie qu'une nomenclature existe pour l'article donné."""
     row = conn.execute(
         f"SELECT COUNT(*) FROM {NOMENCLAT_TABLE} WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?)",
@@ -1359,7 +1373,7 @@ def _verifier_nomenclature(conn: sqlite3.Connection, ref_article: str) -> bool:
     return bool(row and row[0])
 
 
-def _est_article_stocke(conn: sqlite3.Connection, article: dict) -> bool:
+def _est_article_stocke(conn: Any, article: dict) -> bool:
     """
     True si l'article doit générer un mouvement de stock physique.
     AR_Type > 1 : service/prestation → jamais de mouvement.
@@ -1374,10 +1388,8 @@ def _est_article_stocke(conn: sqlite3.Connection, article: dict) -> bool:
     return True
 
 
-def _table_identity_column(conn: sqlite3.Connection, table: str) -> str | None:
-    """Retourne le nom de la colonne IDENTITY de table si MSSQL, sinon None."""
-    if not _is_mssql():
-        return None
+def _table_identity_column(conn: Any, table: str) -> str | None:
+    """Retourne le nom de la colonne IDENTITY de table."""
     row = conn.execute(
         "SELECT c.name FROM sys.columns c "
         "WHERE c.object_id = OBJECT_ID(?) AND c.is_identity = 1", (table,)
@@ -1386,7 +1398,7 @@ def _table_identity_column(conn: sqlite3.Connection, table: str) -> str | None:
 
 
 def _inserer_document(
-    conn: sqlite3.Connection,
+    conn: Any,
     type_doc: str,
     num_piece: str,
     code_client: str,
@@ -1573,10 +1585,10 @@ def _inserer_document(
                 if identity_col_ligne:
                     conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} OFF")
             return piece_utilisee
-        except sqlite3.IntegrityError:
+        except Exception:
             piece_utilisee = _generer_num_piece(type_doc, conn)
             continue
-    raise sqlite3.IntegrityError("Unable to allocate a unique document number")
+    raise Exception("Unable to allocate a unique document number")
 
 
 
@@ -1587,7 +1599,7 @@ def _formater_bloc(titre: str, champs: dict) -> str:
     return "\n".join(lines)
 
 
-def _suggestions_clients(conn: sqlite3.Connection, terme: str) -> list[dict]:
+def _suggestions_clients(conn: Any, terme: str) -> list[dict]:
     rows = conn.execute(
         f"""SELECT {_top(5)}{C_CT_NUM} AS CT_Num, {C_CT_INTITULE} AS CT_Intitule
            FROM {T_TIERS}
@@ -1597,7 +1609,7 @@ def _suggestions_clients(conn: sqlite3.Connection, terme: str) -> list[dict]:
     return [{"CT_Num": r["CT_Num"], "CT_Intitule": r["CT_Intitule"]} for r in rows]
 
 
-def _suggestions_articles(conn: sqlite3.Connection, terme: str) -> list[dict]:
+def _suggestions_articles(conn: Any, terme: str) -> list[dict]:
     rows = conn.execute(
         f"""SELECT {_top(5)}{C_AR_REF} AS AR_Ref, {C_AR_DESIGN} AS AR_Design
            FROM {T_ARTICLE}
@@ -1673,10 +1685,6 @@ def _workflow_bl(
         stock_dispo = _get_stock(conn, ref_reelle)
         montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        # ── Encours client ──
-        # ── Encours client ──
-        encours_max = _to_decimal(client.get(C_CT_ENCOURS) or 0.0)
-        encours_actuel = _calculer_encours_client(conn, code_reel)
         # ── Contrôle stock ────────────────────────────────────────────
         if _est_article_stocke(conn, article) and stock_dispo < quantite:
             manque = quantite - stock_dispo
@@ -1894,7 +1902,13 @@ def _workflow_of(
                 qte_besoin = comp["qte_necessaire"] * quantite
                 prix_comp  = comp["prix_utilise"]
                 total_comp = qte_besoin * prix_comp
-                stock_comp = _get_stock(conn, ref_comp)
+                
+                depot_comp = _resoudre_depot_principal(conn, ref_comp)
+                
+                # P1: Soft Reservation check
+                from reservation_engine import calculer_disponible
+                stock_comp = calculer_disponible(conn, ref_comp, depot_comp)
+                
                 ok    = stock_comp >= qte_besoin
                 icone = "✅" if ok else "❌"
                 rapport_compo.append(
@@ -1912,6 +1926,7 @@ def _workflow_of(
                         "qte": qte_besoin,
                         "prix": prix_comp,
                         "total": total_comp,
+                        "depot": depot_comp,
                     })
                 else:
                     composants_manquants.append({
@@ -1955,7 +1970,7 @@ def _workflow_of(
                 "ref_article": comp["ref"], "qte": comp["qte"],
                 "prix_unit": comp["prix"],
                 "mvt_stock": 3,
-                "depot": DEPOT_DEFAUT,
+                "depot": comp["depot"],
                 "prix_ru": comp["prix"],
                 "ref_compose": ref_reelle,
                 "ttc": 1, "valorise": 1, "non_livre": 0,
@@ -1965,6 +1980,12 @@ def _workflow_of(
             conn, "OF", "", code_client or "PROD-INT",
             lignes=lignes_of,
         )
+
+        # P1: Enregistrer les réservations soft
+        from reservation_engine import reserver_stock
+        for comp in composants_ok:
+            reserver_stock(conn, comp["ref"], comp["qte"], comp["depot"], num_of)
+
         conn.commit()
 
         msg_compo = (
@@ -2042,35 +2063,104 @@ def _workflow_bf(
         rapport_compo = []
         cout_total = 0.0
         lignes_bf = []
+        
+        # P1: Libération de la réservation soft OF AVANT consommation réelle
+        if num_of:
+            from reservation_engine import liberer_reservation
+            # On libère pour le num_of (l'OF) car le stock va être décrémenté physiquement en dur
+            for comp in composants:
+                depot_comp = _resoudre_depot_principal(conn, comp["ref_composant"])
+                liberer_reservation(conn, comp["ref_composant"], depot_comp, num_of)
 
         # ── 1. Sorties Composants ──
+        # Liste temporaire pour retenir les allocations et les lier aux lignes de document insérées
+        compo_allocations = []  # format: [(index_ligne_bf, lot, qte), ...]
+
         for comp in composants:
             qte = comp["qte_necessaire"] * quantite
-            
             depot_comp = _resoudre_depot_principal(conn, comp["ref_composant"])
-            mvt = _ajuster_stock_db(
-                conn, comp["ref_composant"], qte, "SORTIE",
-                motif=f"Consommation BF (OF {num_of})", depot=depot_comp
-            )
-            
-            cout_ligne = mvt["cout_ligne"]
-            total_ligne = qte * cout_ligne
-            cout_total += total_ligne
-            
-            rapport_compo.append(
-                f"   • {comp['designation']} ({comp['ref_composant']}): "
-                f"-{qte:.3f} u @ {cout_ligne:.3f} TND = {total_ligne:.3f} TND"
-            )
-            
-            lignes_bf.append({
-                "ref_article": comp["ref_composant"],
-                "qte": qte,
-                "prix_unit": cout_ligne,
-                "mvt_stock": 1,
-                "depot": depot_comp,
-                "prix_ru": cout_ligne,
-                "cmup": mvt["cmup_apres"]
-            })
+            ref_c = comp["ref_composant"]
+
+            if _article_a_des_lots(conn, ref_c):
+                from api.lot_engine import allouer, Lot, _date_expiration_valide
+                
+                rows = _lister_lots_disponibles(conn, ref_c, depot_comp)
+                lots_obj = [
+                    Lot(numero=r["numero"], qte_disponible=float(r["qte_restante"]),
+                        date_expiration=_date_expiration_valide(r["peremption"]),
+                        date_fabrication=r["fabrication"])
+                    for r in rows
+                ]
+                strategie = "FEFO" if any(l.date_expiration for l in lots_obj) else "FIFO"
+                resultat = allouer(qte, lots_obj, strategie)
+
+                if not resultat.ok:
+                    lignes_lots = "\n".join(
+                        f"   • {l.numero} : {l.qte_disponible} u"
+                        + (f" (péremption {l.date_expiration})" if l.date_expiration else "")
+                        for l in resultat.lots_disponibles
+                    )
+                    return {
+                        "statut": "STOCK_INSUFFISANT",
+                        "message": (
+                            f"📦 Stock insuffisant pour le composant '{comp['designation']}' ({ref_c}) — gestion par lot.\n\n"
+                            f"   Demandé : {qte} u | Disponible : {resultat.qte_allouee} u | "
+                            f"Manque : {resultat.manque} u\n\n   Lots disponibles :\n{lignes_lots}"
+                        ),
+                    }
+
+                for alloc in resultat.allocations:
+                    mvt = _ajuster_stock_db(
+                        conn, ref_c, alloc.qte, "SORTIE",
+                        motif=f"Consommation BF (OF {num_of}) / lot {alloc.lot}", depot=depot_comp
+                    )
+                    cout_ligne = mvt["cout_ligne"]
+                    total_ligne = alloc.qte * cout_ligne
+                    cout_total += total_ligne
+                    
+                    rapport_compo.append(
+                        f"   • {comp['designation']} ({ref_c}) [Lot: {alloc.lot}]: "
+                        f"-{alloc.qte:.3f} u @ {cout_ligne:.3f} TND = {total_ligne:.3f} TND"
+                    )
+                    
+                    lignes_bf.append({
+                        "ref_article": ref_c,
+                        "qte": alloc.qte,
+                        "prix_unit": cout_ligne,
+                        "mvt_stock": 1,
+                        "depot": depot_comp,
+                        "prix_ru": cout_ligne,
+                        "cmup": mvt["cmup_apres"]
+                    })
+                    # index de la ligne qu'on vient d'ajouter (+1 pour le PF qui sera inséré en index 0)
+                    # wait, on insère le PF à la fin avec insert(0, ...). Donc tous les indices actuels seront décalés de +1.
+                    compo_allocations.append((len(lignes_bf), alloc.lot, alloc.qte, ref_c))
+
+            else:
+                # Composant SANS lot
+                mvt = _ajuster_stock_db(
+                    conn, ref_c, qte, "SORTIE",
+                    motif=f"Consommation BF (OF {num_of})", depot=depot_comp
+                )
+                
+                cout_ligne = mvt["cout_ligne"]
+                total_ligne = qte * cout_ligne
+                cout_total += total_ligne
+                
+                rapport_compo.append(
+                    f"   • {comp['designation']} ({ref_c}): "
+                    f"-{qte:.3f} u @ {cout_ligne:.3f} TND = {total_ligne:.3f} TND"
+                )
+                
+                lignes_bf.append({
+                    "ref_article": ref_c,
+                    "qte": qte,
+                    "prix_unit": cout_ligne,
+                    "mvt_stock": 1,
+                    "depot": depot_comp,
+                    "prix_ru": cout_ligne,
+                    "cmup": mvt["cmup_apres"]
+                })
 
         # ── 2. Entrée Produit Fini ──
         cout_unitaire_pf = (cout_total / quantite) if quantite > 0 else 0.0
@@ -2098,15 +2188,22 @@ def _workflow_bf(
             lignes=lignes_bf, num_piece_of=num_of
         )
 
-        # ── 4. Récupérer le DL_No réel de la ligne produit fini qu'on vient d'insérer ──
-        limit_clause = "" if _is_mssql() else "LIMIT 1"
-        ligne_pf = conn.execute(
-            f"""SELECT {_top(1)}DL_No FROM {T_DOC_LIGNE}
-                WHERE {C_DL_PIECE} = ? AND UPPER({C_DL_REF}) = UPPER(?) AND {C_DL_MVTSTOCK} = 1
-                ORDER BY DL_No ASC {limit_clause}""",
-            (num_bf, ref_reelle)
-        ).fetchone()
-        dl_no_entree_pf = ligne_pf["DL_No"] if ligne_pf else None
+        # ── 4. Récupérer les DL_No réels des lignes insérées ──
+        lignes_inserees = conn.execute(
+            f"SELECT DL_No FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE}=? ORDER BY DL_No",
+            (num_bf,)
+        ).fetchall()
+        
+        # Le produit fini a été inséré en index 0
+        dl_no_entree_pf = lignes_inserees[0]["DL_No"] if lignes_inserees else None
+
+        # ── 4b. Décrémentation des lots composants (P0-4) ──
+        for idx, lot_num, qte_alloc, ref_c in compo_allocations:
+            # idx correspond exactement à l'index final (0-based) car on a utilisé len(lignes_bf)
+            # juste après avoir ajouté le composant, ce qui anticipe le décalage de l'insert(0) du PF.
+            if idx < len(lignes_inserees):
+                dl_no_compo = lignes_inserees[idx]["DL_No"]
+                _decrementer_lot(conn, lot_num, ref_c, qte_alloc, num_ligne_doc=dl_no_compo)
 
         # ── 5. Création du lot (une seule fois), avec DL_NoIn correctement renseigné ──
         numero_lot_cree = None
@@ -2208,16 +2305,8 @@ def _generer_facture_directe(
                 "qte_demandee": qte,
             }
 
-        encours_max = _to_decimal(client.get(C_CT_ENCOURS) or 0.0)
         encours_actuel = _calculer_encours_client(conn, client[C_CT_NUM])
-        if encours_max > 0 and encours_actuel + _to_decimal(montant) > encours_max:
-            return {
-                "statut": "ENCORS_MAX_ATTEINT",
-                "message": (
-                    f"⚠️  Encours dépassé pour {client[C_CT_NUM]} : "
-                    f"{_money_text(encours_actuel + _to_decimal(montant))} > {_money_text(encours_max)}"
-                ),
-            }
+        
 
         if _est_article_stocke(conn, article):
             num_fa = _generer_num_piece("FACTURE", conn)
@@ -2598,21 +2687,8 @@ async def list_tools() -> list[types.Tool]:
                 "required": [],
             },
         ),
-        types.Tool(
-    name="verifier_encours_client",
-    description=(
-        "Vérifie si un montant supplémentaire ferait dépasser le plafond "
-        "d'encours autorisé d'un client."
-    ),
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "code_client": {"type": "string", "description": "Code ou nom du client"},
-            "montant_supplementaire": {"type": "number", "description": "Montant HT du document envisagé"},
-        },
-        "required": ["code_client", "montant_supplementaire"],
-    },
-),
+        
+    
 types.Tool(
     name="generer_prochain_code",
     description="Génère le prochain code séquentiel disponible pour un préfixe (CLI, FOUR...).",
@@ -2729,9 +2805,6 @@ types.Tool(
                     "ct_validite":     {"type": "string",
                                         "description": "VALIDE | BLOQUE | SUSPECT (défaut VALIDE)",
                                         "default": "VALIDE"},
-                    "ct_encours_max":  {"type": "number",
-                                        "description": "Encours maximum autorisé (défaut 0)",
-                                        "default": 0},
                     "adresse":         {"type": "string", "default": "", "description": "Adresse postale"},
                     "complement":      {"type": "string", "default": "", "description": "Complément d'adresse"},
                     "code_postal":     {"type": "string", "default": "", "description": "Code postal"},
@@ -2824,6 +2897,24 @@ types.Tool(
         ),
 
         types.Tool(
+            name="lire_encours_client",
+            description=(
+                "Retourne l'encours actuel (CT_Encours) d'un client depuis la table F_COMPTET. "
+                "CT_Encours représente l'encours en cours du client, pas un plafond. "
+                "Utiliser cette action quand l'utilisateur demande : "
+                "'quel est l'encours de X', 'donne-moi l'encours du client Y', etc."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "code_client": {"type": "string",
+                                   "description": "Code CT_Num ou nom du client"},
+                },
+                "required": ["code_client"],
+            },
+        ),
+
+        types.Tool(
             name="lire_fournisseur",
             description="Lit les détails d'un fournisseur.",
             inputSchema={
@@ -2858,7 +2949,6 @@ types.Tool(
                     "code_client":    {"type": "string", "description": "Code du client (non modifiable)"},
                     "intitule":       {"type": "string", "description": "Nouveau nom du client"},
                     "validite":       {"type": "string", "description": "Validité (VALIDE, BLOQUE, SUSPECT)"},
-                    "encours_max":    {"type": "number", "description": "Encours maximum autorisé"},
                     "adresse":        {"type": "string", "description": "Adresse postale ('.' = NULL)"},
                     "complement":     {"type": "string", "description": "Complément d'adresse ('.' = NULL)"},
                     "code_postal":    {"type": "string", "description": "Code postal ('.' = NULL)"},
@@ -2882,7 +2972,6 @@ types.Tool(
                     "code_fournisseur": {"type": "string", "description": "Code du fournisseur (non modifiable)"},
                     "intitule":         {"type": "string", "description": "Nouveau nom du fournisseur"},
                     "validite":         {"type": "string", "description": "Validité (VALIDE, BLOQUE, SUSPECT)"},
-                    "encours_max":      {"type": "number", "description": "Encours maximum autorisé"},
                     "adresse":          {"type": "string", "description": "Adresse postale ('.' = NULL)"},
                     "complement":       {"type": "string", "description": "Complément d'adresse ('.' = NULL)"},
                     "code_postal":      {"type": "string", "description": "Code postal ('.' = NULL)"},
@@ -3179,7 +3268,94 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             logger.exception(f"✖ [call_tool] exception dans {name} après {time.perf_counter() - t0:.2f}s")
             raise
 
+from api.idempotency import lock_operation, complete_operation, ConcurrencyError
+
+# Liste des outils qui écrivent des données (les lectures sont exclues de l'idempotence)
+_WRITE_TOOLS = {
+    "generer_document_sage", "workflow_bl", "workflow_of", "workflow_bf",
+    "workflow_bl_achat", "workflow_fa_achat", "transformer_document",
+    "creer_nouveau_client", "creer_nouveau_fournisseur", "creer_nouvel_article",
+    "enregistrer_reglement_facture", "ajuster_stock", "creer_ligne_nomenclature",
+    "modifier_client", "modifier_fournisseur", "modifier_article",
+}
+
 async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]:
+    # ── Idempotence : pour les outils d'écriture uniquement ──
+    operation_id = arguments.pop("operation_id", None)
+    if name in _WRITE_TOOLS and operation_id:
+        idm_conn = _get_conn()
+        try:
+            cached = lock_operation(idm_conn, operation_id, name, arguments)
+        except ConcurrencyError as e:
+            idm_conn.close()
+            return _to_text({"statut": "ERREUR", "message": f"🔒 {e}"})
+        except Exception:
+            idm_conn.close()
+            cached = None  # Table absente ou autre erreur → continuer sans idempotence
+
+        if cached is not None:
+            idm_conn.close()
+            return _to_text(cached)
+
+        # ── INTERCEPTION DU COMMIT ──
+        class TxHook:
+            def __init__(self, c): self.c = c
+            def commit(self): pass  # L'outil métier ne peut pas commit, on le fera à la fin
+            def close(self): pass   # L'outil métier ne peut pas fermer la connexion
+            def cursor(self): return self.c.cursor()
+            def execute(self, *a, **k): return self.c.execute(*a, **k)
+            def __getattr__(self, attr): return getattr(self.c, attr)
+
+        token = _conn_override.set(TxHook(idm_conn))
+        try:
+            text_result = await _call_tool_impl_inner(name, arguments)
+            
+            # Extraction du résultat brut pour le cache
+            raw_text = text_result[0].text if text_result else "{}"
+            try:
+                result_dict = json.loads(raw_text)
+            except Exception:
+                result_dict = {"response": raw_text}
+                
+            # Écriture du statut COMPLETED dans la MÊME transaction
+            complete_operation(idm_conn, operation_id, result_dict, status="COMPLETED")
+            idm_conn.commit()  # VRAI COMMIT (Métier + Idempotence)
+            
+        except Exception as exc:
+            try:
+                # En cas d'erreur métier, la transaction est en suspens, on la rollback pour annuler l'écriture partielle
+                idm_conn.rollback()
+                # On marque l'opération comme FAILED dans une nouvelle mini-transaction
+                complete_operation(idm_conn, operation_id, {"statut": "ERREUR", "message": str(exc)}, status="FAILED")
+                idm_conn.commit()
+            except Exception:
+                pass
+            raise
+        finally:
+            _conn_override.reset(token)
+            idm_conn.close()
+
+        return text_result
+
+    # ── Pour les lectures (ou écritures sans operation_id), on applique un retry (1 max) ──
+    # Si la connexion tombe pendant l'exécution d'un SELECT, il est sûr de relancer.
+    max_retries = 1 if name not in _WRITE_TOOLS else 0
+    for attempt in range(max_retries + 1):
+        try:
+            return await _call_tool_impl_inner(name, arguments)
+        except Exception as e:
+            err_str = str(e).lower()
+            if attempt < max_retries and ("closed connection" in err_str or "communication link failure" in err_str or "08S01" in err_str):
+                import logging
+                logging.getLogger("sage.erp.actions").warning(f"   🔄 [Retry] Reconnexion après erreur sur {name} : {e}")
+                import asyncio
+                await asyncio.sleep(0.5)
+                continue
+            raise
+
+
+async def _call_tool_impl_inner(name: str, arguments: dict) -> list[types.TextContent]:
+
 
     if name == "generer_document_sage":
         type_d        = arguments["type_doc"].upper().strip()
@@ -3265,7 +3441,6 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
             ct_validite    = (arguments.get("ct_validite") or "VALIDE").upper()
             if ct_validite not in ("VALIDE", "BLOQUE", "SUSPECT"):
                 ct_validite = "VALIDE"
-            ct_encours_max = float(arguments.get("ct_encours_max") or arguments.get("ct_encours") or 0.0)
 
             if _verifier_nom_tiers_existe(conn, intitule, 0):
                 return _to_text({
@@ -3289,7 +3464,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
     C_CT_INTITULE: intitule,
     C_CT_TYPE: 0,
     C_CT_SOMMEIL: ct_sommeil,
-    C_CT_ENCOURS: ct_encours_max,
+    C_CT_ENCOURS: 0.0,
     C_CT_CGNUMPRINC: _normaliser_valeur(arguments.get("cg_num_princ") or _CG_NUM_PAR_TYPE.get(0)),
     C_CT_ADRESSE: _normaliser_valeur(arguments.get("adresse", "")),
     C_CT_COMPLEMENT: _normaliser_valeur(arguments.get("complement", "")),
@@ -3329,7 +3504,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
             if not cols_insert:
                 # fallback minimal insert
                 cols_insert = [C_CT_NUM, C_CT_INTITULE, C_CT_TYPE, C_CT_SOMMEIL, C_CT_ENCOURS]
-                vals_insert = [code_client, intitule, 0, ct_sommeil, ct_encours_max]
+                vals_insert = [code_client, intitule, 0, ct_sommeil, ct_encours]
 
             identity_col = _table_identity_column(conn, T_TIERS)
             if identity_col:
@@ -3516,7 +3691,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                 C_CT_INTITULE: intitule,
                 C_CT_TYPE: 1,
                 C_CT_SOMMEIL: 0,
-                C_CT_ENCOURS: float(arguments.get("ct_encours_max") or 0.0),
+                C_CT_ENCOURS: 0.0,
                 C_CT_CGNUMPRINC: _normaliser_valeur(arguments.get("cg_num_princ") or _CG_NUM_PAR_TYPE.get(1)),
                 C_CT_ADRESSE: _normaliser_valeur(arguments.get("adresse", "")),
                 C_CT_COMPLEMENT: _normaliser_valeur(arguments.get("complement", "")),
@@ -3552,7 +3727,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
 
             if not cols_insert:
                 cols_insert = [C_CT_NUM, C_CT_INTITULE, C_CT_TYPE, C_CT_SOMMEIL, C_CT_ENCOURS]
-                vals_insert = [code_fourn, intitule, 1, 0, float(arguments.get("ct_encours_max") or 0.0)]
+                vals_insert = [code_fourn, intitule, 1, 0, 0.0]
 
             identity_col = _table_identity_column(conn, T_TIERS)
             if identity_col:
@@ -3612,11 +3787,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
         finally:
             conn.close()
         return _to_text(result)
-    elif name == "verifier_encours_client":
-        result = _verifier_encours_client(
-        arguments["code_client"], float(arguments["montant_supplementaire"])
-    )
-        return _to_text(result)
+    
 
     elif name == "generer_prochain_code":
         result = _generer_code_tiers(arguments["prefixe"])
@@ -3660,6 +3831,13 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
             num_piece_source = arguments["num_piece_source"]
             type_destination = arguments["type_destination"].upper()
 
+            _TRANSFORMATIONS_AUTORISEES = {
+                ("BC", "BL"):        {"mouvement_stock": True},
+                ("BL", "FACTURE"):   {"mouvement_stock": False},
+                ("OF", "BF"):        {"mouvement_stock": True},
+                ("FACTURE", "AVOIR"): {"mouvement_stock": False},
+            }
+
             entete = conn.execute(
                 f"SELECT * FROM {T_DOC_ENTETE} WHERE {C_DO_PIECE} = ?",
                 (num_piece_source,)
@@ -3670,17 +3848,47 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                     "message": f"❌ Document '{num_piece_source}' introuvable.",
                 }
             else:
+                # Retrouver le type_source sous forme de chaîne (ex: 'BC')
+                type_source = "INCONNU"
+                for code_str, (do_type, do_domaine) in DOC_CODES.items():
+                    if entete[C_DO_TYPE] == do_type and entete[C_DO_DOMAINE] == do_domaine:
+                        type_source = code_str
+                        break
+                
+                # Normalisation des alias
+                if type_source in ("FA", "FC"): type_source = "FACTURE"
+                if type_destination in ("FA", "FC"): type_destination = "FACTURE"
+                if type_source == "AV": type_source = "AVOIR"
+                if type_destination == "AV": type_destination = "AVOIR"
+
+                transition = (type_source, type_destination)
+                if transition not in _TRANSFORMATIONS_AUTORISEES:
+                    result = {
+                        "statut": "TRANSITION_INTERDITE",
+                        "message": f"❌ Transformation de {type_source} vers {type_destination} non supportée par cette action.",
+                    }
+                    conn.close()
+                    return _to_text(result)
+
                 existing = conn.execute(
                     f"SELECT {C_DO_PIECE} FROM {T_DOC_ENTETE} WHERE {C_DO_REF} = ? AND {C_DO_TYPE} = ? AND {C_DO_DOMAINE} = ?",
-                    (num_piece_source, DOC_TYPE.get(type_destination.upper(), 0), DOC_DOMAINE.get(type_destination.upper(), 0)),
+                    (num_piece_source, DOC_TYPE.get(type_destination, 0), DOC_DOMAINE.get(type_destination, 0)),
                 ).fetchone()
                 if existing:
                     result = {
                         "statut":  "EXISTE_DEJA",
-                        "message": f"⚠️  Le document source '{num_piece_source}' a déjà été transformé en {type_destination.upper()} ({existing[C_DO_PIECE]}).",
+                        "message": f"⚠️  Le document source '{num_piece_source}' a déjà été transformé en {type_destination} ({existing[C_DO_PIECE]}).",
                     }
                     conn.close()
                     return _to_text(result)
+
+                doit_mouvementer = _TRANSFORMATIONS_AUTORISEES[transition]["mouvement_stock"]
+                mvt_val = None
+                if doit_mouvementer:
+                    if type_destination in DOC_DESTOCKANTS:
+                        mvt_val = 3
+                    elif type_destination in DOC_STOCKANTS:
+                        mvt_val = 1
 
                 lignes_source = conn.execute(
                     f"SELECT * FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE} = ? ORDER BY {C_DL_LIGNE}",
@@ -3690,33 +3898,11 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                     "ref_article": ligne[C_DL_REF],
                     "qte": float(ligne[C_DL_QTE]),
                     "prix_unit": float(ligne[C_DL_PRIX]),
-                    "mvt_stock": None,            # déjà mouvementé par le BL source
-                    "depot": DEPOT_DEFAUT,
-                    "piece_bl": num_piece_source if type_destination.upper() in {"FACTURE", "FA", "FC", "FA_ACHAT"} else None,
-                    "qte_bl":   float(ligne[C_DL_QTE]) if type_destination.upper() in {"FACTURE", "FA", "FC", "FA_ACHAT"} else None,
+                    "mvt_stock": mvt_val,
+                    "depot": ligne.get(C_DL_DENO, DEPOT_DEFAUT),
+                    "piece_bl": num_piece_source if type_destination in {"FACTURE", "FA_ACHAT"} else None,
+                    "qte_bl":   float(ligne[C_DL_QTE]) if type_destination in {"FACTURE", "FA_ACHAT"} else None,
                 } for ligne in lignes_source]
-
-                if type_destination.upper() in {"FACTURE", "FA", "FC"}:
-                    client = conn.execute(
-                        f"SELECT {C_CT_NUM}, {C_CT_ENCOURS}, {C_CT_SOMMEIL} FROM {T_TIERS} WHERE {C_CT_NUM} = ?",
-                        (entete[C_DO_TIERS],),
-                    ).fetchone()
-                    if client:
-                        encours_max = _to_decimal(client[C_CT_ENCOURS] or 0.0)
-                        encours_actuel = _calculer_encours_client(conn, client[C_CT_NUM])
-                        montant_total = float(_decimal_sum(
-                            (Decimal(str(l["qte"])) * Decimal(str(l["prix_unit"])) for l in lignes_dest)
-                        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-                        if encours_max > 0 and encours_actuel + _to_decimal(montant_total) > encours_max:
-                            result = {
-                                "statut": "ENCORS_MAX_ATTEINT",
-                                "message": (
-                                    f"⚠️  Encours dépassé pour {client[C_CT_NUM]} : "
-                                    f"{_money_text(encours_actuel + _to_decimal(montant_total))} > {_money_text(encours_max)}"
-                                ),
-                            }
-                            conn.close()
-                            return _to_text(result)
 
                 num_dest = _inserer_document(
                     conn, type_destination, "",
@@ -3755,6 +3941,14 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                     "message": f"❌ Facture '{num_facture_origine}' introuvable.",
                 }
             else:
+                if entete[C_DO_TYPE] not in (6, 7) or entete[C_DO_DOMAINE] != 0:
+                    result = {
+                        "statut": "TYPE_INVALIDE",
+                        "message": f"❌ Le document '{num_facture_origine}' n'est pas une facture de vente (DO_Type={entete.get(C_DO_TYPE)}, DO_Domaine={entete.get(C_DO_DOMAINE)})."
+                    }
+                    conn.close()
+                    return _to_text(result)
+
                 lignes_source = conn.execute(
                     f"SELECT * FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE} = ? ORDER BY {C_DL_LIGNE}",
                     (num_facture_origine,)
@@ -3801,9 +3995,11 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
     elif name == "enregistrer_reglement_facture":
         conn = _get_conn()
         try:
-            num_piece     = arguments["num_piece"]
-            mode_paiement = arguments.get("mode_paiement", "Virement")
-            numero_piece_paiement = arguments.get("numero_piece_paiement", "")
+            num_piece             = arguments["num_piece"]
+            mode_paiement         = arguments.get("mode_paiement", "Virement")
+            numero_piece_paiement = arguments.get("numero_piece_paiement", "") or ""
+            montant_arg           = arguments.get("montant")  # None = tout le solde
+
             _MODE_REGLEMENT_MAP = {
                 "especes":  0, "espèces": 0, "espece": 0, "espèce": 0, "cash": 0,
                 "cheque":   1, "chèque":   1, "cheques": 1, "chèques": 1,
@@ -3813,8 +4009,9 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                 "lc":       5, "lcr":       5,
                 "prelevement": 6, "prélèvement": 6,
             }
-            _mode_key = mode_paiement.lower().replace(" ", "").replace("_", "")
+            _mode_key    = mode_paiement.lower().replace(" ", "").replace("_", "")
             dr_type_regl = _MODE_REGLEMENT_MAP.get(_mode_key, 2)  # défaut: Virement
+
             entete = conn.execute(
                 f"SELECT * FROM {T_DOC_ENTETE} WHERE {C_DO_PIECE} = ?",
                 (num_piece,)
@@ -3825,6 +4022,19 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                     "message": f"❌ Document '{num_piece}' introuvable.",
                 }
             else:
+                # Vérification : on ne règle que des factures de vente (DO_Type=6 ou 7, DO_Domaine=0)
+                if entete[C_DO_TYPE] not in (6, 7) or entete[C_DO_DOMAINE] != 0:
+                    result = {
+                        "statut": "TYPE_INVALIDE",
+                        "message": (
+                            f"❌ '{num_piece}' n'est pas une facture de vente "
+                            f"(DO_Type={entete.get(C_DO_TYPE)}, DO_Domaine={entete.get(C_DO_DOMAINE)})."
+                        ),
+                    }
+                    conn.close()
+                    return _to_text(result)
+
+                # Calcul du montant total de la facture
                 lignes = conn.execute(
                     f"SELECT {C_DL_QTE}, {C_DL_PRIX} FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE} = ?",
                     (num_piece,)
@@ -3832,22 +4042,55 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                 montant_total = float(_decimal_sum(
                     (Decimal(str(l[C_DL_QTE])) * Decimal(str(l[C_DL_PRIX])) for l in lignes)
                 ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-                existing_reglement = conn.execute(
-                    f"SELECT 1 FROM {T_REGLEMENTS} WHERE {C_DO_PIECE} = ?",
-                    (num_piece,),
+
+                # Montant déjà réglé (somme de tous les règlements existants)
+                deja_regle_row = conn.execute(
+                    f"SELECT COALESCE(SUM({C_REGL_MONTANT}), 0) FROM {T_REGLEMENTS} WHERE {C_REGL_PIECE} = ?",
+                    (num_piece,)
                 ).fetchone()
-                if existing_reglement:
+                deja_regle = float(deja_regle_row[0]) if deja_regle_row else 0.0
+                solde_restant = round(montant_total - deja_regle, 2)
+
+                if solde_restant <= 0:
                     result = {
                         "statut":  "EXISTE_DEJA",
-                        "message": f"⚠️  La facture '{num_piece}' a déjà un règlement enregistré.",
+                        "message": (
+                            f"⚠️  La facture '{num_piece}' est déjà soldée "
+                            f"(Total: {_money_text(montant_total)}, Réglé: {_money_text(deja_regle)})."
+                        ),
                     }
                     conn.close()
                     return _to_text(result)
 
-                conn.execute(
-                    f"UPDATE {T_DOC_ENTETE} SET {C_DO_REF} = ? WHERE {C_DO_PIECE} = ?",
-                    (f"REGLE - {mode_paiement}"[:17], num_piece)
-                )
+                # Montant à régler maintenant
+                if montant_arg is not None:
+                    montant_reglement = round(float(_to_decimal(montant_arg)), 2)
+                    if montant_reglement <= 0:
+                        result = {"statut": "ERREUR", "message": "❌ Le montant du règlement doit être positif."}
+                        conn.close()
+                        return _to_text(result)
+                    if montant_reglement > solde_restant + 0.005:
+                        result = {
+                            "statut": "MONTANT_DEPASSE",
+                            "message": (
+                                f"❌ Montant demandé ({_money_text(montant_reglement)}) "
+                                f"dépasse le solde restant ({_money_text(solde_restant)})."
+                            ),
+                        }
+                        conn.close()
+                        return _to_text(result)
+                else:
+                    montant_reglement = solde_restant
+
+                est_solde = abs(montant_reglement - solde_restant) < 0.005
+
+                # Mise à jour de la référence de l'entête si paiement intégral
+                if est_solde:
+                    conn.execute(
+        f"UPDATE {T_DOC_ENTETE} SET DO_Cloture = 1 WHERE {C_DO_PIECE} = ?",
+        (num_piece,)
+    )
+
                 _do_domaine  = entete[C_DO_DOMAINE]
                 _do_type     = entete[C_DO_TYPE]
                 _regl_cbmarq = _generer_cbmarq(conn, T_REGLEMENTS, C_REGL_CBMARQ)
@@ -3855,32 +4098,72 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
                 if identity_col_regl:
                     conn.execute(f"SET IDENTITY_INSERT {T_REGLEMENTS} ON")
                 try:
+                    # Construire l'INSERT dynamiquement pour gérer DR_Reference optionnel
+                    regl_cols = [
+                        C_REGL_PIECE, C_REGL_DOMAINE, C_REGL_TYPE_DOC,
+                        C_REGL_CBMARQ, C_REGL_MODE_PAI, C_REGL_MONTANT, C_REGL_DATE,
+                    ]
+                    regl_vals = [
+                        num_piece, _do_domaine, _do_type,
+                        _regl_cbmarq, dr_type_regl, montant_reglement, datetime.now(),
+                    ]
+                    if numero_piece_paiement:
+                        existing_regl_cols = _get_table_columns(conn, T_REGLEMENTS)
+                        if C_REGL_REFERENCE and any(c.lower() == C_REGL_REFERENCE.lower() for c in existing_regl_cols):
+                            regl_cols.append(C_REGL_REFERENCE)
+                            regl_vals.append(str(numero_piece_paiement)[:20])
+                        else:
+                            # Colonne DR_Reference absente du schéma : on log un WARNING
+                            # explicite plutôt que de perdre la référence silencieusement.
+                            logger.warning(
+                                "[P0-6] Colonne '%s' (DR_Reference) absente de %s — "
+                                "n° pièce paiement '%s' NON ENREGISTRÉ. "
+                                "Migration manquante ? (ALTER TABLE %s ADD %s NVARCHAR(20))",
+                                C_REGL_REFERENCE, T_REGLEMENTS, numero_piece_paiement,
+                                T_REGLEMENTS, C_REGL_REFERENCE,
+                            )
+                            # On stocke l'avertissement pour le renvoyer à l'utilisateur
+                            _ref_non_stockee = numero_piece_paiement
+                    else:
+                        _ref_non_stockee = None
+                    ph = ", ".join(["?"] * len(regl_cols))
                     conn.execute(
-                        f"""INSERT INTO {T_REGLEMENTS}
-                           ({C_REGL_PIECE}, {C_REGL_DOMAINE}, {C_REGL_TYPE_DOC},
-                            {C_REGL_CBMARQ},
-                            {C_REGL_MODE_PAI}, {C_REGL_MONTANT}, {C_REGL_DATE})
-                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                        (num_piece, _do_domaine, _do_type,
-                         _regl_cbmarq,
-                         dr_type_regl, montant_total,
-                         datetime.now())
+                        f"INSERT INTO {T_REGLEMENTS} ({', '.join(regl_cols)}) VALUES ({ph})",
+                        regl_vals
                     )
                 finally:
                     if identity_col_regl:
                         conn.execute(f"SET IDENTITY_INSERT {T_REGLEMENTS} OFF")
-                
+
                 conn.commit()
+                statut_paiement = "SOLDE" if est_solde else "PARTIEL"
+                _solde_apres = round(solde_restant - montant_reglement, 2)
                 result = {
-                    "statut":  "REGLE",
-                    "message": (
-                        f"✅ Règlement enregistré !\n"
-                        f"   • Document : {num_piece}\n"
-                        f"   • Montant  : {_money_text(montant_total)}\n"
-                        f"   • Mode     : {mode_paiement}"
-                        +(f"\n   • N° pièce : {numero_piece_paiement}" if numero_piece_paiement else "")
-                    ),
-                }
+    "statut":                statut_paiement,
+    "DO_Piece":               num_piece,
+    "montant_regle":          montant_reglement,
+    "solde_restant":          _solde_apres,
+    "montant_total_facture":  montant_total,
+    "mode_paiement":          mode_paiement,
+    "numero_piece_paiement":  numero_piece_paiement or "",
+    "facture_soldee":         est_solde,
+    "DO_Cloture":             1 if est_solde else 0,
+    "message": (
+        f"✅ Règlement enregistré !\n"
+        f"   • Document        : {num_piece}\n"
+        f"   • Montant réglé   : {_money_text(montant_reglement)}\n"
+        f"   • Solde restant   : {_money_text(_solde_apres)}\n"
+        f"   • Mode            : {mode_paiement}"
+        + (f"\n   • N° pièce        : {numero_piece_paiement}" if numero_piece_paiement else "")
+        + (f"\n   ✅ Facture entièrement soldée." if est_solde else "")
+        + (
+            f"\n\n   ⚠️  ATTENTION : le n° de pièce paiement '{_ref_non_stockee}' "
+            f"n'a PAS pu être enregistré (colonne {C_REGL_REFERENCE} absente "
+            f"de {T_REGLEMENTS}). Migration requise."
+            if _ref_non_stockee else ""
+        )
+    ),
+}
         finally:
             conn.close()
         return _to_text(result)
@@ -3960,6 +4243,41 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
             conn.close()
         return _to_text(result)
 
+    elif name == "lire_encours_client":
+        conn = _get_conn()
+        try:
+            code_ou_nom = arguments["code_client"]
+            row, candidats = _resolve_client_with_suggestions(conn, code_ou_nom)
+            if not row:
+                if candidats:
+                    result = {
+                        "statut": "AMBIGU",
+                        "message": (
+                            f"⚠️ '{code_ou_nom}' correspond à {len(candidats)} clients. "
+                            f"Précisez le code exact (CT_Num)."
+                        ),
+                        "suggestions": candidats,
+                    }
+                else:
+                    result = {"statut": "ERREUR", "message": f"❌ Client '{code_ou_nom}' non trouvé."}
+            elif row.get(C_CT_TYPE) != 0:
+                result = {"statut": "ERREUR", "message": f"'{code_ou_nom}' n'est pas un client."}
+            else:
+                encours = row.get(C_CT_ENCOURS, 0.0) or 0.0
+                result = {
+                    "statut": "SUCCES",
+                    "CT_Num": row[C_CT_NUM],
+                    "CT_Intitule": row[C_CT_INTITULE],
+                    "CT_Encours": encours,
+                    "message": (
+                        f"📊 Encours actuel de {row[C_CT_INTITULE]} ({row[C_CT_NUM]}) : "
+                        f"{encours:,.2f} DT"
+                    ),
+                }
+        finally:
+            conn.close()
+        return _to_text(result)
+
     elif name == "lire_fournisseur":
         conn = _get_conn()
         try:
@@ -3980,7 +4298,8 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
         conn = _get_conn()
         try:
             kwargs = {}
-            for champ in ("intitule", "validite", "encours_max",
+            for champ in ("intitule", "validite",
+                          
                           "adresse", "complement", "code_postal", "ville",
                           "pays", "contact", "telephone", "email", "site"):
                 if champ in arguments:
@@ -3994,7 +4313,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
         conn = _get_conn()
         try:
             kwargs = {}
-            for champ in ("intitule", "validite", "encours_max",
+            for champ in ("intitule", "validite",
                           "adresse", "complement", "code_postal", "ville",
                           "pays", "contact", "telephone", "email", "site"):
                 if champ in arguments:
@@ -4023,12 +4342,22 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[types.TextContent]
     elif name == "resoudre_tiers":
         conn = _get_conn()
         try:
-            row = _resolve_client(conn, arguments["code_ou_nom"])
+            row, candidats = _resolve_client_with_suggestions(conn, arguments["code_ou_nom"])
             if not row:
-                result = {
-                    "statut": "ERREUR",
-                    "message": f"Tiers '{arguments['code_ou_nom']}' non trouvé",
-                }
+                if candidats:
+                    result = {
+                        "statut": "AMBIGU",
+                        "message": (
+                            f"⚠️ '{arguments['code_ou_nom']}' correspond à {len(candidats)} tiers différents. "
+                            f"Précisez le code exact (CT_Num)."
+                        ),
+                        "suggestions": candidats,
+                    }
+                else:
+                    result = {
+                        "statut": "ERREUR",
+                        "message": f"Tiers '{arguments['code_ou_nom']}' non trouvé",
+                    }
             else:
                 result = {
                     "statut":      "SUCCES",

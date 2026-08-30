@@ -331,9 +331,33 @@ _MARQUEURS_NL2SQL_FORCE_RE = [
 ]
 
 
+_RX_ARTICLES_VENDUS_PERIODE = re.compile(
+    r"(articles?\s+les?\s+plus?\s+vendus?|meilleurs?\s+articles?|palmar[eè]s)"
+    r".{0,40}(ce\s+mois|cette\s+semaine|cette\s+ann[eé]e|en\s+\d{4}|du\s+mois)"
+    r"|(ce\s+mois|cette\s+semaine|cette\s+ann[eé]e|en\s+\d{4}|du\s+mois)"
+    r".{0,40}(articles?\s+les?\s+plus?\s+vendus?|meilleurs?\s+articles?|palmar[eè]s)",
+    re.IGNORECASE,
+)
+
+_RX_CA_AVEC_PERIODE = re.compile(
+    r"(chiffre\s+d.affaires?|\bca\b|\bfactures?\b)"
+    r".{0,60}(mois\s+dernier|semaine\s+derni[eè]re|ann[eé]e\s+derni[eè]re|"
+    r"cette\s+semaine|ce\s+mois|cette\s+ann[eé]e|trimestre|semestre|"
+    r"compar[eé]|par\s+rapport|\bvs\b|entre\s+\d{4}-\d{2}-\d{2})"
+    r"|(mois\s+dernier|semaine\s+derni[eè]re|ann[eé]e\s+derni[eè]re|"
+    r"cette\s+semaine|ce\s+mois|cette\s+ann[eé]e|trimestre|semestre|"
+    r"compar[eé]|par\s+rapport)"
+    r".{0,60}(chiffre\s+d.affaires?|\bca\b|\bfactures?\b)",
+    re.IGNORECASE,
+)
+
 def _pre_classifier(question: str) -> str | None:
     """Pré-classification rapide par regex (0ms)."""
     q = question.lower().strip()
+    if _RX_ARTICLES_VENDUS_PERIODE.search(q):
+        return "NL2SQL_LIBRE"
+    if _RX_CA_AVEC_PERIODE.search(q):
+        return "NL2SQL_LIBRE"
     if any(p.search(q) for p in _MARQUEURS_NL2SQL_FORCE_RE):
         return "NL2SQL_LIBRE"
     for pattern, action in _PATTERNS_PRECLASS:

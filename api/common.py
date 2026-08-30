@@ -1,36 +1,15 @@
-"""
-common.py — Module partagé entre orchestrateur_general, formatters, extraction.
-Contient les constantes, helpers et cache communs pour éviter les dépendances
-circulaires et les `from X import *` fragiles.
-"""
+"""Common utilities and shared constants for orchestrator, formatters, and extraction modules.
+Provides helpers, regex patterns, caches, and lazy GLiNER model loading."""
 
 import re
 from typing import Optional
 
-# ─────────────────────────────────────────────────────────────────────
-# HELPERS GÉNÉRAUX
-# ─────────────────────────────────────────────────────────────────────
 def _safe_str(obj) -> str:
+    """Convert an object to a UTF‑8 string, decoding bytes if necessary."""
     if isinstance(obj, bytes):
         return obj.decode("utf-8", errors="replace")
     return str(obj).encode("utf-8", errors="replace").decode("utf-8")
 
-
-# ─────────────────────────────────────────────────────────────────────
-# CHEMIN DB
-# ─────────────────────────────────────────────────────────────────────
-# NB : plus de chemin DB codé en dur ici. Toute résolution de connexion
-# DB doit passer exclusivement par adaptation.db_adapter.get_connection()
-# (lui-même piloté par db_config.json / DB_DRIVER / DB_PATH). Si ce module
-# a un jour besoin d'une connexion, importer :
-#   from adaptation.db_adapter import get_connection
-# et appeler get_connection() au point d'usage plutôt que de recalculer
-# un chemin ici.
-
-
-# ─────────────────────────────────────────────────────────────────────
-# CONSTANTES SHARED — extraites de orchestrateur_general.py
-# ─────────────────────────────────────────────────────────────────────
 _ACTIONS_DEJA_TEXTE: set[str] = {
     "VERIFIER_STOCK", "STATUT_CLIENT",
     "LISTE_FOURNISSEURS", "TOP_FOURNISSEURS", "FICHE_FOURNISSEUR",
@@ -47,13 +26,8 @@ _STATUTS_ACTIONS_V3_OK: set[str] = {
     "REGLE", "MOUVEMENT_ENREGISTRE", "INCHANGE",
 }
 
-# Sera peuplé par orchestrateur_general.py après l'import des formateurs
 _FORMATEURS_JSON: dict[str, callable] = {}
 
-
-# ─────────────────────────────────────────────────────────────────────
-# CONSTANTES EXTRACTION NOM CLIENT — extraites de orchestrateur_general.py
-# ─────────────────────────────────────────────────────────────────────
 _PREFIXES_PARASITES = re.compile(
     r"^\s*(?:le\s+|la\s+|les\s+|l['\u2019]\s*|du\s+|de\s+la\s+|de\s+)?",
     re.IGNORECASE
@@ -70,9 +44,8 @@ _MOTS_VIDES_NOM: set[str] = {
     "au", "aux", "ce", "cette", "ces", "cet", "nombre", "total",
     "moyenne", "montant", "selon", "chaque", "tous", "toutes",
     "dans", "sans", "sous", "entre", "vers", "chez", "depuis",
-    # Mots interrogatifs et relationnels qui invalident la capture de nom
     "leur", "leurs", "ayant", "supérieur", "superieur", "inférieur",
-    "inferieur", "dernière", "derniere", "dernier", "première", "premiere",
+    "inferieur", "dernière", "dernier", "première", "premiere",
     "son", "sa", "ses", "quel", "quelle", "quels", "quelles",
     "comment", "combien", "quand", "où", "ou", "dont", "lequel",
     "laquelle", "lesquels", "lesquelles", "parmi", "après", "avant",
@@ -111,29 +84,20 @@ _PATTERN_NOM_CLIENT = re.compile(
     r"(?:" + _MOTS_PREFIX_CLIENT + r")"
     r"((?:société\s+|sarl\s+|sas\s+|sa\s+)?"
     r"[A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ0-9\s\-&'.]{1,80}?)"
-    r"(?:\s*[?.,;!]|\s*$)",
+    r"(?:\s+(?:le\s+mois\s+dernier|cette\s+semaine|cette\s+ann[eé]e|hier|aujourd['']hui)|\s*[?.,;!]|\s*$)",
     re.IGNORECASE
 )
 
 _PREFIXES_PIECES = re.compile(r"^(FA|FF|BL|BC|BF|OF|AV|BR|AF)[A-Z0-9]*\d+$", re.IGNORECASE)
 
-
-# ─────────────────────────────────────────────────────────────────────
-# CACHE RÉFÉRENCES ARTICLES — mutable, partagé par extraction.py
-# ─────────────────────────────────────────────────────────────────────
 _articles_refs_cache: Optional[list[str]] = None
 
-
-# ─────────────────────────────────────────────────────────────────────
-# GLINER — lazy singleton partagé
-# ─────────────────────────────────────────────────────────────────────
-ENABLE_GLINER: bool = False  # sera surchargé par la config depuis orchestrateur_general
-_gliner_model:      object | None = None
-_gliner_load_tried: bool          = False
-
+ENABLE_GLINER: bool = False
+_gliner_model: object | None = None
+_gliner_load_tried: bool = False
 
 def _get_gliner_sync() -> object | None:
-    """Charge GLiNER une seule fois (thread-safe via asyncio dans l'appelant)."""
+    """Load the GLiNER model once, returning the cached instance or None."""
     global _gliner_model, _gliner_load_tried
     if not ENABLE_GLINER:
         return None

@@ -66,13 +66,25 @@ def _exposer_pdf(pdf_path: str, username: str = "") -> Optional[str]:
 async def lifespan(app: FastAPI):
     global graphe
     logger.info("Chargement parallèle des composants")
+    init_labels = ["mcp_pool", "ollama_warmup"]
     init_tasks = [mcp_pool.init(), _warmup_ollama()]
-    if ENABLE_SEMANTIC_CLASSIFIER: init_tasks.append(warmup_semantic_classifier())
-    if ENABLE_VANNA:  init_tasks.append(_get_vanna_async())
-    if ENABLE_GLINER: init_tasks.append(_get_gliner_async())
-    if ENABLE_MEM0:   init_tasks.append(_get_mem0_async())
+    if ENABLE_SEMANTIC_CLASSIFIER:
+        init_labels.append("semantic_classifier")
+        init_tasks.append(warmup_semantic_classifier())
+    if ENABLE_VANNA:
+        init_labels.append("vanna")
+        init_tasks.append(_get_vanna_async())
+    if ENABLE_GLINER:
+        init_labels.append("gliner")
+        init_tasks.append(_get_gliner_async())
+    if ENABLE_MEM0:
+        init_labels.append("mem0")
+        init_tasks.append(_get_mem0_async())
 
-    await asyncio.gather(*init_tasks, return_exceptions=True)
+    results = await asyncio.gather(*init_tasks, return_exceptions=True)
+    for label, result in zip(init_labels, results):
+        if isinstance(result, Exception):
+            logger.error(f"Échec init composant '{label}' : {result}", exc_info=result)
     graphe = _construire_graphe()
     logger.info("API prête")
     yield

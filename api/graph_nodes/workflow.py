@@ -1,18 +1,9 @@
-"""
-Workflow node for the orchestrator.
-Extracted from orchestrateur_general.py lines 4538-4617.
+"""Module providing the workflow node for the orchestrator.
 
-Note v4.1 : ce fichier n'a PAS besoin d'adaptation vis-à-vis de la règle d'or
-de db_adapter.py. Il ne référence aucun nom physique de table/colonne Sage :
-- "DO_Piece" (result_bl.get / result_of.get) est une clé de CONTRAT DE SORTIE
-  JSON définie par mcp_sage.py (_workflow_bl/_workflow_of), pas un accès
-  colonne — au même titre que CT_Num/AR_Ref consommés dans modification.py.
-- "NON_TROUVE"/"BLOQUE"/"SUSPECT"/"VALIDE" sont des VALEURS métier (contenu
-  de la colonne validite), pas des noms de schéma.
-- Le regex "net:\\s*([\\d.]+)" parse le texte de sortie de
-  verifier_stock_article (nl2sql_server.py) — couplage au format d'affichage
-  de l'outil, pas au schéma DB.
-Seul correctif apporté : import json manquant (bug latent, cf. lecture.py).
+This module defines the asynchronous function `noeud_workflow` which orchestrates
+the various MCP calls to validate a client, check stock, possibly create a new
+client, generate delivery notes, and transform them into invoices. It returns
+the updated state dictionary with a human‑readable response.
 """
 
 import asyncio
@@ -24,11 +15,46 @@ from cache.response_cache import cache as response_cache
 
 logger = logging.getLogger(__name__)
 
-
 async def noeud_workflow(state, _hub_contexte_client, _mcp_workflow_bl, _mcp_workflow_of,
                          _mcp_workflow_bf, _parse_mcp_response, _input, _safe_str):
-    """
-    Handles workflow operations for command processing.
+    """Execute the workflow for processing a command.
+
+    This coroutine performs the following steps:
+    - Verify client status and article stock via MCP calls.
+    - Determine the client decision based on the context hub.
+    - Optionally create a new client if required.
+    - Run the business logic for delivery notes, order fulfillment,
+      and back‑order handling.
+    - Transform a generated delivery note into an invoice.
+    - Populate `state["reponse_brute"]` with a formatted log of actions
+      and invalidate the response cache.
+
+    Parameters
+    ----------
+    state : dict
+        The mutable state dictionary containing command information such as
+        `code_client`, `ref_article`, `quantite`, and validation flags.
+    _hub_contexte_client : callable
+        Asynchronous function that returns a context dictionary with decision
+        and optional alerts for the given client, status, stock, and quantity.
+    _mcp_workflow_bl : callable
+        Asynchronous function to invoke the MCP workflow for delivery notes.
+    _mcp_workflow_of : callable
+        Asynchronous function to invoke the MCP workflow for order fulfillment.
+    _mcp_workflow_bf : callable
+        Asynchronous function to invoke the MCP workflow for back‑order handling.
+    _parse_mcp_response : callable
+        Function that parses raw MCP responses into a dictionary.
+    _input : callable
+        Asynchronous function used to request user input.
+    _safe_str : callable
+        Function that safely converts exceptions to string representations.
+
+    Returns
+    -------
+    dict
+        The updated `state` dictionary, including a human‑readable response
+        under the key `reponse_brute`.
     """
     if not state["validation_ok"]:
         return state
@@ -47,7 +73,7 @@ async def noeud_workflow(state, _hub_contexte_client, _mcp_workflow_bl, _mcp_wor
         m = re.search(r"net:\s*([\d.]+)", txt_s)
         stock_dispo = float(m.group(1)) if m else 0.0
 
-        ctx      = await _hub_contexte_client(state["code_client"], statut, stock_dispo, state["quantite"])
+        ctx = await _hub_contexte_client(state["code_client"], statut, stock_dispo, state["quantite"])
         decision = ctx.get("decision", "VALIDER")
         logs.extend(f"⚠️  {a}" for a in ctx.get("alertes", []))
 
