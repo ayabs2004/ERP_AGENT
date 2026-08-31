@@ -1569,6 +1569,9 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
     if state.get('nomenclature_en_cours'):
         state['intention'] = 'ERP'
         return state
+    if state.get('modification_nomenclature_en_cours'):
+        state['intention'] = 'ERP'
+        return state
     if state.get('pending_action') and state.get('statut_confirmation') == 'ATTENTE':
         if est_confirmation_stricte(state['demande_brute']) or _est_oui(state['demande_brute']):
             state['statut_confirmation'] = 'CONFIRME'
@@ -2970,6 +2973,7 @@ Cette fonction effectue l'initialisation des composants du programme, notamment 
                     contexte_session['modification_en_cours'] = final_state.get('modification_en_cours', {})
                     contexte_session['creation_article_en_cours'] = final_state.get('creation_article_en_cours', {})
                     contexte_session['nomenclature_en_cours'] = final_state.get('nomenclature_en_cours', {})
+                    contexte_session['modification_nomenclature_en_cours'] = final_state.get('modification_nomenclature_en_cours', {})
                     if final_state.get('action') == 'GENERER_DOC' and final_state.get('statut_draft') == '':
                         type_doc_genere = (final_state.get('type_doc') or '').upper()
                         if type_doc_genere == 'OF' and final_state.get('num_piece'):
@@ -3024,6 +3028,7 @@ Cette fonction effectue l'initialisation des composants du programme, notamment 
                 contexte_session['modification_en_cours'] = final_state.get('modification_en_cours', {})
                 contexte_session['creation_article_en_cours'] = final_state.get('creation_article_en_cours', {})
                 contexte_session['nomenclature_en_cours'] = final_state.get('nomenclature_en_cours', {})
+                contexte_session['modification_nomenclature_en_cours'] = final_state.get('modification_nomenclature_en_cours', {})
                 if final_state.get('ambigue'):
                     demande_precedente = demande_courante
                 else:
