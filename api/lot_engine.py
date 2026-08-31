@@ -142,4 +142,5 @@ def allouer(qte_demandee: float, lots: list[Lot], strategie: str = "FIFO") -> Re
         qte_demandee=qte_demandee,
         manque=0.0,
         lots_disponibles=lots_tries,
+        message="",
     )
