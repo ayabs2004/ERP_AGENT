@@ -349,16 +349,4 @@ run_learning_cycle.py  -->  enrichissement du dataset valide
 
 ---
 
-## Licence
-
-Proprietaire - Tous droits reserves.
-
----
-
-## Contributeurs
-
-- Equipe ERP Sage 100
-
----
-
 **Version** : 9.4 · **Derniere mise a jour** : Aout 2026
