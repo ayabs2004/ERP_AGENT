@@ -3842,6 +3842,7 @@ async def _call_tool_impl_inner(name: str, arguments: dict) -> list[types.TextCo
             _TRANSFORMATIONS_AUTORISEES = {
                 ("BC", "BL"):        {"mouvement_stock": True},
                 ("BL", "FACTURE"):   {"mouvement_stock": False},
+                ("BL_ACHAT", "FA_ACHAT"): {"mouvement_stock": False},
                 ("OF", "BF"):        {"mouvement_stock": True},
                 ("FACTURE", "AVOIR"): {"mouvement_stock": False},
             }
