@@ -1,4 +1,4 @@
-Agent Sage — Copilot ERP Sage 100
+🤖 Agent Sage — Copilot ERP Sage 100
 Assistant conversationnel intelligent pour l'ERP Sage 100, piloté par une architecture multi-agents avec LangGraph, des LLM locaux via Ollama, et des serveurs MCP dédiés.
 
 ✨ Présentation
@@ -9,74 +9,7 @@ Créer et transformer des documents commerciaux (BL, Factures, Avoirs…)
 Analyser les performances (CA, stock, DSO, RFM…)
 Exporter des rapports Excel et des PDF générés automatiquement
 Apprendre continuellement grâce à une boucle de classification semi-supervisée
-🏗️ Architecture
-
-┌─────────────────────────────────────────────────────────────────┐
-│                        UTILISATEUR                               │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              Interface Web — React + TailwindCSS                │
-│  • Chat conversationnel                                         │
-│  • Authentification JWT                                         │
-│  • Rendu Markdown des réponses                                  │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    API FastAPI (api/)                            │
-│  • Authentification JWT  •  Rate limiting  •  CORS             │
-│  • Sessions bornées (TTL + plafond)                             │
-│  • Endpoint protégé pour téléchargement PDF                     │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         ORCHESTRATEUR GÉNÉRAL (orchestrateur_general.py)        │
-│                                                                 │
-│  Classifier ──▶ Planner ──▶ Router (LangGraph)                 │
-│                               │                                 │
-│        ┌──────────────────────┼──────────────────────┐          │
-│        ▼                      ▼                      ▼          │
-│   Hors Sujet             Aide métier          Clarification      │
-│                               │                                 │
-│                    ┌──────────▼──────────┐                      │
-│                    │  Nœud Synthèse      │                      │
-│                    │  • Formatage        │                      │
-│                    │  • Anti-hallucin.   │                      │
-│                    │  • Mémoire Mem0     │                      │
-│                    └─────────────────────┘                      │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                 ▼                 ▼
-┌──────────────┐  ┌──────────────────┐  ┌──────────────┐
-│  AGENT       │  │  AGENT NL2SQL    │  │  AGENT KB    │
-│  LECTURE     │  │                  │  │              │
-│  • Clients   │  │  • Vanna AI      │  │  • Procédures│
-│  • Articles  │  │  • Patterns SQL  │  │  • Fiches    │
-│  • Factures  │  │  • Fallback LLM  │  │  • SAV       │
-│  • Stock     │  │                  │  │              │
-└──────┬───────┘  └────────┬─────────┘  └──────┬───────┘
-       └──────────────────┬┘──────────────────┘
-                          ▼
-             ┌────────────────────────┐
-             │    MCP POOL            │
-             │  • mcp_nl2sql          │
-             │  • mcp_actions_sage    │
-             │  • mcp_knowledge_base  │
-             └───────────┬────────────┘
-                         ▼
-             ┌────────────────────────┐
-             │   SAGE 100 (SQL Server │
-             │   — Microsoft MSSQL)   │
-             │  • F_COMPTET           │
-             │  • F_ARTICLE           │
-             │  • F_DOCENTETE         │
-             │  • F_DOCLIGNE          │
-             │  • F_ARTSTOCK          │
-             └────────────────────────┘
+Mermaid diagram
 🧠 Intelligence artificielle
 Classificateur hybride
 Le cœur du système utilise une classification à trois couches :
