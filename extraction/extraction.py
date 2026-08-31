@@ -235,4 +235,77 @@ async def _rechercher_client_par_nom(nom: str, mcp_pool) -> str:
     print(f"   🔍 [Recherche Nom] '{nom}' → mots : {mots_significatifs}")
     async def _appel_fiche(query: str) -> str:
         try:
-            return await mcp_pool.call("nl
+            return await mcp_pool.call("nl2sql", "rechercher_fiche_client", {"code_client": query})
+        except Exception:
+            return ""
+
+    async def _appel_statut(query: str) -> str:
+        try:
+            return await mcp_pool.call("nl2sql", "verifier_statut_client", {"code_client": query})
+        except Exception:
+            return ""
+
+    _CODES_INVALIDES_CACHE = {
+        "client", "clients", "tiers", "societe", "société",
+        "entreprise", "none", "null", "inconnu", "unknown",
+        "non_trouve", "vide", "absent",
+    }
+
+    def _extraire_code(text: str) -> str:
+        try:
+            data = json.loads(text)
+            code = data.get("CT_Num", "")
+            if (code
+                    and code not in ("NON_TROUVE", "")
+                    and code.lower() not in _CODES_INVALIDES_CACHE
+                    and len(code) >= 3):
+                return code
+        except Exception:
+            pass
+        m = re.search(r"CT_Num[:\s]+([A-Z0-9]+)", text, re.IGNORECASE)
+        code_m = m.group(1).strip() if m else ""
+        return code_m if code_m.lower() not in _CODES_INVALIDES_CACHE else ""
+
+    MAX_RECHERCHE_NOM_CALLS = 6  # plafond configurable d'appels MCP
+
+    # Si trop de mots significatifs, la phrase ressemble à une requête NL2SQL → abandon
+    if len(mots_significatifs) > 3:
+        _client_nom_cache[nom_lower] = ""
+        print(f"   ⚠️  [Recherche Nom] '{nom}' trop long ({len(mots_significatifs)} mots) → NL2SQL_LIBRE")
+        return ""
+
+    _nb_appels = 0
+    for essai_fn, essai_val in [(_appel_fiche, nom), (_appel_fiche, " ".join(mots_significatifs))]:
+        if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+            break
+        t = await essai_fn(essai_val)
+        _nb_appels += 1
+        if t:
+            code = _extraire_code(t)
+            if code:
+                _client_nom_cache[nom_lower] = code
+                print(f"   ✅ [MCP] '{essai_val}' → {code}")
+                return code
+
+    for taille in range(len(mots_significatifs), 0, -1):
+        for combo in itertools.combinations(mots_significatifs, taille):
+            if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+                break
+            sous_nom = " ".join(combo)
+            if len(sous_nom) < 2:
+                continue
+            for fn in (_appel_fiche, _appel_statut):
+                if _nb_appels >= MAX_RECHERCHE_NOM_CALLS:
+                    break
+                t = await fn(sous_nom)
+                _nb_appels += 1
+                if t:
+                    code = _extraire_code(t)
+                    if code:
+                        _client_nom_cache[nom_lower] = code
+                        print(f"   ✅ [MCP Combo] '{sous_nom}' → {code}")
+                        return code
+
+    _client_nom_cache[nom_lower] = ""
+    print(f"   ⚠️  [Recherche Nom] '{nom}' introuvable")
+    return ""

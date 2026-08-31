@@ -1,6 +1,6 @@
-"""Module handling conversational node for modifying product nomenclature (BOM) via MCP API.
-Provides utilities to read articles, read nomenclature, format it, and manage an interactive
-state machine that allows adding, modifying, or deleting components in a nomenclature."""
+"""
+Noeud conversationnel guide : modification d'une nomenclature existante (BOM).
+"""
 
 import logging
 import re
@@ -10,13 +10,14 @@ from api.mcp_pool import pool as mcp_pool
 
 logger = logging.getLogger(__name__)
 
+
 def _normaliser(texte: str) -> str:
-    """Normalize text by converting to lowercase and removing diacritics."""
+    """Minuscule + suppression accents."""
     t = unicodedata.normalize("NFKD", texte.strip().lower())
     return "".join(c for c in t if not unicodedata.combining(c))
 
+
 async def _lire_article_mcp(ref_ou_nom: str) -> dict:
-    """Retrieve article data from MCP given a reference or name."""
     try:
         raw = await mcp_pool.call("actions", "lire_article", {"ref_article": ref_ou_nom})
         if not raw:
@@ -27,8 +28,8 @@ async def _lire_article_mcp(ref_ou_nom: str) -> dict:
         logger.error(f"[_lire_article_mcp] {e}")
         return {}
 
+
 async def _lire_nomenclature_mcp(ref_parent: str) -> list:
-    """Retrieve nomenclature components for a given parent reference from MCP."""
     try:
         raw = await mcp_pool.call("actions", "lire_nomenclature", {"ref_parent": ref_parent})
         if not raw:
@@ -39,8 +40,9 @@ async def _lire_nomenclature_mcp(ref_parent: str) -> list:
         logger.error(f"[_lire_nomenclature_mcp] {e}")
         return []
 
+
 def _formater_nomenclature(composants: list) -> str:
-    """Format a list of components into a markdown table."""
+    """Rend la nomenclature sous forme de tableau markdown (mieux stylé par le frontend)."""
     if not composants:
         return "_La nomenclature est actuellement vide._"
     lignes = [
@@ -55,8 +57,9 @@ def _formater_nomenclature(composants: list) -> str:
         lignes.append(f"| **{ref}** | {design} | {qte} | {comment} |")
     return "\n".join(lignes)
 
+
 def _traiter_retry_modif_nom(state: dict, c: dict, etape: str, message: str) -> bool:
-    """Handle retry logic for a modification step, cancelling after two failed attempts."""
+    """Retry up to 2 times, then cancel the modification flow."""
     tentatives = c.setdefault("tentatives_champ", {})
     n = int(tentatives.get(etape, 0)) + 1
     tentatives[etape] = n
@@ -70,13 +73,14 @@ def _traiter_retry_modif_nom(state: dict, c: dict, etape: str, message: str) -> 
     state["action_buttons"] = []
     return False
 
+
 async def noeud_modification_nomenclature(state: dict) -> dict:
-    """Main conversational node handling the nomenclature modification workflow."""
     logger.info("[Modif Nomenclature] entree")
     question = state.get("demande_brute", "").strip()
     c = state.get("modification_nomenclature_en_cours") or {}
     etape = c.get("etape", "INIT")
 
+    # ── INIT ────────────────────────────────────────────────────────────────
     if etape == "INIT":
         ref = state.get("ref_article") or state.get("nom_article_brut") or c.get("ref_parent") or ""
         if not ref:
@@ -113,6 +117,7 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
         state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
         return state
 
+    # ── ATTENTE_PARENT ───────────────────────────────────────────────────────
     if etape == "ATTENTE_PARENT":
         data = await _lire_article_mcp(question)
         if data.get("statut") != "SUCCES":
@@ -134,6 +139,7 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
         state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
         return state
 
+    # ── ATTENTE_ACTION ───────────────────────────────────────────────────────
     if etape == "ATTENTE_ACTION":
         t = _normaliser(question)
         if re.search(r"\b(terminer?|fin|quitter?|stop|non|rien|aucun)\b", t):
@@ -178,6 +184,7 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
         state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
         return state
 
+    # ── AJOUT : composant ────────────────────────────────────────────────────
     if etape == "ATTENTE_COMPOSANT_AJOUT":
         data = await _lire_article_mcp(question)
         if data.get("statut") != "SUCCES":
@@ -211,4 +218,118 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
         c["etape"] = "ATTENTE_COMMENTAIRE_AJOUT"
         c.setdefault("tentatives_champ", {}).pop("ATTENTE_QTE_AJOUT", None)
         state["modification_nomenclature_en_cours"] = c
-        state["reponse
+        state["reponse_finale"] = "Souhaitez-vous ajouter un **commentaire** ? (tapez 'non' pour ignorer)"
+        state["action_buttons"] = ["Non"]
+        return state
+
+    if etape == "ATTENTE_COMMENTAIRE_AJOUT":
+        comment = ""
+        if not re.match(r"^(non|no|n|rien)$", _normaliser(question)):
+            comment = question[:69]
+        try:
+            await mcp_pool.call("actions", "creer_ligne_nomenclature", {
+                "ref_parent": c["ref_parent"],
+                "ref_composant": c["ref_cible"],
+                "qte": c["qte_cible"],
+                "commentaire": comment
+            })
+            state["dernier_message"] = (
+                f"✅ **Ajout réussi** — **{c['ref_cible']}** ({c.get('design_cible', '')}) · "
+                f"Qté={c['qte_cible']} ajouté à la nomenclature de **{c['ref_parent']}**."
+            )
+        except Exception as e:
+            logger.error(f"[ajout nomenclature] {e}")
+            state["dernier_message"] = (
+                f"❌ **Échec de l'ajout** du composant **{c['ref_cible']}** : {e}"
+            )
+        c.pop("ref_cible", None)
+        c.pop("qte_cible", None)
+        c.pop("design_cible", None)
+        c["etape"] = "INIT"
+        state["modification_nomenclature_en_cours"] = c
+        state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
+        return await noeud_modification_nomenclature(state)
+
+    # ── MODIFICATION : composant → quantite ──────────────────────────────────
+    if etape == "ATTENTE_COMPOSANT_MODIF":
+        data = await _lire_article_mcp(question)
+        if data.get("statut") != "SUCCES":
+            if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_MODIF",
+                                        f"❌ Composant '{question}' introuvable. Veuillez reessayer :"):
+                return state
+            return state
+        ref_cible = data["AR_Ref"]
+        refs_actuels = [comp.get("ref_composant") for comp in c.get("composants", [])]
+        if ref_cible not in refs_actuels:
+            if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_MODIF",
+                                        f"❌ Le composant **{ref_cible}** n'est pas dans cette nomenclature. Choisissez un composant existant :"):
+                return state
+            return state
+        c["ref_cible"] = ref_cible
+        c["etape"] = "ATTENTE_QTE_MODIF"
+        c.setdefault("tentatives_champ", {}).pop("ATTENTE_COMPOSANT_MODIF", None)
+        state["modification_nomenclature_en_cours"] = c
+        state["reponse_finale"] = f"Modification de **{ref_cible}**. Quelle est la **nouvelle quantité** ?"
+        state["action_buttons"] = []
+        return state
+
+    if etape == "ATTENTE_QTE_MODIF":
+        try:
+            qte = float(question.replace(",", "."))
+        except ValueError:
+            if _traiter_retry_modif_nom(state, c, "ATTENTE_QTE_MODIF",
+                                        "❌ Veuillez saisir un nombre valide :"):
+                return state
+            return state
+        try:
+            await mcp_pool.call("actions", "modifier_ligne_nomenclature", {
+                "ref_parent": c["ref_parent"],
+                "ref_composant": c["ref_cible"],
+                "qte": qte
+            })
+            state["dernier_message"] = (
+                f"✅ **Modification réussie** — nouvelle quantité de **{c['ref_cible']}** : {qte}."
+            )
+        except Exception as e:
+            logger.error(f"[modif nomenclature] {e}")
+            state["dernier_message"] = f"❌ **Échec de la modification** de **{c['ref_cible']}** : {e}"
+        c.pop("ref_cible", None)
+        c["etape"] = "INIT"
+        state["modification_nomenclature_en_cours"] = c
+        state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
+        return await noeud_modification_nomenclature(state)
+
+    # ── SUPPRESSION ──────────────────────────────────────────────────────────
+    if etape == "ATTENTE_COMPOSANT_SUPPR":
+        data = await _lire_article_mcp(question)
+        if data.get("statut") != "SUCCES":
+            if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_SUPPR",
+                                        f"❌ Composant '{question}' introuvable. Veuillez reessayer :"):
+                return state
+            return state
+        ref_cible = data["AR_Ref"]
+        refs_actuels = [comp.get("ref_composant") for comp in c.get("composants", [])]
+        if ref_cible not in refs_actuels:
+            if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_SUPPR",
+                                        f"❌ Le composant **{ref_cible}** n'est pas dans cette nomenclature. Choisissez un composant existant :"):
+                return state
+            return state
+        try:
+            await mcp_pool.call("actions", "supprimer_ligne_nomenclature", {
+                "ref_parent": c["ref_parent"],
+                "ref_composant": ref_cible
+            })
+            state["dernier_message"] = f"✅ **Suppression réussie** — **{ref_cible}** retiré de la nomenclature."
+        except Exception as e:
+            logger.error(f"[suppr nomenclature] {e}")
+            state["dernier_message"] = f"❌ **Échec de la suppression** du composant **{ref_cible}** : {e}"
+        c["etape"] = "INIT"
+        state["modification_nomenclature_en_cours"] = c
+        state["action_buttons"] = ["Ajouter", "Modifier", "Supprimer", "Terminer"]
+        return await noeud_modification_nomenclature(state)
+
+    # Etat inconnu
+    state["modification_nomenclature_en_cours"] = {}
+    state["reponse_finale"] = "Etat inconnu, annulation de la modification de nomenclature."
+    state["action_buttons"] = []
+    return state

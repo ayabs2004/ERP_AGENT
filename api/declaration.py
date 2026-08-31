@@ -1,20 +1,35 @@
-"""Module for generating monthly purchase/sale declaration Excel files.
-
-The module parses a free‑text period description, retrieves purchase and sale
-lines from the database using the `adaptation.db_adapter` abstraction,
-formats dates, computes totals (HT, TVA, TTC) and writes a styled Excel
-workbook. The result is saved in the ``declarations_generes`` directory and
-a JSON summary is returned.
 """
+declaration.py — Génération de la déclaration mensuelle Achat/Vente (Excel)
+============================================================================
+v2 — CORRECTIF DE NEUTRALITÉ DB (règle d'or db_adapter.py)
+     La requête SQL de _lignes_periode() codait en dur F_DOCENTETE,
+     F_COMPTET, F_DOCLIGNE, CT_Num, CT_Intitule, DO_Piece, DO_Date,
+     DO_Type, DO_Domaine, DL_Qte, DL_PrixUnitaire, et _connect()
+     ouvrait sa propre connexion sqlite3 sur un chemin recalculé
+     localement. Désormais, tout passe par adaptation.db_adapter
+     (table()/col()/get_connection()), comme dans mcp_actions_sage.py
+     et nl2sql_server.py.
 
+v3 — CORRECTIF DIALECTE SQL (MSSQL vs SQLite)
+     - STRFTIME('%Y-%m', ...) n'existe pas en T-SQL : la requête plantait
+       dès que DB_DRIVER=mssql. Le filtre de période est maintenant
+       construit selon le dialecte (_is_mssql()), sur le même principe
+       que le reste du code (_top(), etc.) : YEAR()/MONTH() sous MSSQL,
+       STRFTIME sous SQLite.
+     - GROUP BY incomplet : SQL Server exige que toute colonne du SELECT
+       non agrégée apparaisse dans le GROUP BY (SQLite tolère l'inverse,
+       pas SQL Server). Ajout de e.{date_col}, e.{tiers_col}, c.{nom_col}
+       au GROUP BY.
+     - Parsing de date fragile : sous pyodbc/MSSQL, une colonne date
+       revient souvent comme un objet datetime.date/datetime.datetime,
+       pas une chaîne "%Y-%m-%d" — strptime plantait dessus. Ajout d'un
+       helper _fmt_date() qui gère les deux cas.
+"""
 import json
 from decimal import Decimal
 
 _json_dumps_orig = json.dumps
 def _json_dumps_safe(obj, **kwargs):
-    """Serialize ``obj`` to JSON, converting ``Decimal`` to ``float`` and other
-    unsupported types to ``str``.
-    """
     kwargs.setdefault("default", lambda o: float(o) if isinstance(o, Decimal) else str(o))
     return _json_dumps_orig(obj, **kwargs)
 json.dumps = _json_dumps_safe
@@ -29,6 +44,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# Permet d'importer adaptation.db_adapter quel que soit le cwd d'exécution
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from adaptation.db_adapter import table, col, get_connection
 
@@ -49,15 +65,13 @@ _MOIS_NOMS = [
     "JUILLET", "AOÛT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DÉCEMBRE",
 ]
 
+
 def _is_mssql() -> bool:
-    """Return ``True`` if the environment variable ``DB_DRIVER`` is set to ``mssql``."""
     return os.getenv('DB_DRIVER', 'sqlite').lower() == 'mssql'
 
+
 def _parse_mois_annee(texte: str) -> tuple[int, int]:
-    """Extract month and year from free‑text ``texte``.
-    
-    If the year is not found, the current year is used.
-    """
+    """Extrait (mois, annee) depuis un texte libre. Année par défaut = année en cours."""
     texte = (texte or "").lower()
     mois = None
     for nom, num in _MOIS_FR.items():
@@ -73,25 +87,26 @@ def _parse_mois_annee(texte: str) -> tuple[int, int]:
     annee = int(m_annee.group(1)) if m_annee else datetime.now().year
     return mois, annee
 
+
 def _connect():
-    """Obtain a database connection using the ``adaptation.db_adapter`` helper."""
+    """Connexion DB via db_adapter (sqlite ou mssql selon db_config.json)."""
     return get_connection()
 
+
 def _fmt_date(v) -> str:
-    """Format a date value returned by the DB driver as ``JJ/MM/AAAA``.
-    
-    Handles both ``datetime`` objects (MSSQL) and ISO date strings (SQLite).
+    """
+    Formate une valeur de date renvoyée par le driver DB en JJ/MM/AAAA.
+    Gère à la fois les objets datetime.date/datetime.datetime (pyodbc/MSSQL)
+    et les chaînes "%Y-%m-%d" (sqlite3).
     """
     if hasattr(v, "strftime"):
         return v.strftime("%d/%m/%Y")
     return datetime.strptime(str(v), "%Y-%m-%d").strftime("%d/%m/%Y")
 
+
 def _lignes_periode(conn, domaine: int, mois: int, annee: int, label_tiers: str):
-    """Retrieve purchase (domaine=1) or sale (domaine=0) lines for the given period.
-    
-    Returns a list of dictionaries containing formatted date, reference,
-    tier name, and monetary amounts (HT, TVA, TTC).
-    """
+    """domaine=0 → ventes (clients) | domaine=1 → achats (fournisseurs)"""
+
     doc_entete_table = table("doc_entete")
     clients_table    = table("clients_fournisseurs")
     doc_ligne_table  = table("doc_ligne")
@@ -124,7 +139,7 @@ def _lignes_periode(conn, domaine: int, mois: int, annee: int, label_tiers: str)
         FROM {doc_entete_table} e
         LEFT JOIN {clients_table}  c ON e.{tiers_col} = c.{code_col}
         LEFT JOIN {doc_ligne_table} l ON e.{piece_col} = l.{piece_col_ligne}
-        WHERE e.{type_col} = {6 if domaine == 0 else 16} AND e.{domaine_col} = {domaine}
+        WHERE e.{type_col} = 3 AND e.{domaine_col} = {domaine}
           AND {filtre_periode}
         GROUP BY e.{piece_col}, e.{date_col}, e.{tiers_col}, c.{nom_col}
         ORDER BY e.{date_col}
@@ -143,6 +158,8 @@ def _lignes_periode(conn, domaine: int, mois: int, annee: int, label_tiers: str)
         })
     return lignes
 
+
+# ── Styles Excel (repris du gabarit fourni) ─────────────────────────
 FILL_TITRE = PatternFill("solid", fgColor="4BACC6")
 FILL_ENTETE_SECTION = PatternFill("solid", fgColor="D9D9D9")
 FILL_HEADER_COL = PatternFill("solid", fgColor="D9D9D9")
@@ -153,19 +170,19 @@ FONT_TOTAL = Font(bold=True)
 BORDURE = Border(*(Side(style="thin", color="808080"),) * 4)
 CENTRE = Alignment(horizontal="center", vertical="center")
 
+
 def _bloc(ws, col_debut: int, titre: str, lignes: list[dict], label_tiers: str):
-    """Write a purchase or sale block into ``ws`` starting at column ``col_debut``.
-    
-    Returns a tuple ``(total_ht, total_tva, total_ttc)`` for the block.
-    """
+    """Écrit un bloc ACHAT ou VENTE à partir de la colonne col_debut (1-based)."""
     c0, c1, c2, c3, c4, c5 = range(col_debut, col_debut + 6)
 
+    # Bandeau section (ligne 3)
     ws.merge_cells(start_row=3, start_column=c0, end_row=3, end_column=c5)
     cell = ws.cell(row=3, column=c0, value=titre)
     cell.font = FONT_ENTETE
     cell.alignment = CENTRE
     cell.fill = FILL_ENTETE_SECTION
 
+    # En-têtes colonnes (ligne 4)
     entetes = ["Date", "Référence", label_tiers, "H.T", "TVA", "TTC"]
     for i, txt in enumerate(entetes):
         cell = ws.cell(row=4, column=col_debut + i, value=txt)
@@ -174,6 +191,7 @@ def _bloc(ws, col_debut: int, titre: str, lignes: list[dict], label_tiers: str):
         cell.alignment = CENTRE
         cell.border = BORDURE
 
+    # Lignes de données
     r = 5
     total_ht = total_tva = total_ttc = 0.0
     for ligne in lignes:
@@ -190,6 +208,7 @@ def _bloc(ws, col_debut: int, titre: str, lignes: list[dict], label_tiers: str):
         total_ttc += ligne["ttc"]
         r += 1
 
+    # Ligne TOTAL
     ws.merge_cells(start_row=r, start_column=c0, end_row=r, end_column=c2)
     cell = ws.cell(row=r, column=c0, value="TOTAL")
     cell.font = FONT_TOTAL
@@ -208,12 +227,8 @@ def _bloc(ws, col_debut: int, titre: str, lignes: list[dict], label_tiers: str):
 
     return total_ht, total_tva, total_ttc
 
+
 def generer_declaration_mensuelle_excel(texte_periode: str) -> str:
-    """Generate the monthly declaration Excel file for the period described by ``texte_periode``.
-    
-    Returns a JSON string summarising the operation, including status, month,
-    year, file path and aggregated totals for purchases and sales.
-    """
     mois, annee = _parse_mois_annee(texte_periode)
     conn = _connect()
     try:
@@ -227,5 +242,31 @@ def generer_declaration_mensuelle_excel(texte_periode: str) -> str:
     ws.title = "Déclaration"
     ws.sheet_view.showGridLines = False
 
+    # Bandeau titre (ligne 1) sur toute la largeur (achat: A-F, gap G, vente: H-M)
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=13)
-    titre_cell =
+    titre_cell = ws.cell(row=1, column=1, value=f"DECLARATION {_MOIS_NOMS[mois]} {annee}")
+    titre_cell.font = FONT_TITRE
+    titre_cell.fill = FILL_TITRE
+    titre_cell.alignment = CENTRE
+    ws.row_dimensions[1].height = 24
+
+    tot_achat = _bloc(ws, 1, "ACHAT", achats, "Fournisseur")
+    tot_vente = _bloc(ws, 8, "VENTE", ventes, "Client")
+    ws.column_dimensions["G"].width = 3  # colonne d'écart entre les 2 tableaux
+
+    nom_fichier = f"DECLARATION_{_MOIS_NOMS[mois]}_{annee}.xlsx"
+    chemin = str(OUTPUT_DIR / nom_fichier)
+    wb.save(chemin)
+
+    return json.dumps({
+        "statut": "OK",
+        "mois": _MOIS_NOMS[mois],
+        "annee": annee,
+        "fichier": chemin,
+        "achat":  {"nb": len(achats), "total_ht": round(tot_achat[0], 2), "total_tva": round(tot_achat[1], 2), "total_ttc": round(tot_achat[2], 2)},
+        "vente":  {"nb": len(ventes), "total_ht": round(tot_vente[0], 2), "total_tva": round(tot_vente[1], 2), "total_ttc": round(tot_vente[2], 2)},
+    }, ensure_ascii=False)
+
+
+if __name__ == "__main__":
+    print(generer_declaration_mensuelle_excel("crée une déclaration du mois de juin 2026"))

@@ -199,4 +199,69 @@ async def noeud_nl2sql_libre(state, ENABLE_VANNA, _vanna_client, _vanna_generer_
                 elif code and not _sql_cible_docentete:
                     logger.debug(
                         f"   🔧 [NL2SQL Fix] SQL ne cible pas {_T_DOC_ENTETE} avec alias 'e' "
-                        f"→ correction code tiers fournisseur '{code}' ignorée (évite d
+                        f"→ correction code tiers fournisseur '{code}' ignorée (évite d'écraser "
+                        f"un littéral non lié au tiers, ex: référence article)"
+                    )
+            elif code and code.upper() not in ("PROD-INT", "") and not _sql_cible_docentete:
+                params_filtre = ()
+                logger.debug(
+                    f"   🔧 [NL2SQL Fix] SQL ne cible pas {_T_DOC_ENTETE} avec alias 'e' "
+                    f"→ injection filtre client '{code}' ignorée (évite une erreur SQL "
+                    f"type 4104 sur une colonne inexistante dans la table ciblée)"
+                )
+            else:
+                params_filtre = ()
+
+            logger.info(f"   ✨ [Vanna] SQL généré (confiance {score:.0%}) : {sql[:80]}...")
+            if re.search(r'<<[A-Z_]+_\d+>>|\b(?:NOM|CLIENT|FOUR|ARTICLE|PIECE)_\d+\b', sql):
+                logger.error("🚫 SQL contient un token d'anonymisation non résolu, exécution bloquée")
+                state["reponse_brute"] = "⚠️ Erreur interne : impossible de résoudre les identifiants dans la requête."
+                return state
+            
+            try:
+                call_params: dict = {"sql": sql, "description": state["demande_brute"]}
+                if params_filtre:
+                    call_params["params"] = list(params_filtre)
+                reponse = await mcp_pool.call(
+                    "nl2sql", "executer_sql_vanna",
+                    call_params,
+                )
+                state["reponse_brute"] = reponse
+                if _est_fallback_generique(state["reponse_brute"]):
+                    logger.warning("   ⚠️  [NL2SQL] Fallback générique détecté → message explicite")
+                    state["reponse_brute"] = (
+                        "⚠️  Je n'ai pas trouvé cette information dans la base de données Sage 100.\n"
+                        "Cette notion n'existe peut-être pas dans le schéma SQL "
+                        "(elle est peut-être disponible dans la base documentaire)."
+                    )
+                    return state
+                if reponse and "__ERREUR__" not in reponse:
+                    asyncio.create_task(
+                        asyncio.to_thread(_vanna_entrainer, state["demande_brute"], sql)
+                    )
+                return state
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                logger.error(f"   ⚠️  [Vanna] exécution : {_safe_str(e)}")
+        else:
+            if ENABLE_VANNA:
+                if sql and not sql.strip().upper().startswith("SELECT") and score < 0.65:
+                    logger.info("   💬 [Vanna] Réponse textuelle détectée (refus anti-hallucination) → transmis à l'utilisateur")
+                    state["reponse_brute"] = sql
+                    return state
+                logger.info(f"   ℹ️  [Vanna] Score insuffisant ({score:.0%}) → fallback patterns")
+    elif ENABLE_VANNA and _vanna_client is None:
+                logger.warning("   ⚠️  [Vanna] Non initialisé → fallback patterns")
+
+    if fallback_reponse:
+        state["reponse_brute"] = fallback_reponse
+    else:
+        try:
+            reponse = await mcp_pool.call(
+                "nl2sql", "interpreter_et_analyser_via_sql",
+                {"question_metier": _question_enrichie},
+            )
+            state["reponse_brute"] = reponse
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            state["reponse_brute"] = f"__ERREUR__:{_safe_str(e)}"
+
+    return state
