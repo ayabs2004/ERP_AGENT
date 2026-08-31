@@ -1547,19 +1547,7 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
     """
 Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'état actuel.
 """
-    demande_b = state.get('demande_brute', '').strip()
-    if _VERBES_NOUVELLE_DEMANDE.match(demande_b):
-        # Annuler toutes les actions en cours
-        state['modification_en_cours'] = {}
-        state['creation_article_en_cours'] = {}
-        state['nomenclature_en_cours'] = {}
-        state['modification_nomenclature_en_cours'] = {}
-        state['attente_complements'] = False
-        state['pending_document'] = {}
-        if state.get('statut_confirmation') == 'ATTENTE':
-            state['statut_confirmation'] = ''
-            state['pending_action'] = {}
-            
+    # ── Bypass : actions en cours → pas de classification ──────────────────
     if state.get('modification_en_cours'):
         state['intention'] = 'ERP'
         return state
@@ -1572,6 +1560,19 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
     if state.get('modification_nomenclature_en_cours'):
         state['intention'] = 'ERP'
         return state
+
+    # ── Nouvelle demande : effacer tout état en cours ───────────────────────
+    demande_b = state.get('demande_brute', '').strip()
+    if _VERBES_NOUVELLE_DEMANDE.match(demande_b):
+        state['modification_en_cours'] = {}
+        state['creation_article_en_cours'] = {}
+        state['nomenclature_en_cours'] = {}
+        state['modification_nomenclature_en_cours'] = {}
+        state['attente_complements'] = False
+        state['pending_document'] = {}
+        if state.get('statut_confirmation') == 'ATTENTE':
+            state['statut_confirmation'] = ''
+            state['pending_action'] = {}
     if state.get('pending_action') and state.get('statut_confirmation') == 'ATTENTE':
         if est_confirmation_stricte(state['demande_brute']) or _est_oui(state['demande_brute']):
             state['statut_confirmation'] = 'CONFIRME'
