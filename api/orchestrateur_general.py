@@ -2252,7 +2252,7 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
     if state['ref_article'].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
         state['ref_article'] = ''
     state['num_piece'] = entites_ner.get('piece') or _clean(llm_piece)
-    state['type_doc'] = entites_ner.get('type_doc') or _clean(llm_type)
+    state['type_doc'] = state.get('type_doc') or entites_ner.get('type_doc') or _clean(llm_type)
     state['date_debut'] = entites_ner.get('date_debut') or _clean(_val('date_debut'))
     state['date_fin'] = entites_ner.get('date_fin') or _clean(_val('date_fin'))
     state['mode_paiement'] = _val('mode_paiement', 'Virement')
@@ -2397,6 +2397,12 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
         raw_action = 'NL2SQL_LIBRE'
         state['_origine_classification'] = 'FALLBACK'
     state['action'] = raw_action
+    
+    if state['action'] == 'MODIFIER_STATUT':
+        if re.search(r'd[eé]bloquer?|r[eé]activer?|valider?|activer?', n):
+            state['type_doc'] = 'VALIDE'
+        else:
+            state['type_doc'] = 'BLOQUE'
     if state['type_doc']:
         hub_doc = await _hub_resoudre_type_doc(state['type_doc'])
         state['type_doc_code'] = hub_doc.get('DO_Type', 0)
