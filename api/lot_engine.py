@@ -36,55 +36,30 @@ def _date_expiration_valide(d) -> date | None:
 
 @dataclass
 class Lot:
-    """Represents a stock lot.
-
-    Attributes
-    ----------
+    """Represents a stock lot."""
     numero: str
-        Identifier of the lot.
     qte_disponible: float
-        Quantity currently available in the lot.
     date_expiration: date | None
-        Expiration date of the lot, or ``None`` if the lot does not expire.
     date_fabrication: date
-        Manufacturing date of the lot.
-    """
 
 
 @dataclass
 class AllocationLigne:
-    """Allocation result for a single lot.
-
-    Attributes
-    ----------
+    """Allocation result for a single lot."""
     lot: str
-        Identifier of the allocated lot.
     qte: float
-        Quantity allocated from the lot.
-    """
 
 
 @dataclass
 class ResultatAllocation:
-    """Overall allocation outcome.
-
-    Attributes
-    ----------
+    """Overall allocation outcome."""
     ok: bool
-        Indicates whether the allocation satisfied the requested quantity.
     allocations: list
-        List of :class:`AllocationLigne` objects describing the allocations.
     qte_allouee: float
-        Total quantity that was successfully allocated.
     qte_demandee: float
-        Quantity that was originally requested.
     manque: float
-        Quantity that could not be allocated (shortfall).
     lots_disponibles: list
-        List of lots considered during allocation, ordered according to the strategy.
     message: str
-        Optional message providing additional information about the allocation.
-    """
 
 
 def _trier_lots(lots: list[Lot], strategie: str) -> list[Lot]:
