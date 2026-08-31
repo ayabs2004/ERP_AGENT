@@ -259,7 +259,10 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
                 return state
             return state
         ref_cible = data["AR_Ref"]
-        refs_actuels = [comp.get("ref_composant") for comp in c.get("composants", [])]
+        # Recharge la nomenclature depuis la DB pour éviter les problèmes de cache
+        composants_actuels = await _lire_nomenclature_mcp(c.get("ref_parent", ""))
+        c["composants"] = composants_actuels
+        refs_actuels = [comp.get("ref_composant") for comp in composants_actuels]
         if ref_cible not in refs_actuels:
             if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_MODIF",
                                         f"❌ Le composant **{ref_cible}** n'est pas dans cette nomenclature. Choisissez un composant existant :"):
@@ -272,6 +275,7 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
         state["reponse_finale"] = f"Modification de **{ref_cible}**. Quelle est la **nouvelle quantité** ?"
         state["action_buttons"] = []
         return state
+
 
     if etape == "ATTENTE_QTE_MODIF":
         try:
@@ -308,7 +312,10 @@ async def noeud_modification_nomenclature(state: dict) -> dict:
                 return state
             return state
         ref_cible = data["AR_Ref"]
-        refs_actuels = [comp.get("ref_composant") for comp in c.get("composants", [])]
+        # Recharge depuis la DB pour eviter les problemes de cache
+        composants_actuels = await _lire_nomenclature_mcp(c.get("ref_parent", ""))
+        c["composants"] = composants_actuels
+        refs_actuels = [comp.get("ref_composant") for comp in composants_actuels]
         if ref_cible not in refs_actuels:
             if _traiter_retry_modif_nom(state, c, "ATTENTE_COMPOSANT_SUPPR",
                                         f"❌ Le composant **{ref_cible}** n'est pas dans cette nomenclature. Choisissez un composant existant :"):
