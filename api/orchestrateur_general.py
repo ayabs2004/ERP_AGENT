@@ -1312,7 +1312,7 @@ Convertit une valeur en flottant, retournant 0.0 si la valeur est None.
         return float(v) if v is not None else 0.0
     if state.get('action') == 'OFFRE_PRIX':
         statut_offre_actuel = draft_existant.get('statut_offre', '')
-        if not draft_existant or not statut_offre_actuel:
+        if not draft_existant or not statut_offre_actuel or statut_offre_actuel == 'ATTENTE_ARTICLES':
             refs = extraire_articles_depuis_demande(demande)
             if not refs:
                 state['reponse_finale'] = 'Quel(s) article(s) souhaitez-vous inclure dans l\'offre de prix ? (ex: "offre de prix pour ECRAN4K et LAPTOP")'
@@ -1343,6 +1343,7 @@ Convertit une valeur en flottant, retournant 0.0 si la valeur est None.
                 if not state['statut_draft']:
                     state['document_draft'] = {}
             return state
+        return state
     if draft_existant and state.get('statut_draft') == 'PREVIEW':
         if est_confirmation_stricte(demande) or _est_oui(demande):
             state['statut_draft'] = 'CONFIRME'
