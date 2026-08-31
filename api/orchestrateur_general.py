@@ -805,7 +805,7 @@ Fonction qui gère les compléments manquants d'un document en fonction de l'ét
     state['attente_complements'] = True
     state['reponse_finale'] = questions[champ]
     return state
-_VERBES_NOUVELLE_DEMANDE = re.compile('^(?:cr[eé]e[rz]?|liste[rz]?|affiche[rz]?|montre[rz]?|donne[rz]?|g[eé]n[eé]r\\w*|transforme[rz]?|r[eè]gle[rz]?|annule[rz]?|stop|quitter)\\b', re.IGNORECASE)
+_VERBES_NOUVELLE_DEMANDE = re.compile('^(?:cr[eé]e[rz]?|modifie[rz]?|liste[rz]?|affiche[rz]?|montre[rz]?|donne[rz]?|g[eé]n[eé]r\\w*|transforme[rz]?|r[eè]gle[rz]?|annule[rz]?|stop|quitter)\\b', re.IGNORECASE)
 
 async def _corriger_ref_article(ref: str) -> str:
     """
@@ -1547,6 +1547,19 @@ async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
     """
 Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'état actuel.
 """
+    demande_b = state.get('demande_brute', '').strip()
+    if _VERBES_NOUVELLE_DEMANDE.match(demande_b):
+        # Annuler toutes les actions en cours
+        state['modification_en_cours'] = {}
+        state['creation_article_en_cours'] = {}
+        state['nomenclature_en_cours'] = {}
+        state['modification_nomenclature_en_cours'] = {}
+        state['attente_complements'] = False
+        state['pending_document'] = {}
+        if state.get('statut_confirmation') == 'ATTENTE':
+            state['statut_confirmation'] = ''
+            state['pending_action'] = {}
+            
     if state.get('modification_en_cours'):
         state['intention'] = 'ERP'
         return state
