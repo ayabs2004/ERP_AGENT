@@ -387,6 +387,10 @@ def _resolve_client_with_suggestions(conn: Any, code_ou_nom: str) -> tuple[Optio
     ).fetchone()
     if row:
         return dict(row), []
+        
+    if len(code_ou_nom.strip()) < 3:
+        return None, []
+        
     rows = conn.execute(
         f"SELECT {_top(5)}* FROM {T_TIERS} WHERE UPPER({C_CT_INTITULE}) LIKE UPPER(?)",
         (f"%{code_ou_nom}%",)
@@ -703,6 +707,10 @@ def _resolve_article(conn: Any, ref_ou_nom: str) -> Optional[dict]:
     ).fetchone()
     if row:
         return dict(row)
+        
+    if len(ref_ou_nom.strip()) < 3:
+        return None
+        
     rows = conn.execute(
         f"SELECT {_top(5)}* FROM {T_ARTICLE} WHERE UPPER({C_AR_DESIGN}) LIKE UPPER(?)",
         (f"%{ref_ou_nom}%",)
