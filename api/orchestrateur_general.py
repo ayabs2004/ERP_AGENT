@@ -845,6 +845,7 @@ Injecte des données complémentaires dans l'état d'une demande de document.
 """
     if not state.get('attente_complements'):
         return state
+    m_dates2 = None
     texte = state['demande_brute'].strip()
     if _VERBES_NOUVELLE_DEMANDE.match(texte):
         state['attente_complements'] = False
