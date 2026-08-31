@@ -223,7 +223,21 @@ Cette fonction injecte les informations saisies par l'utilisateur dans un docume
         draft['num_of'] = m.group(1).upper() if m else texte.upper()
     elif champ == 'date_livraison':
         try:
-            dt = _dtparser.parse(texte, dayfirst=True, fuzzy=True)
+            import re as _re
+            # Nettoyer les emojis et caractères non-date
+            texte_clean = _re.sub(r'[^\d/\-. a-zA-Z]', '', texte).strip()
+            # Format ISO : YYYY-MM-DD ou YYYY/MM/DD
+            _m_iso = _re.match(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$', texte_clean)
+            if _m_iso:
+                from datetime import date as _date
+                dt = datetime(int(_m_iso.group(1)), int(_m_iso.group(2)), int(_m_iso.group(3)))
+            else:
+                # Format français : DD/MM/YYYY ou DD-MM-YYYY
+                _m_fr = _re.match(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$', texte_clean)
+                if _m_fr:
+                    dt = datetime(int(_m_fr.group(3)), int(_m_fr.group(2)), int(_m_fr.group(1)))
+                else:
+                    dt = _dtparser.parse(texte_clean, dayfirst=True, fuzzy=True)
             if dt.date() < datetime.now().date():
                 draft['_erreur_champ'] = "📅 Date déjà passée, merci d'indiquer une date future."
             else:
