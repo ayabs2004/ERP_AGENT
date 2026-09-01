@@ -1982,9 +1982,9 @@ _NL_PATTERNS: list[tuple] = [
                     AND e.{col('doc_entete', 'type')} = 6 AND e.{col('doc_entete', 'domaine')} = 0
                 WHERE c.{col('clients_fournisseurs', 'type_tiers')} = 0
                 GROUP BY c.{col('clients_fournisseurs', 'code')}, c.{col('clients_fournisseurs', 'nom')}
-                HAVING derniere_commande IS NULL
-                    OR derniere_commande < {_date_sub_days(_jours_depuis(m.group(1) if m.lastindex and m.lastindex >= 1 else None, m.group(2) if m.lastindex and m.lastindex >= 2 else "mois"))}
-                ORDER BY derniere_commande ASC
+                HAVING MAX(e.{col('doc_entete', 'date')}) IS NULL
+                    OR MAX(e.{col('doc_entete', 'date')}) < {_date_sub_days(_jours_depuis(m.group(1) if m.lastindex and m.lastindex >= 1 else None, m.group(2) if m.lastindex and m.lastindex >= 2 else "mois"))}
+                ORDER BY MAX(e.{col('doc_entete', 'date')}) ASC
             """,
             "description": "Clients inactifs",
         }
