@@ -1272,8 +1272,8 @@ _NL_PATTERNS: list[tuple] = [
 
     # ── 1. Lots disponibles pour un article ───────────────────────────
     (
-        r"quels?\s+(?:sont\s+les\s+)?lots?\s+(?:encore\s+)?disponibles?\s+(?:pour|de|du|d['\u2019])\s+([A-Za-z0-9\-]+)"
-        r"|lots?\s+disponibles?\s+(?:pour|de|du|d['\u2019])\s+([A-Za-z0-9\-]+)",
+        r"quels?\s+(?:sont\s+les\s+)?lots?\s+(?:encore\s+)?disponibles?\s+(?:pour|de|du|d['\u2019])\s+(?:l['\u2019]article\s+)?([A-Za-z0-9\-]+)"
+        r"|lots?\s+disponibles?\s+(?:pour|de|du|d['\u2019])\s+(?:l['\u2019]article\s+)?([A-Za-z0-9\-]+)",
                 _gen_lots_disponibles,
     ),
 
@@ -1337,8 +1337,8 @@ _NL_PATTERNS: list[tuple] = [
 
     # ── 7. Lots épuisés d'un article ──────────────────────────────────
         (
-        r"lots?\s+(?:de\s+)?([A-Za-z0-9\-]+)\s+.{0,20}(?:sont\s+)?[eé]puis[eé]s?"
-        r"|lots?\s+[eé]puis[eé]s?\s+(?:de|pour)\s+([A-Za-z0-9\-]+)",
+        r"lots?\s+(?:de|pour|du|d['\u2019])?\s*(?:l['\u2019]article\s+)?([A-Za-z0-9\-]+)\s+.{0,20}(?:sont\s+)?[eé]puis[eé]s?"
+        r"|lots?\s+[eé]puis[eé]s?\s+(?:de|pour|du|d['\u2019])\s+(?:l['\u2019]article\s+)?([A-Za-z0-9\-]+)",
         _gen_lots_epuises,
     ),
 
