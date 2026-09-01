@@ -6,6 +6,56 @@ CURRENCY = 'DT'
 MAX_LIGNES_TABLE = 80
 RENDU = 'markdown'
 
+# Traduction des noms de colonnes techniques → libellés lisibles (tableau NL2SQL)
+_LABELS_COLONNES = {
+    # Lots / séries
+    'numero':          '📦 N° de lot',
+    'qte_restante':    '📏 Qté restante',
+    'qte_reservee':    '📌 Qté réservée',
+    'qte_initiale':    '📥 Qté initiale',
+    'date_fabrication':'🏭 Date fabrication',
+    'date_peremption': '⏰ Date péremption',
+    'ref':             '🔖 Référence',
+    'epuise':          '🚫 Épuisé',
+    'piece_origine':   '📄 Pièce origine',
+    'piece_sortie':    '📤 Pièce sortie',
+    'type_doc':        '📋 Type document',
+    'code_client':     '🤝 Code client',
+    # Clients
+    'code':            '🔑 Code',
+    'nom':             '🏢 Nom',
+    'ca_total':        '💰 CA total (DT)',
+    'nb_factures':     '🧾 Nb factures',
+    'nb_commandes':    '📦 Nb commandes',
+    'encours':         '📊 Encours (DT)',
+    'dso_jours':       '⏱️ DSO (jours)',
+    'derniere_commande':'📅 Dernière commande',
+    'statut':          '🔴 Statut',
+    # Articles
+    'designation':     '📝 Désignation',
+    'prix_vente':      '💶 Prix vente',
+    'prix_achat':      '💸 Prix achat',
+    'marge':           '📈 Marge (DT)',
+    'marge_brute':     '📈 Marge brute',
+    'taux_marge_pct':  '📊 Taux marge (%)',
+    'ca_vente':        '💰 CA vente',
+    'cout_achat':      '💸 Coût achat',
+    # Documents
+    'piece':           '📄 N° pièce',
+    'date':            '📅 Date',
+    'montant_ht':      '💵 Montant HT',
+    'total_ht':        '💵 Total HT',
+    'total_achat':     '💸 Total achat',
+    'montant':         '💵 Montant',
+    # Fabrication
+    'qte_totale':      '📦 Qté totale',
+    'mois':            '📅 Mois',
+    'ca_ht':           '💰 CA HT',
+    # Génériques
+    'nb':              '#',
+    'count':           '#',
+}
+
 def _safe_str(obj) -> str:
     """
 Fonction pour convertir un objet en chaîne de caractères, en encodant ou décodant les objets si nécessaire.
@@ -621,8 +671,10 @@ Formatte les résultats d'une question en table Markdown.
     if not items or not isinstance(items[0], dict):
         return _entete('📊', question) + '\n\n' + '\n'.join((f'- {x}' for x in items))
     affiches, reste = _tronquer(items)
-    colonnes = list(affiches[0].keys())
-    lignes = [[row.get(c) for c in colonnes] for row in affiches]
+    colonnes_brutes = list(affiches[0].keys())
+    # Traduit les noms de colonnes techniques en libellés lisibles
+    colonnes = [_LABELS_COLONNES.get(c, c.replace('_', ' ').capitalize()) for c in colonnes_brutes]
+    lignes = [[row.get(c) for c in colonnes_brutes] for row in affiches]
     table = _table_md(colonnes, lignes)
     out = _entete('📊', question, f'{len(items)} résultat(s)') + '\n\n' + table
     if reste:

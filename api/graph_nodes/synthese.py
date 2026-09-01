@@ -141,14 +141,22 @@ async def noeud_synthese(state, _FORMATEURS_JSON, ACTIONS_KB, ACTIONS_EXPORT,
         _est_tabulaire = False
         try:
             _data_check = json.loads(rb)
-            if isinstance(_data_check, list) and len(_data_check) > 1:
-                _est_tabulaire = True
+            # FIX : on passe par le formateur déterministe dès qu'il y a
+            # AU MOINS 1 ligne tabulaire (dict avec >= 2 clés). Avant, la
+            # condition "> 1" écartait les réponses à 1 seule ligne (ex: 1
+            # seul lot disponible) et les confiait au LLM, qui remplaçait
+            # les valeurs NULL par "Information non disponible" au lieu de "—".
+            if isinstance(_data_check, list) and len(_data_check) >= 1:
+                if isinstance(_data_check[0], dict) and len(_data_check[0]) >= 2:
+                    _est_tabulaire = True
             elif isinstance(_data_check, dict):
+                # Format {"statut":"OK","resultats":[...]}
                 for _key in ("clients", "factures", "articles", "resultats", "rows", "data", "lignes"):
                     _items = _data_check.get(_key)
-                    if isinstance(_items, list) and len(_items) > 1:
-                        _est_tabulaire = True
-                        break
+                    if isinstance(_items, list) and len(_items) >= 1:
+                        if isinstance(_items[0], dict) and len(_items[0]) >= 2:
+                            _est_tabulaire = True
+                            break
         except (json.JSONDecodeError, ValueError):
             pass
 
