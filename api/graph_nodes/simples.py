@@ -20,11 +20,34 @@ async def noeud_aide(state, _invoke_llm, CAPACITES_SYSTEME):
     )
     return state
 
-async def noeud_clarification(state, _invoke_llm):
+async def noeud_clarification(state, _invoke_llm, _est_erreur_llm):
     """Ask the user to clarify an ambiguous request, optionally offering two interpretations."""
+    
+    # Bug B fix: if _marquer_ambiguite identified the missing field, generate a
+    # targeted question directly — no LLM involved, no improvised fields.
+    _LIBELLES = {
+        'ref_article': ("Quel article ou code de produit souhaitez-vous vérifier ?",
+                        "Exemples : 12345, A100"),
+        'code_client': ("Quel client souhaitez-vous consulter ?",
+                        "Exemples : CLI001, Dupont SA"),
+        'num_piece':   ("Quel est le numéro de pièce concerné ?",
+                        "Exemples : FA000123, BL000456"),
+    }
+    champ = state.get("_champ_manquant")
+    if champ in _LIBELLES:
+        question, exemples = _LIBELLES[champ]
+        state["reponse_finale"] = f"{question}\n{exemples}"
+        state["_champ_attendu"] = champ
+        return state
+
+    # Fallback: if reponse_finale was already set upstream (e.g. by the classifier),
+    # keep it as-is.
+    if state.get("reponse_finale"):
+        return state
+
     options = state.get("_clarif_options")
     if options:
-        state["reponse_finale"] = await _invoke_llm(
+        reponse = await _invoke_llm(
             f'Assistant ERP Sage 100.\nDemande : "{state["demande_brute"]}"\n'
             f'Deux interprétations possibles ont été détectées avec une confiance '
             f'proche : "{options[0]}" ou "{options[1]}". '
@@ -33,8 +56,11 @@ async def noeud_clarification(state, _invoke_llm):
             f'de code techniques).',
             use_smart=False,
         )
+        if _est_erreur_llm(reponse):
+            reponse = "Merci de préciser votre demande (le service IA a rencontré un problème temporaire)."
+        state["reponse_finale"] = reponse
     else:
-        state["reponse_finale"] = await _invoke_llm(
+        reponse = await _invoke_llm(
             f'Assistant ERP Sage 100.\nDemande ambiguë : "{state["demande_brute"]}"\n'
             f'RÈGLES STRICTES :\n'
             f'1. Pose UNE seule question, en une seule phrase.\n'
@@ -45,4 +71,7 @@ async def noeud_clarification(state, _invoke_llm):
             f'4. Pas de listes à puces, pas de reformulations multiples du même point.',
             use_smart=False,
         )
+        if _est_erreur_llm(reponse):
+            reponse = "Merci de préciser votre demande (le service IA a rencontré un problème temporaire)."
+        state["reponse_finale"] = reponse
     return state

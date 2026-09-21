@@ -6,21 +6,24 @@ import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 load_dotenv()
+from api.voice.speech_to_text import transcribe_audio
 from api.orchestrateur_general import (
     mcp_pool, _warmup_ollama, ENABLE_VANNA, ENABLE_GLINER, ENABLE_MEM0,
     ENABLE_SEMANTIC_CLASSIFIER,
     _get_vanna_async, _get_gliner_async, _get_mem0_async,
     _construire_graphe, _est_oui, _est_non, _executer_suggestion,
     _resoudre_references, decouper_demande_composite, _fusionner_demandes,
+    _fusionner_demande_clarification, _VERBES_NOUVELLE_DEMANDE,
     _etat_initial, _extraire_dernier_document, _safe_str,
     formater_alertes_persistantes, traiter_commande_speciale,
+    _est_erreur_llm, _pre_classifier,
 )
 from classification.semantic_classifier import warmup_semantic_classifier
 from auth import (
@@ -220,8 +223,11 @@ def _get_or_create_session(session_id: str, username: str) -> tuple[str, Dict[st
             "alertes_persistantes":  [],
             "dernier_action_classifiee":    "",
             "derniere_question_classifiee": "",
+            "derniere_question_clarification": "",
             "_last_access":         time.time(),
             "statut_confirmation":   "",   # ★ AJOUT
+            "demande_originale":     "",   # ★ demande initiale non polluée
+            "_champ_attendu":        "",   # field expected from clarification
             "_last_access":         time.time(),
         }
         sessions[normalized] = state
@@ -335,11 +341,31 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
 
         for sous_d in sous_demandes:
             demande_courante = sous_d["demande"]
+            _action_detectee = _pre_classifier(demande_courante)
 
-            if (demande_precedente and demande_courante.lower() in ("oui", "o", "ok", "yes", "y") and not sugg):
-                demande_courante = _fusionner_demandes(demande_precedente, demande_courante)
+            reponse_clarif = ""
+            if (demande_precedente and not sugg 
+                    and not _VERBES_NOUVELLE_DEMANDE.match(demande_courante.strip())
+                    and _action_detectee is None):
+                question_clarif = contexte_session.get("derniere_question_clarification", "")
+                if question_clarif:
+                    reponse_clarif = sous_d["demande"]  # réponse brute avant fusion
+                    # Bug A fix: always fuse from the original demand (non-polluted),
+                    # never from an already-fused blob that grows with each turn
+                    _orig = contexte_session.get("demande_originale") or demande_precedente
+                    demande_courante = _fusionner_demande_clarification(_orig, question_clarif, reponse_clarif)
+                else:
+                    demande_courante = _fusionner_demandes(demande_precedente, sous_d["demande"])
 
             etat = _etat_initial(demande_courante, contexte_session)
+
+            # Si on répond à une clarification, injecter la réponse brute dans l'état
+            # et neutraliser les valeurs de session pour éviter que le classifieur
+            # ne retombe sur le dernier article/client consulté (ex: COAR001 au lieu de CHAOR42)
+            if reponse_clarif:
+                etat["_reponse_clarification"] = reponse_clarif
+                etat["dernier_ref_article"] = ""
+                etat["dernier_code_client"] = ""
 
             if contexte_session.get("attente_complements"):
                 etat["attente_complements"] = True
@@ -488,9 +514,22 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
                 contexte_session["pending_document"] = {}
 
             if final_state.get("ambigue"):
-                dernieres_demandes[session_id] = demande_courante
+                # Bug A fix: store the original (non-fused) demand as the "previous demand"
+                # so that on the next turn, the fusion doesn't produce an ever-growing blob
+                _orig_demand = sous_d["demande"] if not reponse_clarif else (
+                    contexte_session.get("demande_originale") or sous_d["demande"]
+                )
+                # First time we hit ambiguity: save the pristine original demand
+                if not contexte_session.get("demande_originale"):
+                    contexte_session["demande_originale"] = sous_d["demande"]
+                dernieres_demandes[session_id] = _orig_demand
+                contexte_session["derniere_question_clarification"] = reponse if not _est_erreur_llm(reponse) else ""
+                contexte_session["_champ_attendu"] = final_state.get("_champ_attendu", "")
             else:
                 dernieres_demandes[session_id] = ""
+                contexte_session["derniere_question_clarification"] = ""
+                contexte_session["demande_originale"] = ""  # reset on successful completion
+                contexte_session["_champ_attendu"] = ""
 
             reponses_multi.append(reponse)
             if sugg_nouvelle:
@@ -531,6 +570,37 @@ async def chat_endpoint(req: ChatRequest, user: CurrentUser = Depends(get_curren
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Transcription vocale ─────────────────────────────────────────────────────
+# POST /api/voice/transcribe
+# Accepte un fichier audio (webm, wav, mp3…), retourne le texte transcrit.
+# Protégé par JWT — même sécurité que /api/chat.
+
+@app.post("/api/voice/transcribe")
+async def voice_transcribe(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    tmp_path = f"temp_voice_{uuid.uuid4().hex}_{file.filename}"
+    try:
+        content = await file.read()
+
+        # Rejeter les fichiers trop petits (< 4 Ko) : webm vide ou corrompu
+        if len(content) < 4000:
+            logger.warning("[Voice] Fichier audio trop court (%d octets), ignoré.", len(content))
+            return {"success": True, "text": ""}
+
+        with open(tmp_path, "wb") as f:
+            f.write(content)
+        text = transcribe_audio(tmp_path)
+        return {"success": True, "text": text}
+    except Exception as e:
+        logger.error(f"[Voice] Erreur transcription : {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur de transcription : {str(e)}")
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 # ──────────────────────────────────────────────────────────────────────

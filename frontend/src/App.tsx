@@ -188,6 +188,12 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
   const [montantPerso, setMontantPerso] = useState("");
   const [datePerso, setDatePerso] = useState("");
 
+  // ── Voix ─────────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Client axios dédié : porte le JWT de l'utilisateur connecté sur chaque
@@ -410,6 +416,67 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
   const afficherCalendrier = /date\s*(de\s*livraison|de\s*facturation|livraison|facturation)|livraison\s*souhait|facturation\s*souhait/i.test(
     dernierMessageAssistant
   );
+
+  // ── Voix : toggle clic pour démarrer / arrêter ────────────────────────
+  const recordingStartRef = useRef<number>(0);
+
+  const toggleRecording = async () => {
+    // ── Arrêt ──
+    if (isRecording) {
+      const duree = Date.now() - recordingStartRef.current;
+      const attente = Math.max(0, 800 - duree); // webm valide = minimum 800ms
+      setTimeout(() => {
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
+      }, attente);
+      return;
+    }
+
+    // ── Démarrage ──
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+
+        if (blob.size < 4000) {
+          console.warn("[Voice] Audio trop court, ignoré :", blob.size, "octets");
+          return;
+        }
+
+        setIsTranscribing(true);
+        try {
+          const formData = new FormData();
+          formData.append("file", blob, "voice.webm");
+          const res = await apiRef.current.post("/api/voice/transcribe", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          if (res.data?.text) {
+            setInput(res.data.text);
+          }
+        } catch (err) {
+          console.error("[Voice] Erreur transcription :", err);
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      recorder.start(100);
+      recordingStartRef.current = Date.now();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) {
+      console.error("[Voice] Accès micro refusé :", err);
+    }
+  };
 
   const handleDateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -659,12 +726,36 @@ function ChatApp({ auth, onLogout }: ChatAppProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
-                attenteComplements
+                isTranscribing
+                  ? "Transcription en cours..."
+                  : attenteComplements
                   ? "Répondez au complément..."
                   : "Votre message..."
               }
               className="flex-1 bg-gray-800 rounded-xl p-3 outline-none"
+              disabled={isTranscribing}
             />
+
+            {/* Bouton micro ── 1 clic pour démarrer, 1 clic pour arrêter */}
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isLoading || isTranscribing}
+              title={isRecording ? "Cliquez pour arrêter" : "Cliquez pour parler"}
+              className={`px-4 rounded-xl transition-all duration-150 disabled:opacity-50 ${
+                isRecording
+                  ? "bg-red-600 scale-110 ring-2 ring-red-400 animate-pulse"
+                  : isTranscribing
+                  ? "bg-yellow-600 animate-pulse"
+                  : "bg-gray-700 hover:bg-gray-600"
+              }`}
+            >
+              {isTranscribing ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <span className="text-base">{isRecording ? "⏹" : "🎤"}</span>
+              )}
+            </button>
 
             <button
               type="submit"

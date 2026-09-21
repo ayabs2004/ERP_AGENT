@@ -9,3 +9,7 @@
 {"question": "Donne-moi la marge moyenne par catégorie d'articles", "action": "RENTABILITE", "origine": "SEMANTIQUE", "score": 0.8269095850830073, "score2": 0.773815108332734, "timestamp": 1787830482.5597763, "confirme": true}
 {"question": "Explique-moi la rentabilité par article", "action": "RENTABILITE", "origine": "SEMANTIQUE", "score": 0.8995598501691222, "score2": 0.8042533737526214, "timestamp": 1787830505.598491, "confirme": true}
 {"question": "Donne-moi la marge moyenne par catégorie d'articles", "action": "RENTABILITE", "origine": "SEMANTIQUE", "score": 0.8269095850830073, "score2": 0.773815108332734, "timestamp": 1787845300.5028512, "confirme": true}
+{"question": "Genere la balance agee", "action": "BALANCE_AGEE_EXCEL", "origine": "SEMANTIQUE", "score": 0.8688244788707546, "score2": 0.6422159563714722, "timestamp": 1788213068.5827181, "confirme": true}
+{"question": "Calcule le delai moyen de paiement de nos clients", "action": "DSO", "origine": "SEMANTIQUE", "score": 0.9093543187473025, "score2": 0.796538891580503, "timestamp": 1788213276.4061594, "confirme": true}
+{"question": "Analyse la rentabilite par article", "action": "RENTABILITE", "origine": "SEMANTIQUE", "score": 0.909818795102411, "score2": 0.7942303118401688, "timestamp": 1788213309.5887356, "confirme": true}
+{"question": "Donne-moi des recommandations de vente pour le client SOCIETEB par rapport à ses habitudes", "action": "RECOMMANDATION", "origine": "SEMANTIQUE", "score": 0.8626210836239975, "score2": 0.7688736370312402, "timestamp": 1788254408.505228, "confirme": true}

@@ -235,6 +235,9 @@ async définit et met en place un langage de modèle (LLM) pour une instance Oll
     else:
         print(f'\n🔥 [Ollama] ❌ Aucun modèle chargé. Vérifiez : ollama serve\n')
 
+def _est_erreur_llm(texte: str) -> bool:
+    return texte.strip().startswith(("⚠️", "❌"))
+
 async def _invoke_llm(prompt: str, use_smart: bool=False, timeout_override: float | None=None) -> str:
     """
 Asynchronement de l'invocation d'un modèle LLM.
@@ -606,13 +609,14 @@ def _init_langsmith():
     """
 Initialisation de la configuration pour LangSmith en fonction de clés d'API et d'une variable de trace.
 """
+    import logging
     api_key = (os.getenv('LANGCHAIN_API_KEY') or '').strip()
     tracing = os.getenv('LANGCHAIN_TRACING_V2', 'false').lower() == 'true'
     if api_key and tracing:
         os.environ.setdefault('LANGCHAIN_PROJECT', 'copilot-erp-sage100')
-        print('✅ [LangSmith] Tracing activé.')
+        logging.info('[LangSmith] Tracing activé.')
     else:
-        print('ℹ️  [LangSmith] Non configuré.')
+        logging.info('[LangSmith] Non configuré.')
 _init_langsmith()
 ACTIONS_LECTURE = {'TOP_CLIENTS', 'LISTE_CLIENTS', 'LISTE_ARTICLES', 'PALMARES_ARTICLES', 'CA_GLOBAL', 'CLIENTS_BAISSE', 'FACTURES_NON_REGLEES', 'FACTURES_NON_REGLEES_FOURN', 'TOUTES_FACTURES_CLIENT', 'VERIFIER_STOCK', 'FICHE_CLIENT', 'DOCS_PERIODE', 'RENTABILITE', 'SAISONNALITE', 'DSO', 'RFM', 'STATUT_CLIENT', 'LISTE_FOURNISSEURS', 'FICHE_FOURNISSEUR', 'TOP_FOURNISSEURS', 'AFFICHER_NOMENCLATURE', 'LIRE_ENCOURS_CLIENT'}
 ACTIONS_NL2SQL = {'NL2SQL_LIBRE', 'LISTE_FACTURES'}
@@ -629,7 +633,12 @@ MOTS_REFERENCE_DOCUMENT = ('précédent', 'précédente', 'dernier', 'dernière'
 _TYPES_DOC_INVALIDES_COMME_ARTICLE = {'OF', 'BF', 'BL', 'BL_ACHAT', 'FA_ACHAT', 'FA', 'FC', 'BC', 'BC_ACHAT', 'FACTURE', 'AVOIR', 'AV'}
 TYPES_DOC_FABRICATION = {'OF', 'BF'}
 _EXPRESSIONS_FR_EXCLUES = {'A-T-IL', 'A-T-ELLE', 'A-T-ON', 'EST-CE', 'EST-IL', 'EST-ELLE', 'SONT-ILS', 'SONT-ELLES', 'Y-A-T-IL', 'N-EST-CE-PAS', 'QU-EST-CE', 'PEUT-IL', 'PEUT-ELLE', 'DOIT-IL', 'DOIT-ELLE', 'FAUT-IL', 'VA-T-IL', 'VA-T-ELLE', 'AVAIT-IL', 'POURRAIT-IL', 'POURRAIT-ELLE', 'DONNE-MOI', 'DIS-MOI', 'MONTRE-MOI', 'LAISSE-MOI', 'PRETE-MOI', 'PARLE-MOI', 'EXPLIQUE-MOI', 'ENVOIE-MOI', 'PRECISE-MOI', 'INDIQUE-MOI', 'RAPPELLE-MOI', 'CONFIRME-MOI'}
+_MOTS_VIDES_REF = {'OU','ET','DE','DU','DES','EN','AU','AUX','SUR','PAR','CE','CES',
+                   'QUE','QUI','DONT','VOUS','NOUS','CODE','REF','PRODUIT','PRODUITS',
+                   'EXEMPLE','EXEMPLES','QUESTION','REPONSE','RÉPONSE','DEMANDE',
+                   'INITIALE','UTILISATEUR','CLARIFICATION','SOUHAITEZ','VERIFIER'}
 _EXCL_ARTICLE = {'CLI', 'BL', 'FA', 'FC', 'BC', 'OF', 'BF', 'BA', 'AV', 'ERP', 'NL2SQL', 'SQL', 'PDF', 'KPI', 'DSO', 'RFM', 'CA', 'CREE', 'CREER', 'POUR', 'AVEC', 'PIECES', 'PIECE', 'PCS', 'UNITE', 'UNITES', 'LE', 'LA', 'LES', 'UN', 'UNE', 'DES', 'OK', 'OUI', 'NON', 'LANCE', 'GENERE', 'FAIRE', 'NOUVEAU', 'PROD', 'INT', 'PRODINT', 'SAGE', 'LISTE', 'DONNE', 'AFFICHE', 'TOUS', 'TOUTES', 'MONTRE', 'CLIENTS', 'ARTICLES', 'CLIENT', 'ARTICLE', 'ENCOURS', 'STATUT', 'FICHE', 'INFO', 'FOURNISSEUR', 'FOURNISSEURS', 'FOUR', 'GROSSISTE', 'FOURN', 'ACHAT', 'ACHATS', 'COMMANDE', 'COMMANDES', 'FACTURES', 'FACTURE', 'FOURNISSEUR', 'FOURNISSEURS', 'LISTE', 'DETAIL', 'DETAILS', 'RAPPORT', 'STOCK', 'STOCKS', 'DISPONIBLE', 'DISPONIBLES', 'RESTANT', 'RUPTURE', 'RUPTURES', 'FAIBLE', 'FAIBLES', 'ONT', 'PASSE', 'COMMANDE', 'DEPUIS', 'MOIS', 'EST', 'SONT', 'AVEZ', 'AVONS', 'AVAIT', 'NON', 'PAS', 'SANS', 'AUCUN', 'AUCUNE', 'FACTURE', 'FACTURES', 'LISTE', 'DONNE', 'MONTRE', 'QUEL', 'QUELS', 'QUELLE', 'QUELLES', 'QUI', 'QUOI', 'COMMENT', 'COMBIEN', 'POURQUOI', 'INACTIFS', 'BLOQUES', 'BLOQUE', 'ACTIFS', 'VALIDE', 'SUSPECT', 'VENDUS', 'ACHETÉS', 'COMMANDÉS', 'GLOBAL', 'TOTAL', 'MENSUEL', 'ANNUEL', 'CLIENTS', 'ARTICLES', 'FOURNISSEURS', 'PRIX', 'TARIF', 'COUT', 'COÛT', 'VALEUR', 'MONTANT', 'DT', 'EUR', 'EUROS'}
+_EXCL_ARTICLE |= _MOTS_VIDES_REF
 _MOTS_GENERIQUES_NER = {'client', 'tiers', 'le', 'la', 'les', 'un', 'une', 'des', 'pour', 'avec', 'article', 'produit', 'référence', 'ref', 'piece', 'pièce', 'unité', 'unite', 'quantite', 'quantité', 'société', 'societe', 'entreprise', 'volume', 'achat', 'achats', 'par'}
 _MARQUEURS_NL2SQL_FORCE = {'mois par mois', 'évolution', 'tendance', 'uniquement', 'seulement', 'croisement', 'en commun', 'meilleurs clients', 'top.*client.*fourni', 'vendus à un seul', 'having', 'ratio', 'panier moyen', 'taux de', 'par nombre de commandes', 'nombre de commandes', 'commandés ce mois', 'commandé ce mois', 'inférieur au seuil', 'stock insuffisant', 'trier par commandes', 'classement', 'classé', 'classe', 'classer', 'classés', 'classee', 'classees'}
 _MOTS_QUALIFICATIFS_FILTRAGE = ('impayé', 'impayés', 'ne paient pas', 'plus de', 'moins de', 'supérieur', 'supérieures', 'inférieur', 'avec des', 'qui ont', 'par ca', 'par chiffre', 'top', 'meilleurs', 'plus gros', 'inactif', 'bloqué', 'encours')
@@ -644,7 +653,7 @@ Supprime les guillemets et apostrophes d'un texte, puis renvoie le texte propre 
 """
     v = v.replace('"', '').replace("'", '').strip()
     return '' if v.upper() in _LLM_PLACEHOLDERS else v
-_PATTERNS_PRECLASS = [("lots?\\s+(?:encore\\s+)?disponibles?\\s+(?:pour|de|du|d['\\u2019])", 'NL2SQL_LIBRE'), ("quels?\\s+lots?\\s+disponibles?\\s+(?:pour|de|du|d['\\u2019])", 'NL2SQL_LIBRE'), ('quantit[eé]\\s+restante\\s+(?:du\\s+|de\\s+)?lot\\b', 'NL2SQL_LIBRE'), ('\\blot\\b.{0,20}est[\\s-]il\\s+(?:encore\\s+)?disponible', 'NL2SQL_LIBRE'), ("d['\\u2019]o[u\\u00f9]\\s+vient\\s+(?:le\\s+)?lot\\b", 'NL2SQL_LIBRE'), ('origine\\s+(?:du\\s+)?lot\\b', 'NL2SQL_LIBRE'), ('sur\\s+quel\\s+bl\\s+.{0,20}lot\\b', 'NL2SQL_LIBRE'), ('lots?\\s+.{0,20}(?:expirent?|p[eé]rim[eé]s?|p[eé]remption)', 'NL2SQL_LIBRE'), ('lots?\\s+[eé]puis[eé]s?', 'NL2SQL_LIBRE'), ("marge\\s+(?:brute\\s+)?(?:sur|de|pour)\\s+(?:l['\\u2019]article\\s+)?[A-Za-z0-9\\-]+", 'NL2SQL_LIBRE'), ('liste[s\\s]*(?:de[s\\s]*)?(?:bf|of|bl|factures?|bc)\\b', 'NL2SQL_LIBRE'), ('transform[e\\s]+.{0,60}\\bof\\b.{0,60}\\bbf\\b', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,60}\\bbl\\b.{0,60}facture', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,30}\\bbc\\b.{0,20}\\bbl\\b', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,15}(?:fa|bl|bc|of|bf)\\d+', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,15}[a-z]{2}\\d{6,}', 'TRANSFORMER_DOC'), ('(?:transform|passe|converti).{0,30}num[eé]ro.{0,60}\\b(?:of|bl|bc|bf|fa)[A-Z0-9]+.{0,20}\\b(?:bf|bl|facture|bc)\\b', 'TRANSFORMER_DOC'), ('convert[i\\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)', 'TRANSFORMER_DOC'), ('facturer\\s+(?:le\\s+)?bl\\b', 'TRANSFORMER_DOC'), ('passer\\s+(?:le\\s+)?(?:bl|of)\\b.{0,20}en\\b', 'TRANSFORMER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:la\\s+|une\\s+|le\\s+|un\\s+)?bf\\s+(?:pour|de|à\\s+partir\\s+de)\\s+.{0,10}\\bof[a-z0-9]*\\d+', 'TRANSFORMER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:la\\s+|une\\s+|le\\s+|un\\s+)?facture(?:\\s*(?:d['’]achat|d'achat|achat|fournisseur))?\\s+(?:pour|de|à\\s+partir\\s+de)\\s+.{0,15}\\b(?:OF|BL|BC|BF|FA|BR|FBL)[0-9A-Z]{5,9}\\b", 'TRANSFORMER_DOC'), ('(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\\s+.{0,30}(?:bons?\\s+de\\s+r[eé]ception|r[eé]ceptions?\\s+fournisseur|livraisons?\\s+fournisseur|bl\\s+achat)', 'NL2SQL_LIBRE'), ('bl\\s+achat|bon\\s+de\\s+r[eé]ception|r[eé]ception\\s+fournisseur|livraison\\s+fournisseur', 'GENERER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+.{0,20}bl\\s+achat', 'GENERER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+.{0,20}r[eé]ception\\s+fournisseur', 'GENERER_DOC'), ('r[eé]gler?\\s+(la\\s+|une\\s+|les\\s+)?(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('r[eé]glement\\s+(?:de\\s+la\\s+)?(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('change.{0,30}(?:statut|status).{0,30}(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('marquer?\\s+(?:la\\s+)?(?:facture|fa)\\s+[A-Z0-9]+.{0,30}r[eé]gl[eé]', 'REGLEMENT'), ('(?:facture|fa)\\s+([A-Z0-9]{3,})\\s+.{0,20}r[eé]gl[eé]e?', 'REGLEMENT'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bl\\b", 'GENERER_DOC'), ('\\bbl\\s+(pour|client|cli|de\\s+\\d)', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?of\\b", 'GENERER_DOC'), ('ordre\\s+de\\s+fabrication', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bf\\b", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t)|[eé]tabli[rs])\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?facture", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bc\\b", 'GENERER_DOC'), ('bon\\s+de\\s+commande', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bon\\b", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?client", 'CREER_CLIENT'), ('enregistr(?:er?|ez?)\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?client', 'CREER_CLIENT'), ('saisi[rs]?\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?client', 'CREER_CLIENT'), ('nouveau\\s+client', 'CREER_CLIENT'), ('ajouter?\\s+(un\\s+)?client', 'CREER_CLIENT'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?fournisseur", 'CREER_FOURNISSEUR'), ('enregistr(?:er?|ez?)\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('saisi[rs]?\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('nouveau\\s+fournisseur', 'CREER_FOURNISSEUR'), ('ajouter?\\s+(un\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('modifier?\\s+(?:le\\s+|un\\s+|mon\\s+)?client', 'MODIFIER_CLIENT'), ('(?:changer?|mettre?\\s+[\\u00e0a]\\s+jour|actualiser?|\\u00e9diter?)\\s+(?:le\\s+|un\\s+|mon\\s+)?client', 'MODIFIER_CLIENT'), ('modifier?\\s+(?:le\\s+|un\\s+|mon\\s+)?fournisseur', 'MODIFIER_FOURNISSEUR'), ('(?:changer?|mettre?\\s+[\\u00e0a]\\s+jour|actualiser?|\\u00e9diter?)\\s+(?:le\\s+|un\\s+|mon\\s+)?fournisseur', 'MODIFIER_FOURNISSEUR'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|l['\\u2019]|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?articles?", 'CREER_ARTICLE'), ("enregistr(?:er?|ez?)\\s+(?:un\\s+|l['\\u2019])?(?:nouveau\\s+)?articles?", 'CREER_ARTICLE'), ("saisi[rs]?\\s+(?:un\\s+|l['\\u2019])?(?:nouveau\\s+)?articles?", 'CREER_ARTICLE'), ('nouveau\\s+articles?', 'CREER_ARTICLE'), ('ajouter?\\s+(un\\s+)?articles?', 'CREER_ARTICLE'), ('(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\\s+(?:une\\s+)?nomenclature', 'CREER_NOMENCLATURE'), ('(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\\s+(?:des\\s+)?composants?', 'CREER_NOMENCLATURE'), ("(?:affiche|montre|donne|voir|consulter|liste)\\s+(?:la\\s+)?nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+.+", 'AFFICHER_NOMENCLATURE'), ("nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+.+", 'AFFICHER_NOMENCLATURE'), ('modifier?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('[eé]diter?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('g[eé]rer?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('supprimer?\\s+(?:un\\s+)?composant\\s+de', 'MODIFIER_NOMENCLATURE'), ('retirer?\\s+(?:un\\s+)?composant\\s+de', 'MODIFIER_NOMENCLATURE'), ('changer?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('bloquer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('d[e\\u00e9]bloquer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('r[e\\u00e9]activer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('bloquer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('d[e\\u00e9]bloquer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('r[e\\u00e9]activer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('modifier?\\s+(le\\s+)?statut', 'MODIFIER_STATUT'), ("modifier?\\s+(l['\\u2019]|un\\s+|une\\s+|le\\s+)?articles?\\b", 'MODIFIER_ARTICLE'), ("(?:changer?|mettre?\\s+[àa]\\s+jour|actualiser?)\\s+(l['\\u2019]|un\\s+|une\\s+|le\\s+)?articles?\\b", 'MODIFIER_ARTICLE'), ("modifier?\\s+(la\\s+|le\\s+)?(d[eé]signation|prix\\s+(?:d['\\u2019]\\s*achat|de\\s+vente|achat|vente)|type)\\s+.{0,20}articles?", 'MODIFIER_ARTICLE'), ('^modifier?\\s+(?!.*\\b(?:statut|client|fournisseur|facture|bl|bc|of|bf|commande)\\b)[a-z][a-z0-9\\-]{2,}\\s*$', 'MODIFIER_ARTICLE'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?avoir", 'CREER_AVOIR'), ('r[eé]gler?\\s+(la\\s+|une\\s+|les\\s+)?factures?', 'REGLEMENT'), ('r[eé]glement\\s+(d.une\\s+|de\\s+la\\s+)?facture', 'REGLEMENT'), ('payer?\\s+(la\\s+|une\\s+|les\\s+)?factures?', 'REGLEMENT'), ('payer?\\s+(?:la\\s+)?(?:facture\\s+)?(?:FA|BL|BC|BF)\\d+', 'REGLEMENT'), ('paiement\\s+(d.une\\s+|de\\s+la\\s+)?facture', 'REGLEMENT'), ('change.{0,20}statut.{0,20}facture.{0,20}r[eé]gl[eé]', 'REGLEMENT'), ("fiche\\s+technique\\s+(?:du|de\\s+la|de\\s+l['\\u2019]|de|d['\\u2019])\\s+\\S+", 'RECHERCHE_PROCEDURE'), ("caract[eé]ristiques?\\s+(?:du|de\\s+la|de\\s+l['\\u2019]|de|d['\\u2019])\\s+\\S+", 'RECHERCHE_PROCEDURE'), ('r[eé]clamations?\\s+.{0,20}articles?', 'RECHERCHE_PROCEDURE'), ('articles?\\s+.{0,20}r[eé]clamations?', 'RECHERCHE_PROCEDURE'), ('r[eé]clamations?', 'RECHERCHE_PROCEDURE'), ('motifs?\\s+de\\s+r[eé]clamation', 'RECHERCHE_PROCEDURE'), ('\\bd[eé]fauts?\\b', 'RECHERCHE_PROCEDURE'), ('\\bpannes?\\b', 'RECHERCHE_PROCEDURE'), ('\\bsav\\b', 'RECHERCHE_PROCEDURE'), ('tol[eé]rance', 'RECHERCHE_PROCEDURE'), ('proc[eé]d[eé]\\s+de\\s+fabrication', 'RECHERCHE_PROCEDURE'), ('\\bmati[eè]re\\b', 'RECHERCHE_PROCEDURE'), ('temp[eé]rature', 'RECHERCHE_PROCEDURE'), ('\\bprocess\\b', 'RECHERCHE_PROCEDURE'), ('pr[eé]caution', 'RECHERCHE_PROCEDURE'), ('garantie', 'RECHERCHE_PROCEDURE'), ('\\bremise\\b', 'RECHERCHE_PROCEDURE'), ('conditions?\\s+(commerciales?|n[eé]goci[eé]es?)', 'RECHERCHE_PROCEDURE'), ('command[eé]e?s?\\s+par\\s+email', 'RECHERCHE_PROCEDURE'), ('email\\s+de\\s+commande', 'RECHERCHE_PROCEDURE'), ('\\bclient\\b.{0,25}\\best[\\s-]il\\s+bloqu[eé]', 'STATUT_CLIENT'), ('\\bclient\\b.{0,25}\\best[\\s-]il\\s+(?:actif|valide|suspect)', 'STATUT_CLIENT'), ('le\\s+client\\s+[A-Z0-9]+\\s+est[\\s-]il', 'STATUT_CLIENT'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+livraison', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,20}\\bbl\\b.{0,20}client', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}\\bbl\\b', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+commande', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+fabrication', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}ordres?\\s+de\\s+fabrication', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre|quels?).{0,20}\\bof\\b', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+livraison\\s+(?:du\\s+|de\\s+)?client', 'NL2SQL_LIBRE'), ('\\bbl\\b.{0,30}(?:du\\s+|de\\s+)?client', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,20}\\bbl\\b.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'NL2SQL_LIBRE'), ('\\bbl\\b.{0,20}(?:du\\s+mois|de\\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre))', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+livraison.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'NL2SQL_LIBRE'), ('top\\s*\\d*\\s*clients?\\s+par\\s+(?:ca|chiffre)', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?\\s+par\\s+ca\\b', 'TOP_CLIENTS'), ('clients?\\s+avec\\s+des\\s+impay[eé]s?', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ne\\s+paient\\s+pas', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ont\\s+pass[eé]\\s+plus\\s+de\\s+\\d+\\s+commandes?', 'NL2SQL_LIBRE'), ('clients?\\s+ayant\\s+des\\s+factures?\\s+sup[eé]rieures?\\s+[àa]\\s+\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:qui\\s+)?co[uû]tent\\s+(?:plus|moins)\\s+(?:de|que)\\s*\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,20}prix.{0,20}(?:sup[eé]r|inf[eé]r|plus|moins|>|<)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+(?:sup[eé]rieure?s?\\s+[àa]|plus\\s+(?:de|que)|>\\s*)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+(?:inf[eé]rieure?s?\\s+[àa]|moins\\s+(?:de|que)|<\\s*)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+entre\\s+\\d+\\s+et\\s+\\d+', 'NL2SQL_LIBRE'), ('clients?\\s+(?:ayant|avec|qui\\s+ont)\\s+(?:des?\\s+)?factures?', 'NL2SQL_LIBRE'), ('clients?\\s+(?:dont|avec)\\s+(?:un\\s+)?(?:ca|chiffre).{0,30}\\d+', 'NL2SQL_LIBRE'), ('clients?\\s+(?:dont|avec)\\s+(?:un\\s+)?encours.{0,30}\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}stock.{0,20}\\d+', 'NL2SQL_LIBRE'), ('articles?.{0,20}stock.{0,20}(?:inf[eé]r|sup[eé]r|<|>)\\s*\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:vendus?|achet[eé]s?)\\s+(?:plus|moins)\\s+(?:de|que)\\s+\\d+', 'NL2SQL_LIBRE'), ('top\\s+\\d+\\s+(?!clients?)(?:articles?|produits?|références?)', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre)\\s+.{0,40}\\b(?:o[ùu]|mais|dont|sauf|seulement|uniquement|filtre)\\b', 'NL2SQL_LIBRE'), ("factures?\\s+(?:du\\s+|de\\s+|d['\\u2019]?\\s*)?(?:mois\\s+(?:de\\s+)?)?(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|jan|fév|mar|avr|jun|jul|aoû|sep|oct|nov|déc)", 'NL2SQL_LIBRE'), ('factures?\\s+(?:du\\s+)?mois\\s+\\d{1,2}', 'NL2SQL_LIBRE'), ("factures?\\s+(?:de\\s+)?(?:l['\\u2019]ann[eé]e|\\d{4})", 'NL2SQL_LIBRE'), ('factures?\\s+(?:d\\s+|de\\s+)?(?:trimestre|semestre)', 'NL2SQL_LIBRE'), ('(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:mois|ann[eé]e|p[eé]riode|semaine)', 'NL2SQL_LIBRE'), ('(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec|au|ayant).{0,30}(?:prix|tarif|co[uû]t).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\\>|\\<)', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}prix.{0,30}\\d+', 'NL2SQL_LIBRE'), ("(?:prix|tarif)\\s+(?:de\\s+vente|d['\\u2019]achat).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\\>|\\<)", 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}(?:marge|rentabilit)', 'NL2SQL_LIBRE'), ("clients?\\s+(?:qui\\s+ont|ayant|avec).{0,30}(?:plus\\s+de|plus\\s+qu[e'\\u2019]|au\\s+moins)\\s+\\d+\\s+(?:commandes?|factures?|achats?)", 'NL2SQL_LIBRE'), ("clients?\\s+(?:qui\\s+ont|ayant|avec).{0,30}(?:moins\\s+de|moins\\s+qu[e'\\u2019])\\s+\\d+\\s+(?:commandes?|factures?|achats?)", 'NL2SQL_LIBRE'), ('clients?\\s+(?:pass[eé]|effectu[eé]).{0,20}(?:plus\\s+de|au\\s+moins)\\s+\\d+\\s+(?:commandes?|achats?)', 'NL2SQL_LIBRE'), ('clas(?:se|sement|s[eé])\\s+.{0,30}clients?.{0,30}(?:nombre|nb)\\s+(?:de\\s+)?commandes?', 'NL2SQL_LIBRE'), ('clients?.{0,30}(?:tri[eé]s?|class[eé]s?|ordonn[eé]s?|rang[eé]s?).{0,30}(?:nombre|nb).{0,20}commandes?', 'NL2SQL_LIBRE'), ('clients?.{0,30}par\\s+(?:nombre|nb)\\s+(?:de\\s+)?commandes?', 'NL2SQL_LIBRE'), ('(?:nombre|nb)\\s+(?:de\\s+)?commandes?\\s+(?:par\\s+)?client', 'NL2SQL_LIBRE'), ('qui\\s+(?:commande|achète|a\\s+achet[eé])\\s+le\\s+plus', 'NL2SQL_LIBRE'), ('clas(?:se|ser|s[eé]s?)\\s+les\\s+clients?\\s+.{0,30}(?:chiffre|ca\\b)', 'NL2SQL_LIBRE'), ('(?:articles?|produits?)\\s+(?:sans\\s+stock|en\\s+rupture)', 'NL2SQL_LIBRE'), ("stock\\s+(?:disponible|actuel|restant)\\s+(?:pour|de|d['\\u2019])\\s+\\S+", 'VERIFIER_STOCK'), ("stock\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('quel\\s+est\\s+le\\s+stock', 'VERIFIER_STOCK'), ('combien\\s+(?:de\\s+)?stock', 'VERIFIER_STOCK'), ('stock\\s+(?:disponible|actuel|restant)\\s*(?:est\\s+)?(?:[<>=]|inf[eé]r|sup[eé]r)\\s*\\d+', 'NL2SQL_LIBRE'), ('stock\\s+(?:nul|à\\s+z[ée]ro)', 'NL2SQL_LIBRE'), ('(?:articles?|produits?).{0,20}stock.{0,20}(?:inf[ée]r|nul|z[ée]ro|<\\s*0)', 'NL2SQL_LIBRE'), ("stock\\s+(?:disponible|actuel|restant)\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)', 'NL2SQL_LIBRE'), ('articles?.{0,30}(?:stock\\s+(?:faible|bas|insuffisant|inf[eé]r|critique)|sous.{0,10}seuil).{0,40}(?:command[eé]|achet[eé])', 'NL2SQL_LIBRE'), ('rupture.{0,20}command[eé]|command[eé].{0,20}rupture', 'NL2SQL_LIBRE'), ('clients?\\s+(?:actifs?|avec|ayant|dont).{0,80}(?:factures?\\s+impay[eé]es?|encours|ca\\b)', 'NL2SQL_LIBRE'), ('clients?.{0,50}(?:encours\\s+sup[eé]r|encours\\s+>\\s*\\d+|encours\\s+plus)', 'NL2SQL_LIBRE'), ('factures?\\s+entre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+et\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('documents?\\s+entre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+et\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('(?:documents?|factures?|bls?)\\b.{0,60}\\bentre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+(?:et|au)\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('clients?\\s+bloqu[eé]s?', 'NL2SQL_LIBRE'), ('bloqu[eé]s?\\s+clients?', 'NL2SQL_LIBRE'), ('quels?\\s+clients?.{0,30}bloqu[eé]', 'NL2SQL_LIBRE'), ('clients?\\s+inactifs?', 'CLIENTS_INACTIFS'), ('clients?\\s+sans\\s+commande', 'CLIENTS_INACTIFS'), ('(?:clients?|qui)\\s+(?:sont\\s+)?en\\s+baisse\\s+(?:de\\s+)?(?:ca|chiffre)', 'CLIENTS_BAISSE'), ('baisse\\s+(?:de\\s+)?(?:ca|chiffre|revenu)', 'CLIENTS_BAISSE'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client\\b.{1,60}\\b", 'LIRE_ENCOURS_CLIENT'), ("(?:quel\\s+(?:est\\s+)?(?:l['\\u2019])?|donne(?:\\s*-?\\s*moi)?(?:\\s+l['\\u2019])?|affiche(?:\\s+l['\\u2019])?)encours.{0,60}", 'LIRE_ENCOURS_CLIENT'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client", 'LIRE_ENCOURS_CLIENT'), ('cr[eé]dit\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ('solde\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ('limite\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("cr[eé]dit\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("solde\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("limite\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ('liste\\s+les?\\s+fournisseurs', 'LISTE_FOURNISSEURS'), ('liste\\s+(tous\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('(tous|toutes)\\s+(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('affiche\\s+(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('montre\\s+(moi\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('donne\\s+(moi\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('fiche\\s+(du\\s+|de\\s+)?fournisseur', 'FICHE_FOURNISSEUR'), ('info\\w*\\s+(sur\\s+)?(le\\s+)?fournisseur', 'FICHE_FOURNISSEUR'), ('fournisseurs?\\s+actifs?', 'LISTE_FOURNISSEURS'), ('quels?\\s+fournisseurs?', 'LISTE_FOURNISSEURS'), ('top\\s*\\d*\\s*fournisseurs?', 'TOP_FOURNISSEURS'), ('meilleurs?\\s+fournisseurs?', 'TOP_FOURNISSEURS'), ('achats?\\s+(par\\s+)?fournisseur', 'TOP_FOURNISSEURS'), ('commandes?\\s+(chez|aupres|auprès)\\s+', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+commande\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('top\\s*\\d*\\s*clients?\\s+par\\s+(?:ca|chiffre)', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?\\s+par\\s+ca\\b', 'TOP_CLIENTS'), ('clients?\\s+avec\\s+des\\s+impay[eé]s?', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ne\\s+paient\\s+pas', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ont\\s+pass[eé]\\s+plus\\s+de\\s+\\d+\\s+commandes?', 'NL2SQL_LIBRE'), ('clients?\\s+ayant\\s+des\\s+factures?\\s+sup[eé]rieures?\\s+[àa]\\s+\\d+', 'NL2SQL_LIBRE'), ('clients?.{0,60}(?:impay[eé]|non\\s+r[eé]gl[eé]|encours|ca\\b|chiffre\\s+d.affaires|ne\\s+pa(?:ient?|yer)|plus\\s+de\\s+\\d+\\s+factures?|moins\\s+de\\s+\\d+\\s+factures?)', 'NL2SQL_LIBRE'), ('(?:impay[eé]|non\\s+r[eé]gl[eé]).{0,40}clients?', 'NL2SQL_LIBRE'), ('quel\\s+client.{0,30}(?:plus\\s+gros|plus\\s+grand|meilleur|plus\\s+haut|maximum|encours|ca\\b|chiffre\\s+d.affaires)', 'NL2SQL_LIBRE'), ('liste\\s+(tous\\s+)?(les\\s+|des\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('(tous|toutes)\\s+(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('affiche\\s+(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('montre\\s+(moi\\s+)?(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('donne\\s+(moi\\s+)?(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('clients?\\s+actifs?\\s*$', 'LISTE_CLIENTS'), ('top\\s*\\d*\\s*clients?', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?', 'TOP_CLIENTS'), ('clients?\\s+(par\\s+)?ca\\b', 'TOP_CLIENTS'), ("fiche\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client", 'FICHE_CLIENT'), ('info\\w*\\s+(sur\\s+)?(le\\s+)?client', 'FICHE_CLIENT'), ('d[eé]tail\\s+(du\\s+)?client', 'FICHE_CLIENT'), ('profil\\s+(du\\s+)?client', 'FICHE_CLIENT'), ('statut\\s+(du\\s+|de\\s+)?client', 'STATUT_CLIENT'), ('client\\s+est.il\\s+bloqu[eé]', 'STATUT_CLIENT'), ('produits?\\s+finis?|articles?\\s+finis?', 'NL2SQL_LIBRE'), ('mati[èe]res?\\s+premi[eè]res?|mati[èe]re\\s+premi[eè]re', 'NL2SQL_LIBRE'), ("prix\\s+de\\s+(?:l['\\u2019]article\\s+)?[A-Za-z0-9\\-]+", 'VERIFIER_STOCK'), ('liste\\s+(tous\\s+)?(les\\s+)?articles?', 'LISTE_ARTICLES'), ('(tous|toutes)\\s+(les\\s+)?articles?', 'LISTE_ARTICLES'), ('catalogue\\s*(articles?|produits?)?', 'LISTE_ARTICLES'), ('tous\\s+(les\\s+)?produits?', 'LISTE_ARTICLES'), ('affiche\\s+(les\\s+)?articles?', 'LISTE_ARTICLES'), ('liste\\s+(les\\s+)?produits?', 'LISTE_ARTICLES'), ('articles?\\s+en\\s+rupture', 'VERIFIER_STOCK'), ('rupture\\s+de\\s+stock', 'VERIFIER_STOCK'), ("stock\\s+(?:disponible|actuel|restant)\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ("stock\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('quel\\s+est\\s+le\\s+stock', 'VERIFIER_STOCK'), ('stock\\s+(?:disponible|actuel|restant)', 'VERIFIER_STOCK'), ('combien\\s+(?:de\\s+)?stock', 'VERIFIER_STOCK'), ('anomalies?\\s+.{0,20}stocks?', 'NL2SQL_LIBRE'), ('stock\\s+n[eé]gatif', 'NL2SQL_LIBRE'), ("clients?.{0,50}n['\\u2019]ont\\s+pas\\s+command[eé]", 'CLIENTS_INACTIFS'), ('clients?.{0,30}(?:pas\\s+command[eé]|pas\\s+achet[eé]).{0,30}(?:depuis|\\d+\\s+mois)', 'CLIENTS_INACTIFS'), ('quels?\\s+clients?.{0,50}(?:depuis\\s+\\d+|depuis\\s+(?:un|une|deux|trois|\\d+)\\s+mois)', 'CLIENTS_INACTIFS'), ('clients?.{0,20}inactifs?.{0,20}(?:depuis|mois|\\d+)', 'CLIENTS_INACTIFS'), ('ca\\s+(par\\s+)?mois', 'SAISONNALITE'), ('ca\\s+mensuel', 'SAISONNALITE'), ('chiffre\\s+d.affaires?\\s+(par\\s+)?mois', 'SAISONNALITE'), ('factures?\\s+(non\\s+r[eé]gl[eé]es?|impay[eé]es?|en\\s+attente).{0,30}fournisseur', 'FACTURES_NON_REGLEES_FOURN'), ('fournisseur.{0,30}factures?\\s+(non\\s+r[eé]gl[eé]es?|impay[eé]es?|en\\s+attente)', 'FACTURES_NON_REGLEES_FOURN'), ('impay[eé]es?.{0,20}fournisseur', 'FACTURES_NON_REGLEES_FOURN'), ('fournisseur.{0,20}impay[eé]es?', 'FACTURES_NON_REGLEES_FOURN'), ('achats?\\s+(non\\s+r[eé]gl[eé]s?|impay[eé]s?)', 'FACTURES_NON_REGLEES_FOURN'), ('factures?\\s+(non\\s+r[eé]gl|impay|en\\s+attente)', 'FACTURES_NON_REGLEES'), ('(impay[eé]es?|non\\s+r[eé]gl[eé]es?)', 'FACTURES_NON_REGLEES'), ('listes?\\s+(toutes?\\s+)?(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?\\s*$', 'LISTE_FACTURES'), ('(?:affiche|montre|donne)\\s+(toutes?\\s+)?(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?$', 'LISTE_FACTURES'), ('toutes?\\s+(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?$', 'LISTE_FACTURES'), ("listes?\\s+(des\\s+|les\\s+)?factures?\\s+d[\\s']un\\s+fournisseur\\s+pr[eé]cis", 'NL2SQL_LIBRE'), ('toutes?\\s+les?\\s+factures?\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('factures?\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('toutes?\\s+les?\\s+factures?\\s+(du\\s+|de\\s+)?client', 'TOUTES_FACTURES_CLIENT'), ('factures?\\s+du\\s+client', 'TOUTES_FACTURES_CLIENT'), ('(d[eé]lai|dso|retard)\\s+(de\\s+)?paiement', 'DSO'), ('\\bdso\\b', 'DSO'), ('\\brfm\\b', 'RFM'), ('analyse\\s+rfm', 'RFM'), ('segmentation\\s+clients?', 'RFM'), ('d[eé]claration\\s*(fiscale|tva|mensuelle)?', 'DECLARATION_EXCEL'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|exporte?(?:r|z)?)\\s+.{0,15}d[eé]claration', 'DECLARATION_EXCEL'), ('tableau\\s+de\\s+bord', 'DASHBOARD_EXCEL'), ('\\bdashboard\\b', 'DASHBOARD_EXCEL'), ('\\bkpi\\b', 'DASHBOARD_EXCEL'), ('r[eé]sum[eé]\\s+(g[eé]n[eé]ral|global)?', 'DASHBOARD_EXCEL'), ('palm[aà]r[eè]s', 'PALMARES_ARTICLES'), ('articles?\\s+les?\\s+plus?\\s+vendus?', 'PALMARES_ARTICLES'), ('meilleurs?\\s+articles?', 'PALMARES_ARTICLES'), ('marge\\s+(brute\\s+)?par\\s+article', 'RENTABILITE'), ('rentabilit[eé]\\s+(des?\\s+)?articles?', 'RENTABILITE'), ('taux\\s+de\\s+marge', 'RENTABILITE'), ('clients?\\s+en\\s+baisse', 'CLIENTS_BAISSE'), ('clients?\\s+baisse\\s+ca', 'CLIENTS_BAISSE'), ('documents?\\s+entre\\s+\\d{4}', 'DOCS_PERIODE'), ('documents?\\s+du\\s+\\d{4}', 'DOCS_PERIODE'), ('factures?\\s+du\\s+mois\\s+d.{1,10}(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'DOCS_PERIODE'), ('(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\\s+.{0,30}(?:bons?\\s+de\\s+livraison|bons?\\s+de\\s+fabrication)(?!\\s+(?:pour|client|cli))', 'NL2SQL_LIBRE'), ('bon\\s+de\\s+livraison', 'GENERER_DOC'), ('bon\\s+de\\s+fabrication', 'GENERER_DOC')]
+_PATTERNS_PRECLASS = [("lots?\\s+(?:encore\\s+)?disponibles?\\s+(?:pour|de|du|d['\\u2019])", 'NL2SQL_LIBRE'), ("quels?\\s+lots?\\s+disponibles?\\s+(?:pour|de|du|d['\\u2019])", 'NL2SQL_LIBRE'), ('quantit[eé]\\s+restante\\s+(?:du\\s+|de\\s+)?lot\\b', 'NL2SQL_LIBRE'), ('\\blot\\b.{0,20}est[\\s-]il\\s+(?:encore\\s+)?disponible', 'NL2SQL_LIBRE'), ("d['\\u2019]o[u\\u00f9]\\s+vient\\s+(?:le\\s+)?lot\\b", 'NL2SQL_LIBRE'), ('origine\\s+(?:du\\s+)?lot\\b', 'NL2SQL_LIBRE'), ('sur\\s+quel\\s+bl\\s+.{0,20}lot\\b', 'NL2SQL_LIBRE'), ('lots?\\s+.{0,20}(?:expirent?|p[eé]rim[eé]s?|p[eé]remption)', 'NL2SQL_LIBRE'), ('lots?\\s+[eé]puis[eé]s?', 'NL2SQL_LIBRE'), ("marge\\s+(?:brute\\s+)?(?:sur|de|pour)\\s+(?:l['\\u2019]article\\s+)?[A-Za-z0-9\\-]+", 'NL2SQL_LIBRE'), ('liste[s\\s]*(?:de[s\\s]*)?(?:bf|of|bl|factures?|bc)\\b', 'NL2SQL_LIBRE'), ('transform[e\\s]+.{0,60}\\bof\\b.{0,60}\\bbf\\b', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,60}\\bbl\\b.{0,60}facture', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,30}\\bbc\\b.{0,20}\\bbl\\b', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,15}(?:fa|bl|bc|of|bf)\\d+', 'TRANSFORMER_DOC'), ('transform[e\\s]+.{0,15}[a-z]{2}\\d{6,}', 'TRANSFORMER_DOC'), ('(?:transform|passe|converti).{0,30}num[eé]ro.{0,60}\\b(?:of|bl|bc|bf|fa)[A-Z0-9]+.{0,20}\\b(?:bf|bl|facture|bc)\\b', 'TRANSFORMER_DOC'), ('convert[i\\s]+.{0,30}(?:bl|of|bc).{0,20}(?:facture|bf|bl)', 'TRANSFORMER_DOC'), ('facturer\\s+(?:le\\s+)?bl\\b', 'TRANSFORMER_DOC'), ('passer\\s+(?:le\\s+)?(?:bl|of)\\b.{0,20}en\\b', 'TRANSFORMER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:la\\s+|une\\s+|le\\s+|un\\s+)?bf\\s+(?:pour|de|à\\s+partir\\s+de)\\s+.{0,10}\\bof[a-z0-9]*\\d+', 'TRANSFORMER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:la\\s+|une\\s+|le\\s+|un\\s+)?facture(?:\\s*(?:d['’]achat|d'achat|achat|fournisseur))?\\s+(?:pour|de|à\\s+partir\\s+de)\\s+.{0,15}\\b(?:OF|BL|BC|BF|FA|BR|FBL)[0-9A-Z]{5,9}\\b", 'TRANSFORMER_DOC'), ('(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\\s+.{0,30}(?:bons?\\s+de\\s+r[eé]ception|r[eé]ceptions?\\s+fournisseur|livraisons?\\s+fournisseur|bl\\s+achat)', 'NL2SQL_LIBRE'), ('bl\\s+achat|bon\\s+de\\s+r[eé]ception|r[eé]ception\\s+fournisseur|livraison\\s+fournisseur', 'GENERER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+.{0,20}bl\\s+achat', 'GENERER_DOC'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+.{0,20}r[eé]ception\\s+fournisseur', 'GENERER_DOC'), ('r[eé]gler?\\s+(la\\s+|une\\s+|les\\s+)?(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('r[eé]glement\\s+(?:de\\s+la\\s+)?(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('change.{0,30}(?:statut|status).{0,30}(?:facture|fa)\\s+[A-Z0-9]+', 'REGLEMENT'), ('marquer?\\s+(?:la\\s+)?(?:facture|fa)\\s+[A-Z0-9]+.{0,30}r[eé]gl[eé]', 'REGLEMENT'), ('(?:facture|fa)\\s+([A-Z0-9]{3,})\\s+.{0,20}r[eé]gl[eé]e?', 'REGLEMENT'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bl\\b", 'GENERER_DOC'), ('\\bbl\\s+(pour|client|cli|de\\s+\\d)', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?of\\b", 'GENERER_DOC'), ('ordre\\s+de\\s+fabrication', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bf\\b", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t)|[eé]tabli[rs])\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?facture", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bc\\b", 'GENERER_DOC'), ('bon\\s+de\\s+commande', 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?bon\\b", 'GENERER_DOC'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?client", 'CREER_CLIENT'), ('enregistr(?:er?|ez?)\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?client', 'CREER_CLIENT'), ('saisi[rs]?\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?client', 'CREER_CLIENT'), ('nouveau\\s+client', 'CREER_CLIENT'), ('ajouter?\\s+(un\\s+)?client', 'CREER_CLIENT'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?fournisseur", 'CREER_FOURNISSEUR'), ('enregistr(?:er?|ez?)\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('saisi[rs]?\\s+(?:un\\s+|le\\s+)?(?:nouveau\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('nouveau\\s+fournisseur', 'CREER_FOURNISSEUR'), ('ajouter?\\s+(un\\s+)?fournisseur', 'CREER_FOURNISSEUR'), ('modifier?\\s+(?:le\\s+|un\\s+|mon\\s+)?client', 'MODIFIER_CLIENT'), ('(?:changer?|mettre?\\s+[\\u00e0a]\\s+jour|actualiser?|\\u00e9diter?)\\s+(?:le\\s+|un\\s+|mon\\s+)?client', 'MODIFIER_CLIENT'), ('modifier?\\s+(?:le\\s+|un\\s+|mon\\s+)?fournisseur', 'MODIFIER_FOURNISSEUR'), ('(?:changer?|mettre?\\s+[\\u00e0a]\\s+jour|actualiser?|\\u00e9diter?)\\s+(?:le\\s+|un\\s+|mon\\s+)?fournisseur', 'MODIFIER_FOURNISSEUR'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation)\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|l['\\u2019]|le\\s+|la\\s+|un\\s+nouveau\\s+|nouveau\\s+)?articles?", 'CREER_ARTICLE'), ("enregistr(?:er?|ez?)\\s+(?:un\\s+|l['\\u2019])?(?:nouveau\\s+)?articles?", 'CREER_ARTICLE'), ("saisi[rs]?\\s+(?:un\\s+|l['\\u2019])?(?:nouveau\\s+)?articles?", 'CREER_ARTICLE'), ('nouveau\\s+articles?', 'CREER_ARTICLE'), ('ajouter?\\s+(un\\s+)?articles?', 'CREER_ARTICLE'), ('(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\\s+(?:une\\s+)?nomenclature', 'CREER_NOMENCLATURE'), ('(?:cr[eé][eé]?(?:r|er|z)?|ajouter?)\\s+(?:des\\s+)?composants?', 'CREER_NOMENCLATURE'), ("(?:affiche|montre|donne|voir|consulter|liste)\\s+(?:la\\s+)?nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+.+", 'AFFICHER_NOMENCLATURE'), ("nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+.+", 'AFFICHER_NOMENCLATURE'), ('\\bnomenclature\\b', 'AFFICHER_NOMENCLATURE'), ('modifier?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('[eé]diter?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('g[eé]rer?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('supprimer?\\s+(?:un\\s+)?composant\\s+de', 'MODIFIER_NOMENCLATURE'), ('retirer?\\s+(?:un\\s+)?composant\\s+de', 'MODIFIER_NOMENCLATURE'), ('changer?\\s+(?:la\\s+)?nomenclature', 'MODIFIER_NOMENCLATURE'), ('bloquer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('d[e\\u00e9]bloquer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('r[e\\u00e9]activer?\\s+(le\\s+)?client', 'MODIFIER_STATUT'), ('bloquer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('d[e\\u00e9]bloquer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('r[e\\u00e9]activer?\\s+(le\\s+)?fournisseur', 'MODIFIER_STATUT'), ('modifier?\\s+(le\\s+)?statut', 'MODIFIER_STATUT'), ("modifier?\\s+(l['\\u2019]|un\\s+|une\\s+|le\\s+)?articles?\\b", 'MODIFIER_ARTICLE'), ("(?:changer?|mettre?\\s+[àa]\\s+jour|actualiser?)\\s+(l['\\u2019]|un\\s+|une\\s+|le\\s+)?articles?\\b", 'MODIFIER_ARTICLE'), ("modifier?\\s+(la\\s+|le\\s+)?(d[eé]signation|prix\\s+(?:d['\\u2019]\\s*achat|de\\s+vente|achat|vente)|type)\\s+.{0,20}articles?", 'MODIFIER_ARTICLE'), ('^modifier?\\s+(?!.*\\b(?:statut|client|fournisseur|facture|bl|bc|of|bf|commande)\\b)[a-z][a-z0-9\\-]{2,}\\s*$', 'MODIFIER_ARTICLE'), ("(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|fai(?:s|re|t))\\s+(?:d['\\u2019]|de\\s+|un\\s+|une\\s+|le\\s+|la\\s+)?avoir", 'CREER_AVOIR'), ('r[eé]gler?\\s+(la\\s+|une\\s+|les\\s+)?factures?', 'REGLEMENT'), ('r[eé]glement\\s+(d.une\\s+|de\\s+la\\s+)?facture', 'REGLEMENT'), ('payer?\\s+(la\\s+|une\\s+|les\\s+)?factures?', 'REGLEMENT'), ('payer?\\s+(?:la\\s+)?(?:facture\\s+)?(?:FA|BL|BC|BF)\\d+', 'REGLEMENT'), ('paiement\\s+(d.une\\s+|de\\s+la\\s+)?facture', 'REGLEMENT'), ('change.{0,20}statut.{0,20}facture.{0,20}r[eé]gl[eé]', 'REGLEMENT'), ("fiche\\s+technique\\s+(?:du|de\\s+la|de\\s+l['\\u2019]|de|d['\\u2019])\\s+\\S+", 'RECHERCHE_PROCEDURE'), ("caract[eé]ristiques?\\s+(?:du|de\\s+la|de\\s+l['\\u2019]|de|d['\\u2019])\\s+\\S+", 'RECHERCHE_PROCEDURE'), ('r[eé]clamations?\\s+.{0,20}articles?', 'RECHERCHE_PROCEDURE'), ('articles?\\s+.{0,20}r[eé]clamations?', 'RECHERCHE_PROCEDURE'), ('r[eé]clamations?', 'RECHERCHE_PROCEDURE'), ('motifs?\\s+de\\s+r[eé]clamation', 'RECHERCHE_PROCEDURE'), ('\\bd[eé]fauts?\\b', 'RECHERCHE_PROCEDURE'), ('\\bpannes?\\b', 'RECHERCHE_PROCEDURE'), ('\\bsav\\b', 'RECHERCHE_PROCEDURE'), ('tol[eé]rance', 'RECHERCHE_PROCEDURE'), ('proc[eé]d[eé]\\s+de\\s+fabrication', 'RECHERCHE_PROCEDURE'), ('\\bmati[eè]re\\b', 'RECHERCHE_PROCEDURE'), ('temp[eé]rature', 'RECHERCHE_PROCEDURE'), ('\\bprocess\\b', 'RECHERCHE_PROCEDURE'), ('pr[eé]caution', 'RECHERCHE_PROCEDURE'), ('garantie', 'RECHERCHE_PROCEDURE'), ('\\bremise\\b', 'RECHERCHE_PROCEDURE'), ('conditions?\\s+(commerciales?|n[eé]goci[eé]es?)', 'RECHERCHE_PROCEDURE'), ('command[eé]e?s?\\s+par\\s+email', 'RECHERCHE_PROCEDURE'), ('email\\s+de\\s+commande', 'RECHERCHE_PROCEDURE'), ('\\bclient\\b.{0,25}\\best[\\s-]il\\s+bloqu[eé]', 'STATUT_CLIENT'), ('\\bclient\\b.{0,25}\\best[\\s-]il\\s+(?:actif|valide|suspect)', 'STATUT_CLIENT'), ('le\\s+client\\s+[A-Z0-9]+\\s+est[\\s-]il', 'STATUT_CLIENT'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+livraison', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,20}\\bbl\\b.{0,20}client', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}\\bbl\\b', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+commande', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}bons?\\s+de\\s+fabrication', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,30}ordres?\\s+de\\s+fabrication', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre|quels?).{0,20}\\bof\\b', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+livraison\\s+(?:du\\s+|de\\s+)?client', 'NL2SQL_LIBRE'), ('\\bbl\\b.{0,30}(?:du\\s+|de\\s+)?client', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre).{0,20}\\bbl\\b.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'NL2SQL_LIBRE'), ('\\bbl\\b.{0,20}(?:du\\s+mois|de\\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre))', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+livraison.{0,40}(?:mois|p[eé]riode|janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'NL2SQL_LIBRE'), ('top\\s*\\d*\\s*clients?\\s+par\\s+(?:ca|chiffre)', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?\\s+par\\s+ca\\b', 'TOP_CLIENTS'), ('clients?\\s+avec\\s+des\\s+impay[eé]s?', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ne\\s+paient\\s+pas', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ont\\s+pass[eé]\\s+plus\\s+de\\s+\\d+\\s+commandes?', 'NL2SQL_LIBRE'), ('clients?\\s+ayant\\s+des\\s+factures?\\s+sup[eé]rieures?\\s+[àa]\\s+\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:qui\\s+)?co[uû]tent\\s+(?:plus|moins)\\s+(?:de|que)\\s*\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,20}prix.{0,20}(?:sup[eé]r|inf[eé]r|plus|moins|>|<)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+(?:sup[eé]rieure?s?\\s+[àa]|plus\\s+(?:de|que)|>\\s*)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+(?:inf[eé]rieure?s?\\s+[àa]|moins\\s+(?:de|que)|<\\s*)\\s*\\d+', 'NL2SQL_LIBRE'), ('factures?\\s+entre\\s+\\d+\\s+et\\s+\\d+', 'NL2SQL_LIBRE'), ('clients?\\s+(?:ayant|avec|qui\\s+ont)\\s+(?:des?\\s+)?factures?', 'NL2SQL_LIBRE'), ('clients?\\s+(?:dont|avec)\\s+(?:un\\s+)?(?:ca|chiffre).{0,30}\\d+', 'NL2SQL_LIBRE'), ('clients?\\s+(?:dont|avec)\\s+(?:un\\s+)?encours.{0,30}\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}stock.{0,20}\\d+', 'NL2SQL_LIBRE'), ('articles?.{0,20}stock.{0,20}(?:inf[eé]r|sup[eé]r|<|>)\\s*\\d+', 'NL2SQL_LIBRE'), ('articles?\\s+(?:vendus?|achet[eé]s?)\\s+(?:plus|moins)\\s+(?:de|que)\\s+\\d+', 'NL2SQL_LIBRE'), ('top\\s+\\d+\\s+(?!clients?)(?:articles?|produits?|références?)', 'NL2SQL_LIBRE'), ('(?:liste|donne|affiche|montre)\\s+.{0,40}\\b(?:o[ùu]|mais|dont|sauf|seulement|uniquement|filtre)\\b', 'NL2SQL_LIBRE'), ("factures?\\s+(?:du\\s+|de\\s+|d['\\u2019]?\\s*)?(?:mois\\s+(?:de\\s+)?)?(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|jan|fév|mar|avr|jun|jul|aoû|sep|oct|nov|déc)", 'NL2SQL_LIBRE'), ('factures?\\s+(?:du\\s+)?mois\\s+\\d{1,2}', 'NL2SQL_LIBRE'), ("factures?\\s+(?:de\\s+)?(?:l['\\u2019]ann[eé]e|\\d{4})", 'NL2SQL_LIBRE'), ('factures?\\s+(?:d\\s+|de\\s+)?(?:trimestre|semestre)', 'NL2SQL_LIBRE'), ('(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:mois|ann[eé]e|p[eé]riode|semaine)', 'NL2SQL_LIBRE'), ('(?:liste|affiche|montre|donne).{0,30}factures?.{0,30}(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec|au|ayant).{0,30}(?:prix|tarif|co[uû]t).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\\>|\\<)', 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}prix.{0,30}\\d+', 'NL2SQL_LIBRE'), ("(?:prix|tarif)\\s+(?:de\\s+vente|d['\\u2019]achat).{0,30}(?:sup[eé]r|inf[eé]r|d[eé]passe|plus|moins|\\>|\\<)", 'NL2SQL_LIBRE'), ('articles?\\s+(?:dont|avec).{0,30}(?:marge|rentabilit)', 'NL2SQL_LIBRE'), ("clients?\\s+(?:qui\\s+ont|ayant|avec).{0,30}(?:plus\\s+de|plus\\s+qu[e'\\u2019]|au\\s+moins)\\s+\\d+\\s+(?:commandes?|factures?|achats?)", 'NL2SQL_LIBRE'), ("clients?\\s+(?:qui\\s+ont|ayant|avec).{0,30}(?:moins\\s+de|moins\\s+qu[e'\\u2019])\\s+\\d+\\s+(?:commandes?|factures?|achats?)", 'NL2SQL_LIBRE'), ('clients?\\s+(?:pass[eé]|effectu[eé]).{0,20}(?:plus\\s+de|au\\s+moins)\\s+\\d+\\s+(?:commandes?|achats?)', 'NL2SQL_LIBRE'), ('clas(?:se|sement|s[eé])\\s+.{0,30}clients?.{0,30}(?:nombre|nb)\\s+(?:de\\s+)?commandes?', 'NL2SQL_LIBRE'), ('clients?.{0,30}(?:tri[eé]s?|class[eé]s?|ordonn[eé]s?|rang[eé]s?).{0,30}(?:nombre|nb).{0,20}commandes?', 'NL2SQL_LIBRE'), ('clients?.{0,30}par\\s+(?:nombre|nb)\\s+(?:de\\s+)?commandes?', 'NL2SQL_LIBRE'), ('(?:nombre|nb)\\s+(?:de\\s+)?commandes?\\s+(?:par\\s+)?client', 'NL2SQL_LIBRE'), ('qui\\s+(?:commande|achète|a\\s+achet[eé])\\s+le\\s+plus', 'NL2SQL_LIBRE'), ('clas(?:se|ser|s[eé]s?)\\s+les\\s+clients?\\s+.{0,30}(?:chiffre|ca\\b)', 'NL2SQL_LIBRE'), ('(?:articles?|produits?)\\s+(?:sans\\s+stock|en\\s+rupture)', 'NL2SQL_LIBRE'), ("stock\\s+(?:disponible|actuel|restant)\\s+(?:pour|de|d['\\u2019])\\s+\\S+", 'VERIFIER_STOCK'), ("stock\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('quel\\s+est\\s+le\\s+stock', 'VERIFIER_STOCK'), ('combien\\s+(?:de\\s+)?stock', 'VERIFIER_STOCK'), ('stock\\s+(?:disponible|actuel|restant)\\s*(?:est\\s+)?(?:[<>=]|inf[eé]r|sup[eé]r)\\s*\\d+', 'NL2SQL_LIBRE'), ('stock\\s+(?:nul|à\\s+z[ée]ro)', 'NL2SQL_LIBRE'), ('(?:articles?|produits?).{0,20}stock.{0,20}(?:inf[ée]r|nul|z[ée]ro|<\\s*0)', 'NL2SQL_LIBRE'), ("stock\\s+(?:disponible|actuel|restant)\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('articles?.{0,40}command[eé]s?.{0,40}stock.{0,20}(?:inf[eé]r|seuil|insuffisant|critique)', 'NL2SQL_LIBRE'), ('articles?.{0,30}(?:stock\\s+(?:faible|bas|insuffisant|inf[eé]r|critique)|sous.{0,10}seuil).{0,40}(?:command[eé]|achet[eé])', 'NL2SQL_LIBRE'), ('rupture.{0,20}command[eé]|command[eé].{0,20}rupture', 'NL2SQL_LIBRE'), ('clients?\\s+(?:actifs?|avec|ayant|dont).{0,80}(?:factures?\\s+impay[eé]es?|encours|ca\\b)', 'NL2SQL_LIBRE'), ('clients?.{0,50}(?:encours\\s+sup[eé]r|encours\\s+>\\s*\\d+|encours\\s+plus)', 'NL2SQL_LIBRE'), ('factures?\\s+entre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+et\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('documents?\\s+entre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+et\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('(?:documents?|factures?|bls?)\\b.{0,60}\\bentre\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}\\s+(?:et|au)\\s+(?:le\\s+)?\\d{4}-\\d{2}-\\d{2}', 'DOCS_PERIODE'), ('clients?\\s+bloqu[eé]s?', 'NL2SQL_LIBRE'), ('bloqu[eé]s?\\s+clients?', 'NL2SQL_LIBRE'), ('quels?\\s+clients?.{0,30}bloqu[eé]', 'NL2SQL_LIBRE'), ('clients?\\s+inactifs?', 'CLIENTS_INACTIFS'), ('clients?\\s+sans\\s+commande', 'CLIENTS_INACTIFS'), ('(?:clients?|qui)\\s+(?:sont\\s+)?en\\s+baisse\\s+(?:de\\s+)?(?:ca|chiffre)', 'CLIENTS_BAISSE'), ('baisse\\s+(?:de\\s+)?(?:ca|chiffre|revenu)', 'CLIENTS_BAISSE'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client\\b.{1,60}\\b", 'LIRE_ENCOURS_CLIENT'), ("(?:quel\\s+(?:est\\s+)?(?:l['\\u2019])?|donne(?:\\s*-?\\s*moi)?(?:\\s+l['\\u2019])?|affiche(?:\\s+l['\\u2019])?)encours.{0,60}", 'LIRE_ENCOURS_CLIENT'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client", 'LIRE_ENCOURS_CLIENT'), ('cr[eé]dit\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ('solde\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ('limite\\s+(du\\s+)?client', 'NL2SQL_LIBRE'), ("encours\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("cr[eé]dit\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("solde\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ("limite\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?fournisseur", 'NL2SQL_LIBRE'), ('liste\\s+les?\\s+fournisseurs', 'LISTE_FOURNISSEURS'), ('liste\\s+(tous\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('(tous|toutes)\\s+(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('affiche\\s+(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('montre\\s+(moi\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('donne\\s+(moi\\s+)?(les\\s+)?fournisseurs?', 'LISTE_FOURNISSEURS'), ('fiche\\s+(du\\s+|de\\s+)?fournisseur', 'FICHE_FOURNISSEUR'), ('info\\w*\\s+(sur\\s+)?(le\\s+)?fournisseur', 'FICHE_FOURNISSEUR'), ('fournisseurs?\\s+actifs?', 'LISTE_FOURNISSEURS'), ('quels?\\s+fournisseurs?', 'LISTE_FOURNISSEURS'), ('top\\s*\\d*\\s*fournisseurs?', 'TOP_FOURNISSEURS'), ('meilleurs?\\s+fournisseurs?', 'TOP_FOURNISSEURS'), ('achats?\\s+(par\\s+)?fournisseur', 'TOP_FOURNISSEURS'), ('commandes?\\s+(chez|aupres|auprès)\\s+', 'NL2SQL_LIBRE'), ('bons?\\s+de\\s+commande\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('top\\s*\\d*\\s*clients?\\s+par\\s+(?:ca|chiffre)', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?\\s+par\\s+ca\\b', 'TOP_CLIENTS'), ('clients?\\s+avec\\s+des\\s+impay[eé]s?', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ne\\s+paient\\s+pas', 'NL2SQL_LIBRE'), ('clients?\\s+qui\\s+ont\\s+pass[eé]\\s+plus\\s+de\\s+\\d+\\s+commandes?', 'NL2SQL_LIBRE'), ('clients?\\s+ayant\\s+des\\s+factures?\\s+sup[eé]rieures?\\s+[àa]\\s+\\d+', 'NL2SQL_LIBRE'), ('clients?.{0,60}(?:impay[eé]|non\\s+r[eé]gl[eé]|encours|ca\\b|chiffre\\s+d.affaires|ne\\s+pa(?:ient?|yer)|plus\\s+de\\s+\\d+\\s+factures?|moins\\s+de\\s+\\d+\\s+factures?)', 'NL2SQL_LIBRE'), ('(?:impay[eé]|non\\s+r[eé]gl[eé]).{0,40}clients?', 'NL2SQL_LIBRE'), ('quel\\s+client.{0,30}(?:plus\\s+gros|plus\\s+grand|meilleur|plus\\s+haut|maximum|encours|ca\\b|chiffre\\s+d.affaires)', 'NL2SQL_LIBRE'), ('liste\\s+(tous\\s+)?(les\\s+|des\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('(tous|toutes)\\s+(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('affiche\\s+(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('montre\\s+(moi\\s+)?(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('donne\\s+(moi\\s+)?(les\\s+)?clients?\\s*$', 'LISTE_CLIENTS'), ('clients?\\s+actifs?\\s*$', 'LISTE_CLIENTS'), ('top\\s*\\d*\\s*clients?', 'TOP_CLIENTS'), ('meilleurs?\\s+clients?', 'TOP_CLIENTS'), ('clients?\\s+(par\\s+)?ca\\b', 'TOP_CLIENTS'), ("fiche\\s+(du\\s+|de\\s+|d['\\u2019]?\\s*)?client", 'FICHE_CLIENT'), ('info\\w*\\s+(sur\\s+)?(le\\s+)?client', 'FICHE_CLIENT'), ('d[eé]tail\\s+(du\\s+)?client', 'FICHE_CLIENT'), ('profil\\s+(du\\s+)?client', 'FICHE_CLIENT'), ('statut\\s+(du\\s+|de\\s+)?client', 'STATUT_CLIENT'), ('client\\s+est.il\\s+bloqu[eé]', 'STATUT_CLIENT'), ('produits?\\s+finis?|articles?\\s+finis?', 'NL2SQL_LIBRE'), ('mati[èe]res?\\s+premi[eè]res?|mati[èe]re\\s+premi[eè]re', 'NL2SQL_LIBRE'), ("prix\\s+de\\s+(?:l['\\u2019]article\\s+)?[A-Za-z0-9\\-]+", 'VERIFIER_STOCK'), ('liste\\s+(tous\\s+)?(les\\s+)?articles?', 'LISTE_ARTICLES'), ('(tous|toutes)\\s+(les\\s+)?articles?', 'LISTE_ARTICLES'), ('catalogue\\s*(articles?|produits?)?', 'LISTE_ARTICLES'), ('tous\\s+(les\\s+)?produits?', 'LISTE_ARTICLES'), ('affiche\\s+(les\\s+)?articles?', 'LISTE_ARTICLES'), ('liste\\s+(les\\s+)?produits?', 'LISTE_ARTICLES'), ('articles?\\s+en\\s+rupture', 'VERIFIER_STOCK'), ('rupture\\s+de\\s+stock', 'VERIFIER_STOCK'), ("stock\\s+(?:disponible|actuel|restant)\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ("stock\\s+de\\s+l['\\u2019]article", 'VERIFIER_STOCK'), ('quel\\s+est\\s+le\\s+stock', 'VERIFIER_STOCK'), ('stock\\s+(?:disponible|actuel|restant)', 'VERIFIER_STOCK'), ('combien\\s+(?:de\\s+)?stock', 'VERIFIER_STOCK'), ('anomalies?\\s+.{0,20}stocks?', 'NL2SQL_LIBRE'), ('stock\\s+n[eé]gatif', 'NL2SQL_LIBRE'), ("clients?.{0,50}n['\\u2019]ont\\s+pas\\s+command[eé]", 'CLIENTS_INACTIFS'), ('clients?.{0,30}(?:pas\\s+command[eé]|pas\\s+achet[eé]).{0,30}(?:depuis|\\d+\\s+mois)', 'CLIENTS_INACTIFS'), ('quels?\\s+clients?.{0,50}(?:depuis\\s+\\d+|depuis\\s+(?:un|une|deux|trois|\\d+)\\s+mois)', 'CLIENTS_INACTIFS'), ('clients?.{0,20}inactifs?.{0,20}(?:depuis|mois|\\d+)', 'CLIENTS_INACTIFS'), ('ca\\s+(par\\s+)?mois', 'SAISONNALITE'), ('ca\\s+mensuel', 'SAISONNALITE'), ('chiffre\\s+d.affaires?\\s+(par\\s+)?mois', 'SAISONNALITE'), ('factures?\\s+(non\\s+r[eé]gl[eé]es?|impay[eé]es?|en\\s+attente).{0,30}fournisseur', 'FACTURES_NON_REGLEES_FOURN'), ('fournisseur.{0,30}factures?\\s+(non\\s+r[eé]gl[eé]es?|impay[eé]es?|en\\s+attente)', 'FACTURES_NON_REGLEES_FOURN'), ('impay[eé]es?.{0,20}fournisseur', 'FACTURES_NON_REGLEES_FOURN'), ('fournisseur.{0,20}impay[eé]es?', 'FACTURES_NON_REGLEES_FOURN'), ('achats?\\s+(non\\s+r[eé]gl[eé]s?|impay[eé]s?)', 'FACTURES_NON_REGLEES_FOURN'), ('factures?\\s+(non\\s+r[eé]gl|impay|en\\s+attente)', 'FACTURES_NON_REGLEES'), ('(impay[eé]es?|non\\s+r[eé]gl[eé]es?)', 'FACTURES_NON_REGLEES'), ('listes?\\s+(toutes?\\s+)?(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?\\s*$', 'LISTE_FACTURES'), ('(?:affiche|montre|donne)\\s+(toutes?\\s+)?(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?$', 'LISTE_FACTURES'), ('toutes?\\s+(des\\s+|les\\s+)?factures?(?:\\s+compl[eè]tes?)?$', 'LISTE_FACTURES'), ("listes?\\s+(des\\s+|les\\s+)?factures?\\s+d[\\s']un\\s+fournisseur\\s+pr[eé]cis", 'NL2SQL_LIBRE'), ('toutes?\\s+les?\\s+factures?\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('factures?\\s+(du\\s+|de\\s+)?fournisseur', 'NL2SQL_LIBRE'), ('toutes?\\s+les?\\s+factures?\\s+(du\\s+|de\\s+)?client', 'TOUTES_FACTURES_CLIENT'), ('factures?\\s+du\\s+client', 'TOUTES_FACTURES_CLIENT'), ('(d[eé]lai|dso|retard)\\s+(de\\s+)?paiement', 'DSO'), ('\\bdso\\b', 'DSO'), ('\\brfm\\b', 'RFM'), ('analyse\\s+rfm', 'RFM'), ('segmentation\\s+clients?', 'RFM'), ('d[eé]claration\\s*(fiscale|tva|mensuelle)?', 'DECLARATION_EXCEL'), ('(?:cr[eé][eé]?(?:r|er|z)?|cr[eé]ation|g[ée]n[ée]r\\w*|exporte?(?:r|z)?)\\s+.{0,15}d[eé]claration', 'DECLARATION_EXCEL'), ('tableau\\s+de\\s+bord', 'DASHBOARD_EXCEL'), ('\\bdashboard\\b', 'DASHBOARD_EXCEL'), ('\\bkpi\\b', 'DASHBOARD_EXCEL'), ('r[eé]sum[eé]\\s+(g[eé]n[eé]ral|global)?', 'DASHBOARD_EXCEL'), ('palm[aà]r[eè]s', 'PALMARES_ARTICLES'), ('articles?\\s+les?\\s+plus?\\s+vendus?', 'PALMARES_ARTICLES'), ('meilleurs?\\s+articles?', 'PALMARES_ARTICLES'), ('marge\\s+(brute\\s+)?par\\s+article', 'RENTABILITE'), ('rentabilit[eé]\\s+(des?\\s+)?articles?', 'RENTABILITE'), ('taux\\s+de\\s+marge', 'RENTABILITE'), ('clients?\\s+en\\s+baisse', 'CLIENTS_BAISSE'), ('clients?\\s+baisse\\s+ca', 'CLIENTS_BAISSE'), ('documents?\\s+entre\\s+\\d{4}', 'DOCS_PERIODE'), ('documents?\\s+du\\s+\\d{4}', 'DOCS_PERIODE'), ('factures?\\s+du\\s+mois\\s+d.{1,10}(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)', 'DOCS_PERIODE'), ('(?:liste[s]?|affiche|montre|donne|quels?|tous?|toutes?)\\s+.{0,30}(?:bons?\\s+de\\s+livraison|bons?\\s+de\\s+fabrication)(?!\\s+(?:pour|client|cli))', 'NL2SQL_LIBRE'), ('bon\\s+de\\s+livraison', 'GENERER_DOC'), ('bon\\s+de\\s+fabrication', 'GENERER_DOC')]
 _MARQUEURS_NL2SQL_FORCE_RE = [re.compile('\\b' + re.escape(m) + '\\b', re.IGNORECASE) for m in _MARQUEURS_NL2SQL_FORCE]
 _RX_ARTICLES_VENDUS_PERIODE = re.compile('(articles?\\s+les?\\s+plus?\\s+vendus?|meilleurs?\\s+articles?|palmar[eè]s).{0,40}(ce\\s+mois|cette\\s+semaine|cette\\s+ann[eé]e|en\\s+\\d{4}|du\\s+mois)|(ce\\s+mois|cette\\s+semaine|cette\\s+ann[eé]e|en\\s+\\d{4}|du\\s+mois).{0,40}(articles?\\s+les?\\s+plus?\\s+vendus?|meilleurs?\\s+articles?|palmar[eè]s)', re.IGNORECASE)
 _RX_ARTICLES_QUALIFIES = re.compile('articles?\\s+(?:jamais\\s+vendus?|sans\\s+ventes?|non\\s+vendus?|les\\s+plus|les\\s+moins|dont|avec|command[eé]s?\\s+par|achet[eé]s?\\s+par)', re.IGNORECASE)
@@ -697,6 +706,9 @@ Cette classe définit le type de données pour un état de copilote.
     intention: str
     action: str
     ambigue: bool
+    _champ_attendu: str
+    _champ_manquant: str
+    _reponse_clarification: str
     score_confiance: float
     code_client: str
     code_fournisseur: str
@@ -755,6 +767,7 @@ Cette classe définit le type de données pour un état de copilote.
     creation_article_en_cours: dict
     nomenclature_en_cours: dict
     modification_nomenclature_en_cours: dict
+    lignes_panier: list
 
 def _etat_initial(demande: str, contexte_session: dict | None=None) -> CopilotState:
     """
@@ -764,7 +777,7 @@ Cette fonction retourne un objet CopilotState contenant les informations nécess
     dd = ctx.get('dernier_document', {})
     _dernier_num = ctx.get('dernier_num_piece', '') or dd.get('num_piece', '')
     _dernier_type = ctx.get('dernier_type_doc', '') or dd.get('type_doc', '')
-    return CopilotState(demande_brute=demande, intention='', action='', ambigue=False, score_confiance=1.0, code_client=ctx.get('code_client', ''), code_fournisseur=ctx.get('code_fournisseur', ''), ref_article='', quantite=0.0, seuil_jours_impaye=0.0, num_piece='', type_doc='', type_doc_code=0, date_debut='', date_fin='', mode_paiement='Virement', validation_ok=False, hub_validation='', reponse_brute='', rag_complement='', reponse_finale='', hallucination_flag=False, mem0_contexte='', dernier_type_doc=_dernier_type, dernier_num_piece=_dernier_num, dernier_code_client=ctx.get('dernier_code_client', ''), dernier_ref_article=ctx.get('dernier_ref_article', ''), dernier_quantite=ctx.get('dernier_quantite', 0.0), plan_execution=[], etape_courante=0, nom_client_brut=ctx.get('dernier_nom_client', ''), suggestion_en_attente={}, pending_action=ctx.get('pending_action', {}), document_draft={}, statut_draft='', pdf_path='', pending_document=ctx.get('pending_document', {}), attente_complements=False, ct_validite=ctx.get('ct_validite', 'VALIDE'), num_of_resolu='', dernier_action_classifiee=ctx.get('dernier_action_classifiee', ''), derniere_question_classifiee=ctx.get('derniere_question_classifiee', ''), statut_confirmation=ctx.get('statut_confirmation', ''), numero_piece_paiement='', modification_en_cours=ctx.get('modification_en_cours', {}), attente_confirmation=ctx.get('attente_confirmation', False), draft_status='', action_buttons=[], suggestions=[], intitule=ctx.get('intitule', ''), adresse=ctx.get('adresse', ''), complement=ctx.get('complement', ''), code_postal=ctx.get('code_postal', ''), ville=ctx.get('ville', ''), pays=ctx.get('pays', ''), contact=ctx.get('contact', ''), telephone=ctx.get('telephone', ''), email=ctx.get('email', ''), site=ctx.get('site', ''), creation_article_en_cours=ctx.get('creation_article_en_cours', {}), nomenclature_en_cours=ctx.get('nomenclature_en_cours', {}), modification_nomenclature_en_cours=ctx.get('modification_nomenclature_en_cours', {}))
+    return CopilotState(demande_brute=demande, intention='', action='', ambigue=False, score_confiance=1.0, code_client=ctx.get('code_client', ''), code_fournisseur=ctx.get('code_fournisseur', ''), ref_article='', quantite=0.0, seuil_jours_impaye=0.0, num_piece='', type_doc='', type_doc_code=0, date_debut='', date_fin='', mode_paiement='Virement', validation_ok=False, hub_validation='', reponse_brute='', rag_complement='', reponse_finale='', hallucination_flag=False, mem0_contexte='', dernier_type_doc=_dernier_type, dernier_num_piece=_dernier_num, dernier_code_client=ctx.get('dernier_code_client', ''), dernier_ref_article=ctx.get('dernier_ref_article', ''), dernier_quantite=ctx.get('dernier_quantite', 0.0), plan_execution=[], etape_courante=0, nom_client_brut=ctx.get('dernier_nom_client', ''), suggestion_en_attente={}, pending_action=ctx.get('pending_action', {}), document_draft={}, statut_draft='', pdf_path='', pending_document=ctx.get('pending_document', {}), attente_complements=False, ct_validite=ctx.get('ct_validite', 'VALIDE'), num_of_resolu='', dernier_action_classifiee=ctx.get('dernier_action_classifiee', ''), derniere_question_classifiee=ctx.get('derniere_question_classifiee', ''), statut_confirmation=ctx.get('statut_confirmation', ''), numero_piece_paiement='', modification_en_cours=ctx.get('modification_en_cours', {}), attente_confirmation=ctx.get('attente_confirmation', False), draft_status='', action_buttons=[], suggestions=[], intitule=ctx.get('intitule', ''), adresse=ctx.get('adresse', ''), complement=ctx.get('complement', ''), code_postal=ctx.get('code_postal', ''), ville=ctx.get('ville', ''), pays=ctx.get('pays', ''), contact=ctx.get('contact', ''), telephone=ctx.get('telephone', ''), email=ctx.get('email', ''), site=ctx.get('site', ''), creation_article_en_cours=ctx.get('creation_article_en_cours', {}), nomenclature_en_cours=ctx.get('nomenclature_en_cours', {}), modification_nomenclature_en_cours=ctx.get('modification_nomenclature_en_cours', {}), _champ_attendu=ctx.get('_champ_attendu', ''), lignes_panier=ctx.get('lignes_panier', []))
 
 def verifier_document_incomplet(state):
     """
@@ -972,6 +985,13 @@ Cette fonction permet de fusionner deux demandes en une seule, en les séparant 
 """
     return f"Demande initiale : {precedente}\nPrécision apportée par l'utilisateur : {complement}"
 
+def _fusionner_demande_clarification(demande_initiale: str, question_posee: str, reponse_utilisateur: str) -> str:
+    return (
+        f"Demande initiale : {demande_initiale}\n"
+        f"Question de clarification posée à l'utilisateur : {question_posee}\n"
+        f"Réponse de l'utilisateur à cette question : {reponse_utilisateur}"
+    )
+
 async def _arbitrer_semantique_llm(question, decision_sem, action_llm):
     """
 Cette fonction arbitre la décision d'un modèle LLM par rapport à une décision sémantique, retournant la décision du LLM si elle correspond ou si la décision sémantique est nulle.
@@ -1163,21 +1183,25 @@ Fonction permettant d'appeler la workflow BL_ACHAT du serveur MCP en passant un 
     raw = await mcp_pool.call('actions', 'workflow_bl_achat', payload)
     return _parse_mcp_response(raw)
 
-async def _mcp_workflow_facture(code_client: str, ref_article: str, quantite: float, prix_unitaire: float=0.0, date_doc: str | None=None) -> dict:
+async def _mcp_workflow_facture(code_client: str, ref_article: str, quantite: float, prix_unitaire: float=0.0, date_doc: str | None=None, lignes: list=None) -> dict:
     """
 Crée et génère une facture pour le client avec le code spécifié, et la renvoie sous forme de dictionnaire.
 """
     payload = {'type_doc': 'FACTURE', 'code_client': code_client, 'ref_article': ref_article, 'qte': quantite, 'prix_unitaire': prix_unitaire}
+    if lignes:
+        payload['lignes'] = lignes
     if date_doc:
         payload['date_doc'] = date_doc
     raw = await mcp_pool.call('actions', 'generer_document_sage', payload)
     return _parse_mcp_response(raw)
 
-async def _mcp_workflow_bl(code_client: str, ref_article: str, quantite: float, prix_unitaire: float=0.0, date_doc: str | None=None) -> dict:
+async def _mcp_workflow_bl(code_client: str, ref_article: str, quantite: float, prix_unitaire: float=0.0, date_doc: str | None=None, lignes: list=None) -> dict:
     """
 Définit le workflow de la commande de base (BL) pour un article spécifique d'un client.
 """
     payload = {'code_client': code_client, 'ref_article': ref_article, 'quantite': quantite, 'prix_unitaire': prix_unitaire}
+    if lignes:
+        payload['lignes'] = lignes
     if date_doc:
         payload['date_doc'] = date_doc
     raw = await mcp_pool.call('actions', 'workflow_bl', payload)
@@ -1360,6 +1384,24 @@ Convertit une valeur en flottant, retournant 0.0 si la valeur est None.
             return state
         state['statut_draft'] = ''
         state['document_draft'] = {}
+    if draft_existant and state.get('statut_draft') == 'ATTENTE_MULTI_LIGNES':
+        d_lower = demande.strip().lower()
+        if est_confirmation_stricte(demande) or _est_non(demande) or d_lower in ("c'est tout", "confirmer", "non merci", "non"):
+            state['statut_draft'] = 'PREVIEW'
+            return state
+        if est_annulation_stricte(demande):
+            state['statut_draft'] = ''
+            state['document_draft'] = {}
+            state['reponse_finale'] = '🛑 Document annulé.'
+            return state
+        
+        state['statut_draft'] = 'COLLECTE'
+        draft_existant['ajouter_ligne'] = True
+        if _est_oui(demande) or d_lower in ("ajouter", "autre", "autre article", "oui", "oui merci", "oui je veux", "ajoute"):
+            state['reponse_finale'] = "Quelle est la référence de l'article à ajouter ?"
+            return state
+        # Sinon, on le laisse couler dans COLLECTE pour essayer d'absorber la réponse
+        
     if draft_existant and state.get('statut_draft') == 'COLLECTE':
         champ_avant = df_champs_manquants(draft_existant.get('type_doc', ''), draft_existant)
         premier_champ = champ_avant[0] if champ_avant else None
@@ -1441,9 +1483,25 @@ Convertit une valeur en flottant, retournant 0.0 si la valeur est None.
             qte_demandee = _to_float(draft.get('quantite'))
             if stock_dispo < qte_demandee:
                 manque = qte_demandee - stock_dispo
-                state['reponse_finale'] = f"🚫 Stock insuffisant pour **{article_data.get('AR_Design', draft['ref_article'])}** ({article_data.get('AR_Ref', draft['ref_article'])}).\n   Disponible : **{stock_dispo:.0f} u** | Demandé : **{qte_demandee:.0f} u** | Manque : **{manque:.0f} u**\n\n   Lancez un Ordre de Fabrication si nécessaire."
-                state['statut_draft'] = ''
-                state['document_draft'] = {}
+                ref_err = article_data.get('AR_Ref', draft.get('ref_article', ''))
+                design_err = article_data.get('AR_Design', draft.get('ref_article', ''))
+                msg_stock = (
+                    f"🚫 Stock insuffisant pour **{design_err}** ({ref_err}).\n"
+                    f"   Disponible : **{stock_dispo:.0f} u** | Demandé : **{qte_demandee:.0f} u** | Manque : **{manque:.0f} u**"
+                )
+                panier_actuel = draft.get('lignes_panier', [])
+                if panier_actuel:
+                    # On garde le panier, on retire l'article raté et on redemande
+                    draft.pop('ref_article', None)
+                    draft.pop('quantite', None)
+                    draft.pop('prix_unitaire', None)
+                    state['document_draft'] = draft
+                    state['statut_draft'] = 'ATTENTE_MULTI_LIGNES'
+                    state['reponse_finale'] = msg_stock + "\n\nVoulez-vous **ajouter un autre article** ou **confirmer** le document ?"
+                else:
+                    state['reponse_finale'] = msg_stock + "\n\n   Lancez un Ordre de Fabrication si nécessaire."
+                    state['statut_draft'] = ''
+                    state['document_draft'] = {}
                 return state
     except Exception as e:
         print(f'⚠️ [Vérif pré-brouillon] Erreur : {e}')
@@ -1451,6 +1509,21 @@ Convertit une valeur en flottant, retournant 0.0 si la valeur est None.
         state['statut_draft'] = ''
         state['document_draft'] = {}
         return state
+    draft = state['document_draft']
+    if draft.get('type_doc') in ('BL', 'FACTURE', 'BL_ACHAT', 'FA_ACHAT') and not draft.get('num_piece_source'):
+        panier = draft.get('lignes_panier', [])
+        if draft.get('ref_article'):
+            panier.append({
+                "ref_article": draft.pop('ref_article', ''),
+                "quantite": draft.pop('quantite', 0.0),
+                "prix_unitaire": draft.pop('prix_unitaire', 0.0),
+            })
+            draft['lignes_panier'] = panier
+        draft.pop('ajouter_ligne', None)
+        state['statut_draft'] = 'ATTENTE_MULTI_LIGNES'
+        state['reponse_finale'] = "📦 Article ajouté au panier.\n\nVoulez-vous **ajouter un autre article** ou **confirmer** le document ?"
+        return state
+        
     state['statut_draft'] = 'PREVIEW'
     return state
 
@@ -1544,11 +1617,61 @@ Cette fonction est responsable de classer les intentions et actions d'un chatbot
         result['derniere_question_classifiee'] = demande_actuelle
     return result
 
+_ACTIONS_CLIENT_REQUIS = {'FICHE_CLIENT', 'STATUT_CLIENT', 'TOUTES_FACTURES_CLIENT',
+                          'FACTURES_NON_REGLEES', 'LIRE_ENCOURS_CLIENT', 'DSO', 'RFM'}
+_ACTIONS_FOURN_REQUIS  = {'FICHE_FOURNISSEUR', 'FACTURES_NON_REGLEES_FOURN'}
+
+def _marquer_ambiguite(state: CopilotState, action: str) -> CopilotState:
+    """Pose ambigue=True quand un paramètre obligatoire manque.
+    Pose également _champ_manquant pour guider noeud_clarification."""
+    _a_client = bool(state.get('code_client') or state.get('nom_client_brut'))
+    if action == 'VERIFIER_STOCK' and not (state.get('ref_article') or _a_client):
+        state['ambigue'] = True
+        state['_champ_manquant'] = 'ref_article'
+    if action == 'AFFICHER_NOMENCLATURE' and not state.get('ref_article'):
+        state['ambigue'] = True
+        state['_champ_manquant'] = 'ref_article'
+    if action in _ACTIONS_CLIENT_REQUIS and not _a_client:
+        state['ambigue'] = True
+        state['_champ_manquant'] = state.get('_champ_manquant') or 'code_client'
+    if action in _ACTIONS_FOURN_REQUIS and not (state.get('code_client')
+                                                or state.get('code_fournisseur')
+                                                or state.get('nom_client_brut')):
+        state['ambigue'] = True
+        state['_champ_manquant'] = state.get('_champ_manquant') or 'code_client'
+    return state
 async def _noeud_classifier_impl(state: CopilotState) -> CopilotState:
     """
 Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'état actuel.
 """
-    # ── Bypass : actions en cours → pas de classification ──────────────────
+    # ── Priorité absolue : réponse à une question de clarification ─────────
+    # Si l'API a injecté _reponse_clarification (réponse brute de l'utilisateur,
+    # ex: "CHAOR42"), on l'extrait ici avant tout préclassifieur ou LLM pour
+    # éviter de tomber sur le mauvais article/client issu de la session.
+    _rep_clarif = (state.get('_reponse_clarification') or '').strip()
+    _champ_attendu = state.get('_champ_attendu')
+    if _rep_clarif:
+        if _champ_attendu and len(_rep_clarif) <= 30:
+            state[_champ_attendu] = _rep_clarif.upper()
+            state[f'dernier_{_champ_attendu}'] = ''
+            print(f'   🎯 [Clarif→{_champ_attendu} direct] {state[_champ_attendu]}')
+        else:
+            # Fallback for older behavior or no _champ_attendu
+            _m_article = re.match(r'^([A-Za-z][A-Za-z0-9\-]{1,})$', _rep_clarif)
+            if _m_article and not state.get('ref_article'):
+                state['ref_article'] = _m_article.group(1).upper()
+                state['dernier_ref_article'] = ''
+                print(f'   🎯 [Clarif→Article] {state["ref_article"]}')
+            elif re.match(r'^([A-Z]{2,6}\d+)$', _rep_clarif, re.IGNORECASE) and not state.get('code_client'):
+                state['code_client'] = _rep_clarif.upper()
+                state['dernier_code_client'] = ''
+                print(f'   🎯 [Clarif→Client code] {state["code_client"]}')
+            # Nom libre (ex: "Dubois", "Société ABC") — seulement si rien trouvé
+            elif not state.get('code_client') and not state.get('nom_client_brut') and not state.get('ref_article'):
+                state['nom_client_brut'] = _rep_clarif
+                state['dernier_code_client'] = ''
+                print(f'   🎯 [Clarif→Client nom] {_rep_clarif}')
+
     if state.get('modification_en_cours'):
         state['intention'] = 'ERP'
         return state
@@ -1590,7 +1713,7 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
         state['statut_confirmation'] = ''
         state['pending_action'] = {}
     statut_draft_bypass = state.get('statut_draft') or ''
-    if state.get('document_draft') and (statut_draft_bypass in ('PREVIEW', 'COLLECTE', 'ATTENTE_REMISE') or statut_draft_bypass.startswith('ATTENTE_PRIX')):
+    if state.get('document_draft') and (statut_draft_bypass in ('PREVIEW', 'COLLECTE', 'ATTENTE_REMISE', 'ATTENTE_MULTI_LIGNES') or statut_draft_bypass.startswith('ATTENTE_PRIX')):
         demande_b = state['demande_brute']
         if statut_draft_bypass == 'PREVIEW':
             if _est_action_pdf(demande_b):
@@ -1702,6 +1825,13 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
         return state
     print('\n🧠 [Orchestrateur] Classification de la demande...')
     question = state['demande_brute']
+    
+    _MARQ_REP = "Réponse de l'utilisateur à cette question :"
+    if _MARQ_REP in question:
+        question_entites = question.split(_MARQ_REP)[-1].strip()
+    else:
+        question_entites = question
+        
     t0 = time.perf_counter()
     action_preclass = _pre_classifier(question)
     if action_preclass:
@@ -1751,30 +1881,32 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
         except Exception as _sem_err:
             print(f'   ⚠️  [Sémantique] Erreur classification : {_sem_err}')
     if action_preclass:
-        entites_ner = _ner_extraire_entites(question)
+        entites_ner = _ner_extraire_entites(question_entites)
         for _champ in ('client', 'article'):
             _v = entites_ner.get(_champ, '')
             if _v.lower().strip() in _MOTS_GENERIQUES_NER:
                 entites_ner.pop(_champ, None)
-        _regex_code, _nom_regex = _extraire_code_ou_nom_depuis_texte(question)
+        _regex_code, _nom_regex = _extraire_code_ou_nom_depuis_texte(question_entites)
         _ner_client = entites_ner.get('client', '')
         _extraction_explicite = bool(_regex_code or _ner_client or _nom_regex)
-        if _regex_code:
-            state['code_client'] = _regex_code
-            state['nom_client_brut'] = ''
-        elif _ner_client:
-            state['nom_client_brut'] = _ner_client
-            state['code_client'] = ''
-        elif _nom_regex:
-            state['nom_client_brut'] = _nom_regex
-            state['code_client'] = ''
-        else:
-            _a_reference_contextuelle = bool(_REFS_CONTEXTUELLES.search(state['demande_brute']))
-            if state.get('nom_client_brut') and _a_reference_contextuelle:
-                pass
-            elif not _a_reference_contextuelle:
+        
+        if not state.get('code_client') and not state.get('nom_client_brut'):
+            if _regex_code:
+                state['code_client'] = _regex_code
                 state['nom_client_brut'] = ''
+            elif _ner_client:
+                state['nom_client_brut'] = _ner_client
                 state['code_client'] = ''
+            elif _nom_regex:
+                state['nom_client_brut'] = _nom_regex
+                state['code_client'] = ''
+            else:
+                _a_reference_contextuelle = bool(_REFS_CONTEXTUELLES.search(state['demande_brute']))
+                if state.get('nom_client_brut') and _a_reference_contextuelle:
+                    pass
+                elif not _a_reference_contextuelle:
+                    state['nom_client_brut'] = ''
+                    state['code_client'] = ''
         if state.get('nom_client_brut') and (not state.get('code_client')):
             code_trouve = await _rechercher_client_par_nom(state['nom_client_brut'])
             if code_trouve:
@@ -1788,7 +1920,7 @@ Détermine et met à jour l'intention de l'instance de Copilot en fonction de l'
                 if _nom_up and state.get('ref_article', '').upper() == _nom_up:
                     state['ref_article'] = ''
                 print(f"   🔧 [CREER_FOURNISSEUR] Nouveau fournisseur → code généré : '{state['code_client']}'")
-        _piece_tokens_q = [t.upper() for t in _RX_PIECE_DOC.findall(question)]
+        _piece_tokens_q = [t.upper() for t in _RX_PIECE_DOC.findall(question_entites)]
 
         def _est_sous_chaine_piece(cand: str) -> bool:
             """
@@ -1796,20 +1928,20 @@ Fonction qui vérifie si un candidat est contenu dans une sous-chaine de mots-cl
 """
             return any((cand in pt for pt in _piece_tokens_q))
         _ref_article_trouvee = ''
-        m_prix_de = re.search("(?:prix\\s+de|combien\\s+co[uû]te|combien\\s+vaut|quel\\s+est\\s+le\\s+prix\\s+(?:de(?:\\s+l['']article)?\\s+)?)(?:l[''\\u2019]article\\s+)?([A-Za-z][A-Za-z0-9\\-]{2,})", question, re.IGNORECASE)
+        m_prix_de = re.search("(?:prix\\s+de|combien\\s+co[uû]te|combien\\s+vaut|quel\\s+est\\s+le\\s+prix\\s+(?:de(?:\\s+l['']article)?\\s+)?)(?:l[''\\u2019]article\\s+)?([A-Za-z][A-Za-z0-9\\-]{2,})", question_entites, re.IGNORECASE)
         if m_prix_de:
             cand = m_prix_de.group(1).upper()
             if cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')):
                 _ref_article_trouvee = cand
                 print(f"   🔎 [PreClass/PatchG] ref_article (prix/coût de) : '{cand}'")
-        m_art_ctx = re.search("(?:article|stock\\s+de\\s+(?:l['\\u2019])?(?:article\\s+)?|r[eé]f(?:[eé]rence)?\\s+|produit)\\s+([A-Za-z][A-Za-z0-9\\-]{1,})", question, re.IGNORECASE)
+        m_art_ctx = re.search("(?:article|stock\\s+de\\s+(?:l['\\u2019])?(?:article\\s+)?|r[eé]f(?:[eé]rence)?\\s+|produit)\\s+([A-Za-z][A-Za-z0-9\\-]{1,})", question_entites, re.IGNORECASE)
         if not _ref_article_trouvee and m_art_ctx:
             cand = m_art_ctx.group(1).upper()
-            if cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')):
+            if len(cand) >= 3 and cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')):
                 _ref_article_trouvee = cand
                 print(f"   🔎 [PreClass] ref_article (contexte article) : '{cand}'")
         if not _ref_article_trouvee:
-            for mot in re.findall('\\b([A-Za-z][A-Za-z0-9\\-]{2,})\\b', question):
+            for mot in re.findall('\\b([A-Za-z][A-Za-z0-9\\-]{2,})\\b', question_entites):
                 mot_upper = mot.upper()
                 has_digit = bool(re.search('\\d', mot_upper))
                 has_dash_ref = '-' in mot_upper and all((len(p) >= 2 for p in mot_upper.split('-'))) and any((len(p) >= 3 for p in mot_upper.split('-'))) and (mot_upper not in _EXPRESSIONS_FR_EXCLUES)
@@ -1819,13 +1951,13 @@ Fonction qui vérifie si un candidat est contenu dans une sous-chaine de mots-cl
                     print(f"   🔎 [PreClass] ref_article (ref ERP) : '{mot_upper}'")
                     break
         if not _ref_article_trouvee:
-            m_art_qte = re.search('\\b\\d+(?:[.,]\\d+)?\\s*(?:pi[eè]ces?|unit[eé]s?)?\\s*(?:de\\s+)?([A-Za-z][A-Za-z0-9\\-]{2,})\\b', question, re.IGNORECASE)
+            m_art_qte = re.search('\\b\\d+(?:[.,]\\d+)?\\s*(?:pi[eè]ces?|unit[eé]s?)?\\s*(?:de\\s+)?([A-Za-z][A-Za-z0-9\\-]{2,})\\b', question_entites, re.IGNORECASE)
             if m_art_qte:
                 cand = m_art_qte.group(1).upper()
                 if cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')) and (cand != state.get('code_client', '').upper()) and (not _est_sous_chaine_piece(cand)):
                     _ref_article_trouvee = cand
                     print(f"   🔎 [PreClass] ref_article (après quantité) : '{cand}'")
-        state['ref_article'] = _ref_article_trouvee
+        state['ref_article'] = state.get('ref_article') or _ref_article_trouvee
         state['ref_article'] = await _corriger_ref_article(state['ref_article'])
         if state.get('code_client') and state.get('ref_article') and (state['code_client'].upper() == state['ref_article'].upper()):
             print(f"   🧹 [Classifier] '{state['code_client']}' détecté comme code_client ET ref_article → code_client vidé")
@@ -1841,12 +1973,13 @@ Fonction qui vérifie si un candidat est contenu dans une sous-chaine de mots-cl
                 state['ref_article'] = ''
                 print(f"   🧹 [CREER_CLIENT] ref_article '{nom_up}' effacé (= nom client)")
         if action_preclass == 'AFFICHER_NOMENCLATURE':
-            m_nom = re.search("nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+(?:l['\\u2019]article\\s+)?(.+?)(?:\\s*[?.,;!]|\\s*$)", question, re.IGNORECASE)
+            m_nom = re.search("nomenclature\\s+(?:de|du|pour|d['\\u2019])\\s+(?:l['\\u2019]article\\s+)?(.+?)(?:\\s*[?.,;!]|\\s*$)", question_entites, re.IGNORECASE)
             if m_nom and m_nom.group(1).strip():
                 state['ref_article'] = m_nom.group(1).strip().upper()
                 state['ref_article'] = await _corriger_ref_article(state['ref_article'])
             if not state.get('ref_article'):
                 state['ambigue'] = True
+                state['_champ_manquant'] = 'ref_article'
         m_q = re.search('(?:quantit[eé]s?\\s*[=:>]?\\s*|qte\\s*[=:]?\\s*|\\b)(\\d+(?:[.,]\\d+)?)\\s*(?:pièces?|pieces?|unités?|u\\.?\\b)?', question, re.IGNORECASE)
         if m_q:
             val_str = m_q.group(1)
@@ -2117,6 +2250,9 @@ Fonction qui vérifie si un candidat est contenu dans une sous-chaine de mots-cl
                 state['ambigue'] = False
         if action_preclass == 'CREER_AVOIR' and (not state.get('num_piece')):
             state['ambigue'] = True
+            
+        state = _marquer_ambiguite(state, action_preclass)
+        
         elapsed = time.perf_counter() - t0
         print(f"   Action    : {action_preclass} {('[AMBIGUE]' if state.get('ambigue') else '')}\n   Confiance : 1.00\n   Client: {state.get('code_client') or state.get('nom_client_brut') or '—'} | Article: {state.get('ref_article') or '—'} | Qté: {state.get('quantite', 0)} | Pièce: {state.get('num_piece') or '—'}\n   ⏱️  {elapsed:.2f}s")
         return state
@@ -2176,7 +2312,7 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
         decision = raw_action
     state['action'] = decision
     raw_action = decision
-    db = state['demande_brute']
+    db = question_entites
     n = db.lower()
     _regex_code, _nom_regex = _extraire_code_ou_nom_depuis_texte(db)
     _ner_client = entites_ner.get('client', '')
@@ -2185,22 +2321,23 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
         if _est_nom_valide(llm_client) or re.match('^[A-Z]{2,6}\\d{2,}$', llm_client, re.IGNORECASE):
             _llm_client_clean = llm_client
     _extraction_explicite = bool(_regex_code or _ner_client or _nom_regex or _llm_client_clean)
-    if _regex_code:
-        state['code_client'] = _regex_code
-        state['nom_client_brut'] = ''
-        print(f"   ✅ [Client] Code regex : '{_regex_code}'")
-    elif _ner_client:
-        state['nom_client_brut'] = _ner_client
-        state['code_client'] = ''
-        print(f"   ✅ [Client] NER : '{_ner_client}'")
-    elif _nom_regex:
-        state['nom_client_brut'] = _nom_regex
-        state['code_client'] = ''
-        print(f"   ✅ [Client] Nom regex : '{_nom_regex}'")
-    elif _llm_client_clean:
-        state['nom_client_brut'] = _llm_client_clean
-        state['code_client'] = ''
-        print(f"   ✅ [Client] LLM : '{_llm_client_clean}'")
+    if not state.get('code_client') and not state.get('nom_client_brut'):
+        if _regex_code:
+            state['code_client'] = _regex_code
+            state['nom_client_brut'] = ''
+            print(f"   ✅ [Client] Code regex : '{_regex_code}'")
+        elif _ner_client:
+            state['nom_client_brut'] = _ner_client
+            state['code_client'] = ''
+            print(f"   ✅ [Client] NER : '{_ner_client}'")
+        elif _nom_regex:
+            state['nom_client_brut'] = _nom_regex
+            state['code_client'] = ''
+            print(f"   ✅ [Client] Nom regex : '{_nom_regex}'")
+        elif _llm_client_clean:
+            state['nom_client_brut'] = _llm_client_clean
+            state['code_client'] = ''
+            print(f"   ✅ [Client] LLM : '{_llm_client_clean}'")
     else:
         _a_reference_contextuelle = bool(_REFS_CONTEXTUELLES.search(state['demande_brute']))
         if state.get('nom_client_brut') and _a_reference_contextuelle:
@@ -2227,7 +2364,7 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
     m_art_ctx = re.search("(?:article|stock\\s+de\\s+(?:l['\\u2019])?(?:article\\s+)?|r[eé]f(?:[eé]rence)?\\s+|produit)\\s+([A-Za-z][A-Za-z0-9\\-]{1,})", db, re.IGNORECASE)
     if not _regex_article and m_art_ctx:
         cand = m_art_ctx.group(1).upper()
-        if cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')):
+        if len(cand) >= 3 and cand not in _EXCL_ARTICLE and (not cand.startswith('CLI')):
             _regex_article = cand
     if not _regex_article:
         _PRONOMS_INVERSION = {'TU', 'IL', 'ELLE', 'JE', 'NOUS', 'VOUS', 'ILS', 'ELLES', 'ON', 'MOI', 'TOI'}
@@ -2247,7 +2384,7 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
                 _regex_article = cand
     if _regex_article:
         print(f'   🔎 [Regex] ref_article : {_regex_article}')
-    state['ref_article'] = entites_ner.get('article') or _regex_article or llm_article
+    state['ref_article'] = state.get('ref_article') or entites_ner.get('article') or _regex_article or llm_article
     state['ref_article'] = await _corriger_ref_article(state['ref_article'])
     if state['ref_article'].upper() in _TYPES_DOC_INVALIDES_COMME_ARTICLE:
         state['ref_article'] = ''
@@ -2433,14 +2570,11 @@ Récupère la valeur d'une clé dans une liste de lignes et renvoie une valeur p
             state['type_doc'] = state['type_doc'] or state['dernier_type_doc']
             state['code_client'] = state['code_client'] or state['dernier_code_client']
             state['ref_article'] = state['ref_article'] or state['dernier_ref_article']
-    _a_client = bool(state.get('code_client') or state.get('nom_client_brut'))
-    if state['action'] in ('VERIFIER_STOCK', 'FICHE_CLIENT', 'STATUT_CLIENT') and (not (_a_client or state['ref_article'])):
-        state['ambigue'] = True
-    if state['action'] in ('TOUTES_FACTURES_CLIENT', 'FICHE_CLIENT', 'STATUT_CLIENT', 'LIRE_ENCOURS_CLIENT') and (not _a_client):
-        state['ambigue'] = True
+    state = _marquer_ambiguite(state, state['action'])
     if state['action'] == 'GENERER_DOC':
         type_d = (state['type_doc'] or '').upper()
-        if type_d not in TYPES_DOC_FABRICATION and (not _a_client):
+        _a_client_doc = bool(state.get('code_client') or state.get('nom_client_brut'))
+        if type_d not in TYPES_DOC_FABRICATION and (not _a_client_doc):
             state['ambigue'] = True
         if not state['ref_article']:
             state['ambigue'] = True
@@ -2574,7 +2708,7 @@ async def noeud_clarification(state: CopilotState) -> CopilotState:
     """
 Fonction qui réalise la clarification d'un état de l'assistant, en l'envoyant à un modèle de langage.
 """
-    return await _noeud_clarification(state, _invoke_llm)
+    return await _noeud_clarification(state, _invoke_llm, _est_erreur_llm)
 
 async def noeud_confirmation(state: CopilotState) -> CopilotState:
     """
@@ -2913,7 +3047,7 @@ Cette fonction effectue l'initialisation des composants du programme, notamment 
                     print(alertes_txt)
                 print(f"{'─' * 65}\n")
                 continue
-            elif statut_draft_session in ('PREVIEW', 'COLLECTE', 'ATTENTE_REMISE') or statut_draft_session.startswith('ATTENTE_PRIX'):
+            elif statut_draft_session in ('PREVIEW', 'COLLECTE', 'ATTENTE_REMISE', 'ATTENTE_MULTI_LIGNES') or statut_draft_session.startswith('ATTENTE_PRIX'):
                 sugg = {}
             else:
                 sugg = contexte_session.get('suggestion_en_attente', {})

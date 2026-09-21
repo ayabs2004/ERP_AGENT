@@ -1,0 +1,103 @@
+=== Function: _assurer_tiers_interne ===
+6: existing = conn.execute(
+12: conn.execute(
+13: f"""INSERT INTO {T_TIERS}
+
+=== Function: _modifier_client ===
+2: row = conn.execute(
+38: conn.execute(
+39: f"UPDATE {T_TIERS} SET {', '.join(updates)} WHERE {C_CT_NUM} = ?",
+
+=== Function: _modifier_fournisseur ===
+2: row = conn.execute(
+42: conn.execute(
+43: f"UPDATE {T_TIERS} SET {', '.join(updates)} WHERE {C_CT_NUM} = ?",
+
+=== Function: _modifier_article ===
+2: row = conn.execute(
+28: conn.execute(
+29: f"UPDATE {T_ARTICLE} SET {', '.join(updates)} WHERE {C_AR_REF} = ?",
+
+=== Function: _creer_ligne_nomenclature ===
+9: row_parent = conn.execute(
+16: conn.execute(
+17: f"UPDATE {T_ARTICLE} SET {col_ar_nomencl} = 1 WHERE UPPER({C_AR_REF}) = UPPER(?)",
+27: conn.execute(f"ALTER TABLE {NOMENCLAT_TABLE} ADD COLUMN NO_Commentaire TEXT")
+42: row = conn.execute(
+71: cols_insert, vals_insert = [], []
+86: sql = f"INSERT INTO {NOMENCLAT_TABLE} ({col_names_str}) VALUES ({placeholders})"
+88: conn.execute(sql, vals_insert)
+
+=== Function: _modifier_ligne_nomenclature ===
+2: conn.execute(
+3: f"UPDATE {NOMENCLAT_TABLE} SET {NOMENCLAT_QTE} = ? WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?) AND UPPER({NOMENCLAT_REF_MP}) = UPPER(?)",
+
+=== Function: _supprimer_ligne_nomenclature ===
+2: conn.execute(
+3: f"DELETE FROM {NOMENCLAT_TABLE} WHERE UPPER({NOMENCLAT_REF_PF}) = UPPER(?) AND UPPER({NOMENCLAT_REF_MP}) = UPPER(?)",
+
+=== Function: _decrementer_lot ===
+4: # 1. UPDATE atomique avec garde : on met à jour toutes les lignes historiques du lot
+6: conn.execute(
+7: f"""UPDATE {T_LOT_SERIE}
+13: rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+19: row = conn.execute(
+31: nouvelle_qte = float(row[C_LS_QTE_RESTE]) # Déjà décrémentée par l'UPDATE précédent
+56: cols_insert, vals_insert = [], []
+66: conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} ON")
+69: conn.execute(
+70: f"INSERT INTO {T_LOT_SERIE} ({', '.join(cols_insert)}) VALUES ({ph})",
+75: conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} OFF")
+
+=== Function: _creer_lot ===
+8: # IDENTITY_INSERT est ON (sinon SQL Server exige une valeur).
+28: cols_insert, vals_insert = [], []
+38: conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} ON")
+41: conn.execute(
+42: f"INSERT INTO {T_LOT_SERIE} ({', '.join(cols_insert)}) VALUES ({ph})",
+47: conn.execute(f"SET IDENTITY_INSERT {T_LOT_SERIE} OFF")
+
+=== Function: _ajuster_stock_db ===
+13: Pour les SORTIES, l'UPDATE inclut la condition `AS_QteSto >= qte`
+30: # ── SORTIE : UPDATE atomique — le WHERE inclut la garde de stock ──
+31: # On lit d'abord le CMUP pour valoriser, puis on fait l'UPDATE atomique.
+33: # entre la lecture du CMUP et l'UPDATE, l'UPDATE échoue (@@ROWCOUNT = 0).
+35: row = conn.execute(
+41: row = conn.execute(
+56: conn.execute(
+57: f"UPDATE {T_STOCK} "
+64: conn.execute(
+65: f"UPDATE {T_STOCK} "
+73: rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+88: row = conn.execute(
+104: conn.execute(
+105: f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ?, {C_AS_MONTSTO} = ? "
+110: conn.execute(
+111: f"UPDATE {T_STOCK} SET {C_AS_QTESTO} = ? "
+
+=== Function: _inserer_document ===
+75: conn.execute(f"SET IDENTITY_INSERT {T_DOC_ENTETE} ON")
+105: entete_cols_insert = []
+106: entete_vals_insert = []
+116: entete_cols_insert = [C_DO_PIECE, C_DO_DOMAINE, C_DO_TYPE, C_DO_DATE, C_DO_REF, C_DO_TIERS, C_DE_CBMARQ]
+117: entete_vals_insert = [
+125: sql_entete = f"INSERT INTO {T_DOC_ENTETE} ({', '.join(entete_cols_insert)}) VALUES ({ph_entete})"
+126: conn.execute(sql_entete, tuple(entete_vals_insert))
+129: conn.execute(f"SET IDENTITY_INSERT {T_DOC_ENTETE} OFF")
+133: conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} ON")
+162: ligne_cols_insert = []
+163: ligne_vals_insert = []
+173: ligne_cols_insert = [C_DL_PIECE, C_DO_DOMAINE, C_DO_TYPE, C_DO_DATE, C_DL_LIGNE, C_DL_REF, C_DL_QTE, C_DL_PRIX, C_DL_PFNUM, C_DL_CBMARQ]
+174: ligne_vals_insert = [
+182: sql_ligne = f"INSERT INTO {T_DOC_LIGNE} ({', '.join(ligne_cols_insert)}) VALUES ({ph_ligne})"
+183: conn.execute(sql_ligne, tuple(ligne_vals_insert))
+186: conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} OFF")
+
+=== Function: _workflow_bl_achat ===
+57: conn.execute(
+58: f"UPDATE {T_ARTICLE} SET {C_AR_PRIXACH} = ? WHERE {C_AR_REF} = ?",
+
+=== Function: _workflow_fa_achat ===
+68: conn.execute(
+69: f"UPDATE {T_ARTICLE} SET {C_AR_PRIXACH} = ? WHERE {C_AR_REF} = ?",
+

@@ -3052,9 +3052,12 @@ def resoudre_article(libelle_ou_ref: str) -> str:
 
 
 @mcp.tool()
-@mcp.tool()
 def verifier_stock_article(ref_article: str) -> str:
     """Stock d'un article par ref ou désignation."""
+    ref = (ref_article or "").strip()
+    if len(ref) < 2:
+        return json.dumps({"statut": "NON_TROUVE",
+                           "message": "Référence article manquante."}, ensure_ascii=False)
     try:
         conn = _connect()
         base = f"""
@@ -3067,14 +3070,22 @@ def verifier_stock_article(ref_article: str) -> str:
             FROM {table('articles')} a
             LEFT JOIN {table('stock')} s ON a.{col('articles', 'ref')} = s.{col('stock', 'ref')}
         """
-        row = conn.execute(base + f" WHERE UPPER(a.{col('articles', 'ref')})=UPPER(?)", (ref_article.strip(),)).fetchone()
+        row = conn.execute(base + f" WHERE UPPER(a.{col('articles', 'ref')})=UPPER(?)", (ref,)).fetchone()
         if not row:
-            row = conn.execute(base + f" WHERE UPPER(a.{col('articles', 'designation')}) LIKE UPPER(?)", (f"%{ref_article.strip()}%",)).fetchone()
+            rows = conn.execute(base + f" WHERE UPPER(a.{col('articles', 'designation')}) LIKE UPPER(?)", (f"%{ref}%",)).fetchall()
+            if len(rows) == 1:
+                row = rows[0]
+            elif len(rows) > 1:
+                conn.close()
+                return json.dumps({"statut": "AMBIGU",
+                    "message": f"Plusieurs articles correspondent à '{ref}'.",
+                    "candidats": [{"ref": r["ref"], "designation": r["designation"]}
+                                  for r in rows[:5]]}, ensure_ascii=False)
         conn.close()
         if not row:
             return json.dumps({
                 "statut": "NON_TROUVE",
-                "message": f"Article '{ref_article}' introuvable."
+                "message": f"Article '{ref}' introuvable."
             }, ensure_ascii=False)
 
         qte_nette = row["qte_nette"]

@@ -51,6 +51,11 @@ async def noeud_lecture(state, _rechercher_client_par_nom, _safe_str):
             }, ensure_ascii=False)
                 return state
 
+    if act == "VERIFIER_STOCK" and not (state.get("ref_article") or "").strip():
+        state["reponse_brute"] = json.dumps({"statut": "NON_TROUVE",
+            "message": "Référence article non identifiée."}, ensure_ascii=False)
+        return state
+
     try:
         tool_map = {
             "AFFICHER_NOMENCLATURE": ("nl2sql", "lire_nomenclature_article",

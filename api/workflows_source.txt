@@ -1,0 +1,1172 @@
+=== _inserer_document ===
+def _inserer_document(
+    conn: Any,
+    type_doc: str,
+    num_piece: str,
+    code_client: str,
+    ref_article: str = "",
+    qte: float = 0.0,
+    prix_unit: float = 0.0,
+    montant: float = 0.0,
+    num_piece_of: str = "",
+    lignes: Optional[list[dict]] = None,
+    date_doc: Optional[datetime | str] = None,
+) -> str:
+    """
+    Insère dans l'entête document et les lignes document.
+    DO_Domaine : 0 = vente, 1 = achat, 2 = fabrication
+    DO_Type    : 3 = BL, 6 = FA, 1 = BC, 25 = OF, 26 = BF, 5 = AV
+      
+    num_piece_of est stocké dans la colonne référence (champ libre).
+    """
+    domaine = DOC_DOMAINE.get(type_doc.upper(), 0)
+    do_type = DOC_TYPE.get(type_doc.upper(), 0)
+    if date_doc is None:
+        date_doc = datetime.now()
+    elif isinstance(date_doc, str):
+        try:
+            from dateutil import parser as dt_parser
+            date_doc = dt_parser.parse(date_doc, dayfirst=True)
+        except Exception:
+            try:
+                date_doc = datetime.strptime(date_doc, "%d/%m/%Y")
+            except Exception:
+                date_doc = datetime.now()
+    elif hasattr(date_doc, "date"):
+        date_doc = date_doc
+    if lignes is None:
+        if isinstance(ref_article, list):
+            lignes = ref_article
+        else:
+            lignes = [{
+                "ref_article": ref_article,
+                "qte": qte,
+                "prix_unit": prix_unit,
+                "montant": montant,
+            }]
+
+    normalized_lignes = []
+    for ligne in lignes:
+        if not isinstance(ligne, dict):
+            continue
+        normalized_lignes.append({
+            "ref_article": ligne.get("ref_article") or ligne.get("AR_Ref") or "",
+            "qte":         float(ligne.get("qte") or ligne.get("DL_Qte") or 0.0),
+            "prix_unit":   float(_to_decimal(ligne.get("prix_unit") or ligne.get("DL_PrixUnitaire") or 0.0)),
+            "mvt_stock":   ligne.get("mvt_stock"),
+            "depot":       ligne.get("depot", DEPOT_DEFAUT),
+            "prix_ru":     ligne.get("prix_ru"),
+            "cmup":        ligne.get("cmup"),
+            "ref_compose": ligne.get("ref_compose"),
+            "ttc":         ligne.get("ttc", 0),
+            "valorise":    ligne.get("valorise", 0),
+            "non_livre":   ligne.get("non_livre", 0),
+            "piece_bl":    ligne.get("piece_bl"),
+            "qte_bl":      ligne.get("qte_bl"),
+        })
+
+    if not normalized_lignes:
+        normalized_lignes = [{"ref_article": ref_article, "qte": qte, "prix_unit": float(_to_decimal(prix_unit))}]
+
+    piece_utilisee = num_piece or _generer_num_piece(type_doc, conn)
+    for _ in range(10):
+        try:
+            cbmarq_entete = _generer_cbmarq(conn, T_DOC_ENTETE, C_DE_CBMARQ)
+            identity_col = _table_identity_column(conn, T_DOC_ENTETE)
+            if identity_col:
+                conn.execute(f"SET IDENTITY_INSERT {T_DOC_ENTETE} ON")
+            try:
+                total_ht = sum(l["qte"] * l["prix_unit"] for l in normalized_lignes)
+                total_ttc = sum(l["qte"] * l["prix_unit"] * (1 + TVA_TAUX) for l in normalized_lignes)
+
+                entete_valeurs = {
+                    C_DO_PIECE: piece_utilisee,
+                    C_DO_DOMAINE: domaine,
+                    C_DO_TYPE: do_type,
+                    C_DO_DATE: date_doc,
+                    C_DO_REF: num_piece_of or None,
+                    C_DO_TIERS: code_client,
+                    C_DE_CBMARQ: cbmarq_entete,
+                    "CT_Num": code_client,
+                }
+
+                for col_name, default_val in _DEFAULTS_DOCENTETE_CONSTANTES.items():
+                    entete_valeurs[col_name] = default_val
+
+                entete_valeurs.update({
+                    "CT_NumPayeur": code_client,
+                    "DO_DocType": do_type,
+                    "CG_Num": _cg_num_pour_domaine(domaine),
+                    "DO_TotalHT": total_ht,
+                    "DO_TotalHTNet": total_ht,
+                    "DO_TotalTTC": total_ttc,
+                    "DO_NetAPayer": total_ttc,
+                })
+
+                existing_entete_cols = _get_table_columns(conn, T_DOC_ENTETE)
+                entete_cols_insert = []
+                entete_vals_insert = []
+                for col_name, val in entete_valeurs.items():
+                    if col_name.lower().startswith("cb") and col_name.lower() != "cbmarq":
+                        continue
+                    col_match = next((c for c in existing_entete_cols if c.lower() == col_name.lower()), None)
+                    if col_match and val is not None:
+                        entete_cols_insert.append(col_match)
+                        entete_vals_insert.append(val)
+
+                if not entete_cols_insert:
+                    entete_cols_insert = [C_DO_PIECE, C_DO_DOMAINE, C_DO_TYPE, C_DO_DATE, C_DO_REF, C_DO_TIERS, C_DE_CBMARQ]
+                    entete_vals_insert = [
+                        piece_utilisee, domaine, do_type,
+                        date_doc,
+                        num_piece_of or None, code_client,
+                        cbmarq_entete
+                    ]
+
+                ph_entete = ", ".join(["?"] * len(entete_cols_insert))
+                sql_entete = f"INSERT INTO {T_DOC_ENTETE} ({', '.join(entete_cols_insert)}) VALUES ({ph_entete})"
+                conn.execute(sql_entete, tuple(entete_vals_insert))
+            finally:
+                if identity_col:
+                    conn.execute(f"SET IDENTITY_INSERT {T_DOC_ENTETE} OFF")
+            
+            identity_col_ligne = _table_identity_column(conn, T_DOC_LIGNE)
+            if identity_col_ligne:
+                conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} ON")
+            date_ligne =date_doc
+            try:
+                existing_ligne_cols = _get_table_columns(conn, T_DOC_LIGNE)
+                for i, ligne in enumerate(normalized_lignes):
+                    cbmarq_ligne = _generer_cbmarq(conn, T_DOC_LIGNE, C_DL_CBMARQ)
+                    ligne_valeurs = {
+                        C_DL_PIECE: piece_utilisee,
+                        C_DO_DOMAINE: domaine,
+                        C_DO_TYPE: do_type,
+                        C_DO_DATE: date_ligne,
+                        C_DL_LIGNE: (i + 1) * 1000,
+                        C_DL_REF: ligne["ref_article"],
+                        C_DL_QTE: ligne["qte"],
+                        C_DL_PRIX: ligne["prix_unit"],
+                        C_DL_PFNUM: 0,
+                        C_DL_CBMARQ: cbmarq_ligne,
+                        C_DL_MVTSTOCK: ligne.get("mvt_stock"),
+                        C_DL_DENO: ligne.get("depot", DEPOT_DEFAUT),
+                        C_DL_PRIXRU: ligne.get("prix_ru"),
+                        C_DL_CMUP: ligne.get("cmup"),
+                        C_DL_ARCOMPOSE: ligne.get("ref_compose"),
+                        C_DL_TTC: ligne.get("ttc", 0),
+                        C_DL_VALORISE: ligne.get("valorise", 0),
+                        C_DL_NONLIVRE: ligne.get("non_livre", 0),
+                        C_DL_PIECEBL: ligne.get("piece_bl"),
+                        C_DL_QTEBL: ligne.get("qte_bl"),
+                    }
+
+                    ligne_cols_insert = []
+                    ligne_vals_insert = []
+                    for col_name, val in ligne_valeurs.items():
+                        if col_name.lower().startswith("cb") and col_name.lower() != "cbmarq":
+                            continue
+                        col_match = next((c for c in existing_ligne_cols if c.lower() == col_name.lower()), None)
+                        if col_match and val is not None:
+                            ligne_cols_insert.append(col_match)
+                            ligne_vals_insert.append(val)
+
+                    if not ligne_cols_insert:
+                        ligne_cols_insert = [C_DL_PIECE, C_DO_DOMAINE, C_DO_TYPE, C_DO_DATE, C_DL_LIGNE, C_DL_REF, C_DL_QTE, C_DL_PRIX, C_DL_PFNUM, C_DL_CBMARQ]
+                        ligne_vals_insert = [
+                            piece_utilisee, domaine, do_type, date_ligne,
+                            (i + 1) * 1000,
+                            ligne["ref_article"], ligne["qte"], ligne["prix_unit"],
+                            0, cbmarq_ligne
+                        ]
+
+                    ph_ligne = ", ".join(["?"] * len(ligne_cols_insert))
+                    sql_ligne = f"INSERT INTO {T_DOC_LIGNE} ({', '.join(ligne_cols_insert)}) VALUES ({ph_ligne})"
+                    conn.execute(sql_ligne, tuple(ligne_vals_insert))
+            finally:
+                if identity_col_ligne:
+                    conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} OFF")
+            return piece_utilisee
+        except Exception:
+            piece_utilisee = _generer_num_piece(type_doc, conn)
+            continue
+    raise Exception("Unable to allocate a unique document number")
+
+=== _workflow_bl ===
+def _workflow_bl(
+    code_client: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+    date_doc: Optional[str] = None,
+) -> dict:
+    conn = _get_conn()
+    try:
+        dt_doc = None
+        if date_doc:
+            try:
+                from dateutil import parser as dt_parser
+                dt_doc = dt_parser.parse(date_doc, dayfirst=True)
+            except Exception:
+                pass
+
+        # ── Résolution client ─────────────────────────────────────────
+        client = _resolve_client(conn, code_client)
+        if not client:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "message": f"❌ Client '{code_client}' introuvable.",
+                "suggestions": _suggestions_clients(conn, code_client),
+            }
+
+        code_reel  = client[C_CT_NUM]
+        nom_client = client[C_CT_INTITULE]
+
+        # CT_Sommeil : 1 = en sommeil / bloqué, 0 = actif / valide
+        sommeil_cl = int(client.get(C_CT_SOMMEIL) or 0)
+
+        if sommeil_cl != 0:
+            return {
+                "statut": "CLIENT_BLOQUE",
+                "message": (
+                    f"🚫 Impossible de créer le BL.\n\n"
+                    f"   Client '{nom_client}' ({code_reel}) est EN SOMMEIL / BLOQUÉ.\n"
+                    f"   Contactez le service comptabilité.\n\n"
+                    f"   ➡️  Commande : 'modifier statut client {code_reel}'"
+                ),
+            }
+
+        alerte_suspect = ""
+
+        # ── Résolution article ────────────────────────────────────────
+        article = _resolve_article(conn, ref_article)
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "message": f"❌ Article '{ref_article}' introuvable.",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        ref_reelle  = article[C_AR_REF]
+        desig       = article[C_AR_DESIGN]
+        prix_auto   = _to_decimal(article[C_AR_PRIXVEN] or 0.0)
+        prix_final  = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(prix_auto))
+        stock_dispo = _get_stock(conn, ref_reelle)
+        montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        # ── Contrôle stock ────────────────────────────────────────────
+        if _est_article_stocke(conn, article) and stock_dispo < quantite:
+            manque = quantite - stock_dispo
+            return {
+                "statut": "STOCK_INSUFFISANT",
+                "message": (
+                    f"📦 Stock insuffisant pour '{desig}' ({ref_reelle}).\n"
+                    f"   Disponible : {stock_dispo} u | "
+                    f"Demandé : {quantite} u | Manque : {manque} u\n\n"
+                    f"   Voulez-vous lancer un Ordre de Fabrication pour {manque} u ?"
+                ),
+                "stock_dispo":  stock_dispo,
+                "qte_demandee": quantite,
+                "manque":       manque,
+                "ref_article":  ref_reelle,
+                "code_client":  code_reel,
+                "prix_unitaire": prix_final,
+                "data_bl_en_attente": {
+                    "code_client":  code_reel,
+                    "nom_client":   nom_client,
+                    "ref_article":  ref_reelle,
+                    "designation":  desig,
+                    "quantite":     quantite,
+                    "prix_unitaire": prix_final,
+                    "montant":      montant,
+                    "alerte_suspect": alerte_suspect,
+                },
+            }
+        # ══════════ NOUVEAU : bifurcation gestion par lot ══════════
+        if _article_a_des_lots(conn, ref_reelle):
+            from lot_engine import allouer, Lot, _date_expiration_valide
+
+            rows = _lister_lots_disponibles(conn, ref_reelle, DEPOT_DEFAUT)
+            lots_obj = [
+        Lot(numero=r["numero"], qte_disponible=float(r["qte_restante"]),
+            date_expiration=_date_expiration_valide(r["peremption"]),
+            date_fabrication=r["fabrication"])
+                for r in rows
+    ]
+            strategie = "FEFO" if any(l.date_expiration for l in lots_obj) else "FIFO"
+            resultat = allouer(quantite, lots_obj, strategie)
+
+            if not resultat.ok:
+                lignes_lots = "\n".join(
+            f"   • {l.numero} : {l.qte_disponible} u"
+            + (f" (péremption {l.date_expiration})" if l.date_expiration else "")
+            for l in resultat.lots_disponibles
+        )
+                return {
+            "statut": "STOCK_INSUFFISANT",
+            "message": (
+                f"📦 Stock insuffisant pour '{desig}' ({ref_reelle}) — gestion par lot.\n\n"
+                f"   Demandé : {quantite} u | Disponible : {resultat.qte_allouee} u | "
+                f"Manque : {resultat.manque} u\n\n   Lots disponibles :\n{lignes_lots}"
+            ),
+            "stock_dispo": resultat.qte_allouee, "qte_demandee": quantite,
+            "manque": resultat.manque, "ref_article": ref_reelle, "code_client": code_reel,
+        }
+
+            num_bl = _generer_num_piece("BL", conn)
+            lignes_bl = []
+            for alloc in resultat.allocations:
+                mvt = _ajuster_stock_db(conn, ref_reelle, alloc.qte, "SORTIE",
+                                 motif=f"BL {num_bl} / lot {alloc.lot}")
+                lignes_bl.append({
+            "ref_article": ref_reelle, "qte": alloc.qte, "prix_unit": float(prix_final),
+            "mvt_stock": 3, "depot": DEPOT_DEFAUT,
+            "prix_ru": mvt["cout_ligne"], "cmup": mvt["cout_ligne"],
+        })
+
+            num_bl = _inserer_document(conn, "BL", num_bl, code_reel, lignes=lignes_bl)
+
+    # Récupérer les vrais DL_No pour tracer précisément quel lot a servi quelle ligne
+            lignes_inserees = conn.execute(
+        f"SELECT DL_No FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE}=? ORDER BY DL_No",
+        (num_bl,)
+    ).fetchall()
+            for alloc, ligne_doc in zip(resultat.allocations, lignes_inserees):
+                _decrementer_lot(conn, alloc.lot, ref_reelle, alloc.qte,
+                          num_ligne_doc=ligne_doc["DL_No"])
+
+            conn.commit()
+
+            lots_txt = ", ".join(f"{a.lot} ({a.qte:.0f} u)" for a in resultat.allocations)
+            dispos_txt = "\n".join(f"      - {r['numero']} ({r['qte_restante']:.0f} u) exp: {r.get('peremption') or 'N/A'}" for r in rows)
+            if not dispos_txt:
+                dispos_txt = "      - Aucun lot disponible"
+            
+            message = (
+        f"✅ Bon de Livraison créé (gestion par lot)\n\n"
+        f"  • Numéro BL   : {num_bl}\n"
+        f"  • Client      : {nom_client} ({code_reel})\n"
+        f"  • Article     : {desig} ({ref_reelle})\n"
+        f"  • Quantité    : {quantite} u\n"
+        f"  • Lots dispos :\n{dispos_txt}\n"
+        f"  • Lots choisis ({strategie}) : {lots_txt}\n"
+    )
+            return {
+        "statut": "GENERE", "DO_Piece": num_bl, "DO_Tiers": code_reel,
+        "AR_Ref": ref_reelle, "montant": montant, "message": message,
+        "suggestion_facture": {
+            "code_client": code_reel, "nom_client": nom_client,
+            "ref_article": ref_reelle, "quantite": quantite,
+            "prix_unitaire": prix_final, "montant": montant, "num_bl": num_bl,
+        },
+    }
+# ══════════ FIN bifurcation lot — sinon comportement existant ══════════
+        # ── Création BL ───────────────────────────────────────────────
+        if _est_article_stocke(conn, article):
+            num_bl = _generer_num_piece("BL", conn)
+            mvt = _ajuster_stock_db(
+                conn, ref_reelle, quantite, "SORTIE", motif=f"BL {num_bl}"
+            )
+            mvt_stock_val, cout_ligne = 3, mvt["cout_ligne"]
+            stock_apres_aff = mvt["stock_apres"]
+        else:
+            num_bl = _generer_num_piece("BL", conn)
+            mvt_stock_val, cout_ligne, stock_apres_aff = 0, 0.0, None
+
+        num_bl = _inserer_document(
+            conn, "BL", num_bl, code_reel,
+            lignes=[{
+                "ref_article": ref_reelle, "qte": quantite,
+                "prix_unit": float(prix_final),
+                "mvt_stock": mvt_stock_val, "depot": DEPOT_DEFAUT,
+                "prix_ru": cout_ligne, "cmup": cout_ligne,
+            }],
+            date_doc=dt_doc
+        )
+        conn.commit()
+
+        stock_apres_msg = f"{stock_apres_aff} u" if stock_apres_aff is not None else "N/A (Non stocké)"
+
+        champs = {
+            "Numéro BL": num_bl,
+            "Client": f"{nom_client} ({code_reel})",
+            "Article": f"{desig} ({ref_reelle})",
+            "Quantité": f"{quantite} u",
+            "Prix unit.": _money_text(prix_final),
+            "Montant": _money_text(montant),
+            "Stock après": stock_apres_msg,
+        }
+        message = _formater_bloc("✅ Bon de Livraison créé !", champs)
+        if alerte_suspect:
+            message += f"\n\n⚠️ {alerte_suspect}\n"
+
+        return {
+            "statut":      "GENERE",
+            "DO_Piece":    num_bl,
+            "DO_Tiers":    code_reel,
+            "AR_Ref":      ref_reelle,
+            "montant":     montant,
+            "stock_apres": stock_apres_aff,
+            "message":     message,
+            "alertes":     [alerte_suspect] if alerte_suspect else [],
+            "suggestion_facture": {
+                "code_client":  code_reel,
+                "nom_client":   nom_client,
+                "ref_article":  ref_reelle,
+                "quantite":     quantite,
+                "prix_unitaire": prix_final,
+                "montant":      montant,
+                "num_bl":       num_bl,
+            },
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _workflow_of ===
+def _workflow_of(
+    ref_article: str,
+    quantite: float,
+    code_client: str = "PROD-INT",
+) -> dict:
+    conn = _get_conn()
+    try:
+        article = _resolve_article(conn, ref_article)
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "message": f"❌ Article '{ref_article}' introuvable.",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        ref_reelle = article[C_AR_REF]
+        desig      = article[C_AR_DESIGN]
+
+        if not _verifier_nomenclature(conn, ref_reelle):
+            return {
+                "statut": "ERREUR",
+                "message": (
+                    f"🚫 Impossible de créer l'OF : l'article '{ref_reelle}' n'a pas de "
+                    f"nomenclature définie dans Sage. Créez d'abord sa nomenclature "
+                    f"(composants nécessaires à la fabrication) avant de lancer un ordre de fabrication."
+                ),
+            }
+
+        composants = _get_nomenclature(conn, ref_reelle)
+        rapport_compo       = []
+        composants_manquants = []
+        composants_ok        = []
+
+        if not composants:
+            rapport_compo.append(
+                f"ℹ️  Aucune nomenclature pour '{desig}' ({ref_reelle}).\n"
+                f"   OF créé sans vérification des composants."
+            )
+        else:
+            for comp in composants:
+                ref_comp   = comp["ref_composant"]
+                desig_comp = comp["designation"]
+                qte_besoin = comp["qte_necessaire"] * quantite
+                prix_comp  = comp["prix_utilise"]
+                total_comp = qte_besoin * prix_comp
+                
+                depot_comp = _resoudre_depot_principal(conn, ref_comp)
+                
+                # P1: Soft Reservation check
+                from reservation_engine import calculer_disponible
+                stock_comp = calculer_disponible(conn, ref_comp, depot_comp)
+                
+                ok    = stock_comp >= qte_besoin
+                icone = "✅" if ok else "❌"
+                rapport_compo.append(
+                    f"   {icone} {desig_comp} ({ref_comp}) : "
+                    f"besoin {qte_besoin:.3f} u | dispo {stock_comp:.3f} u"
+                    + (
+                        f" | manque {qte_besoin - stock_comp:.3f} u"
+                        if not ok else ""
+                    )
+                )
+                if ok:
+                    composants_ok.append({
+                        "ref": ref_comp,
+                        "desig": desig_comp,
+                        "qte": qte_besoin,
+                        "prix": prix_comp,
+                        "total": total_comp,
+                        "depot": depot_comp,
+                    })
+                else:
+                    composants_manquants.append({
+                        "ref":    ref_comp,
+                        "desig":  desig_comp,
+                        "besoin": qte_besoin,
+                        "dispo":  stock_comp,
+                        "manque": qte_besoin - stock_comp,
+                    })
+
+        if composants_manquants:
+            lignes_manque = "\n".join(
+                f"   ❌ {m['desig']} ({m['ref']}) : manque {m['manque']:.1f} u "
+                f"(dispo {m['dispo']:.1f} / besoin {m['besoin']:.1f})"
+                for m in composants_manquants
+            )
+            return {
+                "statut": "COMPOSANTS_INSUFFISANTS",
+                "message": (
+                    f"📋 Nomenclature '{desig}' pour {quantite} u :\n"
+                    + "\n".join(rapport_compo)
+                    + f"\n\n🚫 Stock insuffisant pour certains composants :\n"
+                    + lignes_manque
+                    + "\n\n   Approvisionnez les composants manquants "
+                      "avant de lancer la fabrication."
+                ),
+                "composants_manquants": composants_manquants,
+            }
+
+        composants_ok = list(composants_ok)
+        cout_total = sum(comp["total"] for comp in composants_ok)
+
+        lignes_of = [{
+            "ref_article": ref_reelle, "qte": quantite, "prix_unit": 0.0,
+            "mvt_stock": 0, "depot": DEPOT_DEFAUT,
+            "ttc": 1, "valorise": 1, "non_livre": 0,
+            "prix_ru": 0.0,
+        }]
+        for comp in composants_ok:
+            lignes_of.append({
+                "ref_article": comp["ref"], "qte": comp["qte"],
+                "prix_unit": comp["prix"],
+                "mvt_stock": 3,
+                "depot": comp["depot"],
+                "prix_ru": comp["prix"],
+                "ref_compose": ref_reelle,
+                "ttc": 1, "valorise": 1, "non_livre": 0,
+            })
+
+        num_of = _inserer_document(
+            conn, "OF", "", code_client or "PROD-INT",
+            lignes=lignes_of,
+        )
+
+        # P1: Enregistrer les réservations soft
+        from reservation_engine import reserver_stock
+        for comp in composants_ok:
+            reserver_stock(conn, comp["ref"], comp["qte"], comp["depot"], num_of)
+
+        conn.commit()
+
+        msg_compo = (
+            "\n📋 Nomenclature :\n" + "\n".join(rapport_compo) + "\n"
+            if rapport_compo else ""
+        )
+        msg_cout = (
+            f"\n💰 Coût matières estimé : {cout_total:.3f} TND\n"
+            if cout_total > 0 else ""
+        )
+
+
+        message = (
+            f"✅ Ordre de Fabrication créé !\n"
+            + msg_compo + msg_cout
+            + f"\n   • Numéro OF  : {num_of}\n"
+            f"   • Article    : {desig} ({ref_reelle})\n"
+            f"   • Quantité   : {quantite} u\n"
+            f"   • Composants : "
+            + ("Listés (sorties réelles à la création du BF)" if composants_ok else "N/A")
+        )
+
+        return {
+            "statut":   "GENERE",
+            "DO_Piece": num_of,
+            "AR_Ref":   ref_reelle,
+            "message":  message,
+            "alertes":  [],
+            "nomenclature": [
+                {
+                    "ref": comp["ref"],
+                    "designation": comp["desig"],
+                    "qte": comp["qte"],
+                    "prix_unitaire": comp["prix"],
+                    "total": comp["total"],
+                }
+                for comp in composants_ok
+            ],
+            "suggestion_bf": {
+                "ref_article": ref_reelle,
+                "designation": desig,
+                "quantite":    quantite,
+                "num_of":      num_of,
+                "code_client": code_client or "PROD-INT",
+            },
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _workflow_bf ===
+def _workflow_bf(
+    ref_article: str,
+    quantite: float,
+    num_of: str = "",
+    code_client: str = "PROD-INT",
+) -> dict:
+    conn = _get_conn()
+    try:
+        article = _resolve_article(conn, ref_article)
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "message": f"❌ Article '{ref_article}' introuvable.",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        ref_reelle  = article[C_AR_REF]
+        desig       = article[C_AR_DESIGN]
+        stock_avant = _get_stock(conn, ref_reelle)
+
+        composants = _get_nomenclature(conn, ref_reelle)
+        rapport_compo = []
+        cout_total = 0.0
+        lignes_bf = []
+        
+        # P1: Libération de la réservation soft OF AVANT consommation réelle
+        if num_of:
+            from reservation_engine import liberer_reservation
+            # On libère pour le num_of (l'OF) car le stock va être décrémenté physiquement en dur
+            for comp in composants:
+                depot_comp = _resoudre_depot_principal(conn, comp["ref_composant"])
+                liberer_reservation(conn, comp["ref_composant"], depot_comp, num_of)
+
+        # ── 1. Sorties Composants ──
+        # Liste temporaire pour retenir les allocations et les lier aux lignes de document insérées
+        compo_allocations = []  # format: [(index_ligne_bf, lot, qte), ...]
+
+        for comp in composants:
+            qte = comp["qte_necessaire"] * quantite
+            depot_comp = _resoudre_depot_principal(conn, comp["ref_composant"])
+            ref_c = comp["ref_composant"]
+
+            if _article_a_des_lots(conn, ref_c):
+                from api.lot_engine import allouer, Lot, _date_expiration_valide
+                
+                rows = _lister_lots_disponibles(conn, ref_c, depot_comp)
+                lots_obj = [
+                    Lot(numero=r["numero"], qte_disponible=float(r["qte_restante"]),
+                        date_expiration=_date_expiration_valide(r["peremption"]),
+                        date_fabrication=r["fabrication"])
+                    for r in rows
+                ]
+                strategie = "FEFO" if any(l.date_expiration for l in lots_obj) else "FIFO"
+                resultat = allouer(qte, lots_obj, strategie)
+
+                if not resultat.ok:
+                    lignes_lots = "\n".join(
+                        f"   • {l.numero} : {l.qte_disponible} u"
+                        + (f" (péremption {l.date_expiration})" if l.date_expiration else "")
+                        for l in resultat.lots_disponibles
+                    )
+                    return {
+                        "statut": "STOCK_INSUFFISANT",
+                        "message": (
+                            f"📦 Stock insuffisant pour le composant '{comp['designation']}' ({ref_c}) — gestion par lot.\n\n"
+                            f"   Demandé : {qte} u | Disponible : {resultat.qte_allouee} u | "
+                            f"Manque : {resultat.manque} u\n\n   Lots disponibles :\n{lignes_lots}"
+                        ),
+                    }
+
+                for alloc in resultat.allocations:
+                    mvt = _ajuster_stock_db(
+                        conn, ref_c, alloc.qte, "SORTIE",
+                        motif=f"Consommation BF (OF {num_of}) / lot {alloc.lot}", depot=depot_comp
+                    )
+                    cout_ligne = mvt["cout_ligne"]
+                    total_ligne = alloc.qte * cout_ligne
+                    cout_total += total_ligne
+                    
+                    rapport_compo.append(
+                        f"   • {comp['designation']} ({ref_c}) [Lot: {alloc.lot}]: "
+                        f"-{alloc.qte:.3f} u @ {cout_ligne:.3f} TND = {total_ligne:.3f} TND"
+                    )
+                    
+                    lignes_bf.append({
+                        "ref_article": ref_c,
+                        "qte": alloc.qte,
+                        "prix_unit": cout_ligne,
+                        "mvt_stock": 1,
+                        "depot": depot_comp,
+                        "prix_ru": cout_ligne,
+                        "cmup": mvt["cmup_apres"]
+                    })
+                    # index de la ligne qu'on vient d'ajouter (+1 pour le PF qui sera inséré en index 0)
+                    # wait, on insère le PF à la fin avec insert(0, ...). Donc tous les indices actuels seront décalés de +1.
+                    compo_allocations.append((len(lignes_bf), alloc.lot, alloc.qte, ref_c))
+
+            else:
+                # Composant SANS lot
+                mvt = _ajuster_stock_db(
+                    conn, ref_c, qte, "SORTIE",
+                    motif=f"Consommation BF (OF {num_of})", depot=depot_comp
+                )
+                
+                cout_ligne = mvt["cout_ligne"]
+                total_ligne = qte * cout_ligne
+                cout_total += total_ligne
+                
+                rapport_compo.append(
+                    f"   • {comp['designation']} ({ref_c}): "
+                    f"-{qte:.3f} u @ {cout_ligne:.3f} TND = {total_ligne:.3f} TND"
+                )
+                
+                lignes_bf.append({
+                    "ref_article": ref_c,
+                    "qte": qte,
+                    "prix_unit": cout_ligne,
+                    "mvt_stock": 1,
+                    "depot": depot_comp,
+                    "prix_ru": cout_ligne,
+                    "cmup": mvt["cmup_apres"]
+                })
+
+        # ── 2. Entrée Produit Fini ──
+        cout_unitaire_pf = (cout_total / quantite) if quantite > 0 else 0.0
+        depot_pf = _resoudre_depot_principal(conn, ref_reelle)
+        
+        mvt_pf = _ajuster_stock_db(
+            conn, ref_reelle, quantite, "ENTREE",
+            cout_unitaire=cout_unitaire_pf,
+            motif=f"Production BF (OF {num_of})", depot=depot_pf
+        )
+
+        lignes_bf.insert(0, {
+            "ref_article": ref_reelle,
+            "qte": quantite,
+            "prix_unit": cout_unitaire_pf,
+            "mvt_stock": 1,          # ← 2 → 1 : aligné avec ce qu'exige le trigger
+            "depot": depot_pf,
+            "prix_ru": cout_unitaire_pf,
+            "cmup": mvt_pf["cmup_apres"]
+        })
+
+        # ── 3. Création Document (AVANT la création du lot !) ──
+        num_bf = _inserer_document(
+            conn, "BF", "", code_client or "PROD-INT",
+            lignes=lignes_bf, num_piece_of=num_of
+        )
+
+        # ── 4. Récupérer les DL_No réels des lignes insérées ──
+        lignes_inserees = conn.execute(
+            f"SELECT DL_No FROM {T_DOC_LIGNE} WHERE {C_DL_PIECE}=? ORDER BY DL_No",
+            (num_bf,)
+        ).fetchall()
+        
+        # Le produit fini a été inséré en index 0
+        dl_no_entree_pf = lignes_inserees[0]["DL_No"] if lignes_inserees else None
+
+        # ── 4b. Décrémentation des lots composants (P0-4) ──
+        for idx, lot_num, qte_alloc, ref_c in compo_allocations:
+            # idx correspond exactement à l'index final (0-based) car on a utilisé len(lignes_bf)
+            # juste après avoir ajouté le composant, ce qui anticipe le décalage de l'insert(0) du PF.
+            if idx < len(lignes_inserees):
+                dl_no_compo = lignes_inserees[idx]["DL_No"]
+                _decrementer_lot(conn, lot_num, ref_c, qte_alloc, num_ligne_doc=dl_no_compo)
+
+        # ── 5. Création du lot (une seule fois), avec DL_NoIn correctement renseigné ──
+        numero_lot_cree = None
+        if _necessite_creation_lot_au_bf(article):
+            numero_lot_cree = _creer_lot(
+                conn, ref_reelle, quantite, depot_pf,
+                dl_no_entree=dl_no_entree_pf,
+            )
+
+        conn.commit()
+
+        message = (
+            f"✅ Bon de Fabrication créé !\n\n"
+            f"   • Numéro BF      : {num_bf}\n"
+            + (f"   • Lié à OF       : {num_of}\n" if num_of else "")
+            + f"   • Article        : {desig} ({ref_reelle})\n"
+            f"   • Qté fabriquée  : {quantite} u\n"
+        )
+        if numero_lot_cree:
+            message += f"\n\n🏷️ Lot créé : **{numero_lot_cree}** ({quantite} u)"
+        if rapport_compo:
+            message += (
+                "\n📋 Nomenclature (sorties effectuées au CMUP) :\n"
+                + "\n".join(rapport_compo)
+                + (f"\n\n💰 Coût matières total : {cout_total:.3f} TND" if cout_total > 0 else "")
+            )
+        message += (
+            "\n\n📦 Stock produit fini mis à jour :\n"
+            f"   • Stock avant    : {stock_avant} u\n"
+            f"   • Entrée         : +{quantite} u\n"
+            f"   • Stock actuel   : {mvt_pf['stock_apres']} u"
+        )
+
+        return {
+            "statut":      "GENERE",
+            "DO_Piece":    num_bf,
+            "AR_Ref":      ref_reelle,
+            "num_of":      num_of,
+            "stock_apres": mvt_pf["stock_apres"],
+            "numero_lot":  numero_lot_cree,
+            "message":     message,
+            "alertes":     [],
+            "nomenclature": [
+                {
+                    "ref": comp["ref_composant"],
+                    "designation": comp["designation"],
+                    "qte": comp["qte_necessaire"] * quantite,
+                    "prix_unitaire": comp["prix_utilise"],
+                    "total": (comp["qte_necessaire"] * quantite) * comp["prix_utilise"],
+                }
+                for comp in composants
+            ],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _generer_facture_directe ===
+def _generer_facture_directe(
+    code_client: str,
+    ref_article: str,
+    qte: float,
+    prix_unitaire: float,
+    date_doc: Optional[str] = None,
+) -> dict:
+    conn = _get_conn()
+    try:
+        client  = _resolve_client(conn, code_client)
+        article = _resolve_article(conn, ref_article)
+        if not client:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "suggestions": _suggestions_clients(conn, code_client),
+            }
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        sommeil_cl = int(client.get(C_CT_SOMMEIL) or 0)
+        if sommeil_cl != 0:
+            return {
+                "statut": "CLIENT_BLOQUE",
+                "message": f"🚫 Impossible de créer la facture : client {client[C_CT_NUM]} est en sommeil / bloqué.",
+            }
+
+        prix_final = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(article[C_AR_PRIXVEN] or 0.0))
+        montant    = float((prix_final * Decimal(str(qte))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+        stock_dispo = _get_stock(conn, article[C_AR_REF])
+        if _est_article_stocke(conn, article) and stock_dispo < qte:
+            return {
+                "statut": "STOCK_INSUFFISANT",
+                "message": f"📦 Stock insuffisant pour {article[C_AR_REF]} : dispo {stock_dispo}, demandé {qte}",
+                "stock_dispo": stock_dispo,
+                "qte_demandee": qte,
+            }
+
+        encours_actuel = _calculer_encours_client(conn, client[C_CT_NUM])
+        
+
+        if _est_article_stocke(conn, article):
+            num_fa = _generer_num_piece("FACTURE", conn)
+            mvt = _ajuster_stock_db(conn, article[C_AR_REF], qte, "SORTIE", motif=f"FACTURE {num_fa}")
+            mvt_stock_val, cout_ligne = 3, mvt["cout_ligne"]
+        else:
+            num_fa = _generer_num_piece("FACTURE", conn)
+            mvt_stock_val, cout_ligne = 0, 0.0
+
+        num_fa = _inserer_document(
+            conn, "FACTURE", num_fa,
+            client[C_CT_NUM],
+            lignes=[{
+                "ref_article": article[C_AR_REF], "qte": qte,
+                "prix_unit": float(prix_final),
+                "mvt_stock": mvt_stock_val, "depot": DEPOT_DEFAUT,
+                "prix_ru": cout_ligne, "cmup": cout_ligne,
+            }],
+            date_doc=date_doc,
+        )
+        conn.commit()
+
+        return {
+            "statut":   "GENERE",
+            "DO_Piece": num_fa,
+            "DO_Tiers": client[C_CT_NUM],
+            "AR_Ref":   article[C_AR_REF],
+            "montant":  montant,
+            "message": (
+                f"✅ Facture créée !\n"
+                f"   • Numéro  : {num_fa}\n"
+                f"   • Client  : {client[C_CT_INTITULE]}\n"
+                f"   • Article : {article[C_AR_DESIGN]}\n"
+                f"   • Montant : {_money_text(montant)}"
+            ),
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _generer_bc_direct ===
+def _generer_bc_direct(
+    code_client: str,
+    ref_article: str,
+    qte: float,
+    prix_unitaire: float,
+) -> dict:
+    conn = _get_conn()
+    try:
+        client  = _resolve_client(conn, code_client)
+        article = _resolve_article(conn, ref_article)
+        if not client:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "suggestions": _suggestions_clients(conn, code_client),
+            }
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        prix_final = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(article[C_AR_PRIXVEN] or 0.0))
+        montant    = float((prix_final * Decimal(str(qte))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        num_bc     = _inserer_document(
+            conn, "BC", "",
+            client[C_CT_NUM], article[C_AR_REF],
+            qte, prix_final, montant
+        )
+        conn.commit()
+
+        return {
+            "statut":   "GENERE",
+            "DO_Piece": num_bc,
+            "message": (
+                f"✅ Bon de Commande créé !\n"
+                f"   • Numéro  : {num_bc}\n"
+                f"   • Client  : {client[C_CT_INTITULE]}\n"
+                f"   • Article : {article[C_AR_DESIGN]}\n"
+                f"   • Montant : {_money_text(montant)}"
+            ),
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _workflow_bl_achat ===
+def _workflow_bl_achat(
+    code_fournisseur: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+) -> dict:
+    """
+    Workflow Bon de Livraison fournisseur (BL Achat).
+    """
+    conn = _get_conn()
+    try:
+        fournisseur = _resolve_client(conn, code_fournisseur)
+        if not fournisseur:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "message": f"❌ Fournisseur '{code_fournisseur}' introuvable.",
+                "suggestions": _suggestions_clients(conn, code_fournisseur),
+            }
+
+        code_reel  = fournisseur[C_CT_NUM]
+        nom_four   = fournisseur[C_CT_INTITULE]
+        type_tiers = int(fournisseur[C_CT_TYPE] or 0)
+
+        if type_tiers != 1:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "message": (
+                    f"⚠️  '{nom_four}' ({code_reel}) n'est pas un fournisseur (type {type_tiers}).\n"
+                    f"   Veuillez utiliser un tiers de type fournisseur (type 1)."
+                ),
+            }
+
+        article = _resolve_article(conn, ref_article)
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "message": f"❌ Article '{ref_article}' introuvable.",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        ref_reelle  = article[C_AR_REF]
+        desig       = article[C_AR_DESIGN]
+        prix_auto   = _to_decimal(article[C_AR_PRIXACH] or 0.0)
+        prix_final  = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(prix_auto))
+        stock_avant = _get_stock(conn, ref_reelle)
+        montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        num_bl = _inserer_document(
+            conn, "BL_ACHAT", "", code_reel,
+            ref_reelle, quantite, prix_final, montant
+        )
+        mvt = _ajuster_stock_db(
+            conn, ref_reelle, quantite, "ENTREE",
+            cout_unitaire=float(prix_final),
+            motif=f"Livraison BL {num_bl} / {nom_four}"
+        )
+        if prix_unitaire > 0:
+            conn.execute(
+                f"UPDATE {T_ARTICLE} SET {C_AR_PRIXACH} = ? WHERE {C_AR_REF} = ?",
+                (prix_unitaire, ref_reelle)
+            )
+        conn.commit()
+
+        message = (
+            f"✅ Bon de Livraison Achat créé !\n\n"
+            f"   • Numéro BL       : {num_bl}\n"
+            f"   • Fournisseur     : {nom_four} ({code_reel})\n"
+            f"   • Article         : {desig} ({ref_reelle})\n"
+            f"   • Quantité reçue  : {quantite} u\n"
+            f"   • Prix unit.      : {prix_final:.2f} €\n"
+            f"   • Montant HT      : {_money_text(montant)}\n"
+            f"   • Stock avant     : {stock_avant} u\n"
+            f"   • Stock après     : {mvt['stock_apres']} u  (+{quantite} u)\n"
+        )
+
+        return {
+            "statut":      "GENERE",
+            "DO_Piece":    num_bl,
+            "DO_Tiers":    code_reel,
+            "AR_Ref":      ref_reelle,
+            "montant":     montant,
+            "stock_apres": mvt["stock_apres"],
+            "message":     message,
+            "alertes":     [],
+            "suggestion_facture_achat": {
+                "code_fournisseur": code_reel,
+                "nom_fournisseur":  nom_four,
+                "ref_article":      ref_reelle,
+                "designation":      desig,
+                "quantite":         quantite,
+                "prix_unitaire":    prix_final,
+                "montant":          montant,
+                "num_br":           num_bl,
+            },
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+=== _workflow_fa_achat ===
+def _workflow_fa_achat(
+    code_fournisseur: str,
+    ref_article: str,
+    quantite: float,
+    prix_unitaire: float = 0.0,
+) -> dict:
+    """
+    Workflow Facture d'Achat fournisseur (FA Achat).
+    """
+    conn = _get_conn()
+    try:
+        fournisseur = _resolve_client(conn, code_fournisseur)
+        if not fournisseur:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "message": f"❌ Fournisseur '{code_fournisseur}' introuvable.",
+                "suggestions": _suggestions_clients(conn, code_fournisseur),
+            }
+
+        code_reel  = fournisseur[C_CT_NUM]
+        nom_four   = fournisseur[C_CT_INTITULE]
+        type_tiers = int(fournisseur[C_CT_TYPE] or 0)
+
+        if type_tiers != 1:
+            return {
+                "statut": "CLIENT_NON_TROUVE",
+                "message": (
+                    f"⚠️  '{nom_four}' ({code_reel}) n'est pas un fournisseur (type {type_tiers}).\n"
+                    f"   Veuillez utiliser un tiers de type fournisseur (type 1)."
+                ),
+            }
+
+        article = _resolve_article(conn, ref_article)
+        if not article:
+            return {
+                "statut": "ARTICLE_NON_TROUVE",
+                "message": f"❌ Article '{ref_article}' introuvable.",
+                "suggestions": _suggestions_articles(conn, ref_article),
+            }
+
+        ref_reelle  = article[C_AR_REF]
+        desig       = article[C_AR_DESIGN]
+        prix_auto   = _to_decimal(article[C_AR_PRIXACH] or 0.0)
+        prix_final  = _to_decimal(prix_unitaire if prix_unitaire > 0 else float(prix_auto))
+        stock_avant = _get_stock(conn, ref_reelle)
+        montant     = (prix_final * Decimal(str(quantite))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        num_fa = _generer_num_piece("FA_ACHAT", conn)
+        
+        mvt_stock_val, cout_ligne = 0, 0.0
+        if _est_article_stocke(conn, article):
+            mvt = _ajuster_stock_db(
+                conn, ref_reelle, quantite, "ENTREE",
+                cout_unitaire=float(prix_final),
+                motif=f"Achat direct FA {num_fa} / {nom_four}"
+            )
+            mvt_stock_val, cout_ligne = 3, mvt["cout_ligne"]
+
+        _inserer_document(
+            conn, "FA_ACHAT", num_fa, code_reel,
+            lignes=[{
+                "ref_article": ref_reelle, "qte": quantite,
+                "prix_unit": float(prix_final),
+                "mvt_stock": mvt_stock_val, "depot": DEPOT_DEFAUT,
+                "prix_ru": cout_ligne, "cmup": cout_ligne,
+            }]
+        )
+        if prix_unitaire > 0:
+            conn.execute(
+                f"UPDATE {T_ARTICLE} SET {C_AR_PRIXACH} = ? WHERE {C_AR_REF} = ?",
+                (prix_unitaire, ref_reelle)
+            )
+        conn.commit()
+
+        message = (
+            f"✅ Facture d'Achat créée !\n\n"
+            f"   • Numéro FA       : {num_fa}\n"
+            f"   • Fournisseur     : {nom_four} ({code_reel})\n"
+            f"   • Article         : {desig} ({ref_reelle})\n"
+            f"   • Quantité        : {quantite} u\n"
+            f"   • Prix unit.      : {prix_final:.2f} €\n"
+            f"   • Montant HT      : {_money_text(montant)}\n"
+            f"   • Stock avant     : {stock_avant} u\n"
+            f"   • Stock après     : {stock_avant + quantite if _est_article_stocke(conn, article) else stock_avant} u\n"
+        )
+
+        return {
+            "statut":      "GENERE",
+            "DO_Piece":    num_fa,
+            "DO_Tiers":    code_reel,
+            "AR_Ref":      ref_reelle,
+            "montant":     montant,
+            "message":     message,
+            "alertes":     [],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+

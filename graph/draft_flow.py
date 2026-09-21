@@ -14,7 +14,7 @@ import adaptation.db_adapter as sch
 
 def _enrichir_facture_depuis_bl(draft: dict) -> dict:
     """
-Cette fonction enrichit un modèle de facture en récupérant des informations depuis une base de données à partir du numéro de bon de livraison.
+Cette fonction enrichit un modèle de facture en récupérant TOUTES les lignes depuis le BL/BL_ACHAT source.
 """
     type_doc = (draft.get('type_doc') or '').upper()
     if type_doc not in ('FACTURE', 'FA_ACHAT'):
@@ -22,11 +22,12 @@ Cette fonction enrichit un modèle de facture en récupérant des informations d
     num_bl = draft.get('num_piece_source', '')
     if not num_bl:
         return draft
-    if draft.get('code_client') and draft.get('code_fournisseur') and draft.get('ref_article') and draft.get('quantite') and draft.get('date_livraison'):
-        return draft
     conn = _get_conn()
     try:
-        entete = conn.execute(f'SELECT {sch.C_DO_TIERS} AS DO_Tiers, {sch.C_DO_DATE} AS DO_Date FROM {sch.T_DOC_ENTETE} WHERE {sch.C_DO_PIECE} = ?', (num_bl,)).fetchone()
+        entete = conn.execute(
+            f'SELECT {sch.C_DO_TIERS} AS DO_Tiers, {sch.C_DO_DATE} AS DO_Date FROM {sch.T_DOC_ENTETE} WHERE {sch.C_DO_PIECE} = ?',
+            (num_bl,)
+        ).fetchone()
         if entete:
             if type_doc == 'FA_ACHAT' and (not draft.get('code_fournisseur')):
                 draft['code_fournisseur'] = entete['DO_Tiers']
@@ -34,14 +35,37 @@ Cette fonction enrichit un modèle de facture en récupérant des informations d
                 draft['code_client'] = entete['DO_Tiers']
             if not draft.get('date_livraison') and entete['DO_Date']:
                 draft['date_livraison'] = entete['DO_Date']
-        ligne = conn.execute(f'SELECT {sch.C_DL_REF} AS AR_Ref, {sch.C_DL_QTE} AS DL_Qte, {sch.C_DL_PRIX} AS DL_PrixUnitaire FROM {sch.T_DOC_LIGNE} WHERE {sch.C_DL_PIECE} = ?', (num_bl,)).fetchone()
-        if ligne:
-            if not draft.get('ref_article'):
-                draft['ref_article'] = ligne['AR_Ref']
-            if not draft.get('quantite'):
-                draft['quantite'] = ligne['DL_Qte']
-            if not draft.get('prix_unitaire'):
-                draft['prix_unitaire'] = ligne['DL_PrixUnitaire']
+
+        # --- Lire TOUTES les lignes du BL ---
+        lignes_db = conn.execute(
+            f'SELECT {sch.C_DL_REF} AS AR_Ref, {sch.C_DL_QTE} AS DL_Qte, {sch.C_DL_PRIX} AS DL_PrixUnitaire '
+            f'FROM {sch.T_DOC_LIGNE} WHERE {sch.C_DL_PIECE} = ?',
+            (num_bl,)
+        ).fetchall()
+
+        if lignes_db:
+            if len(lignes_db) == 1:
+                # Une seule ligne : on garde le mode scalaire (compatible existant)
+                if not draft.get('ref_article'):
+                    draft['ref_article'] = lignes_db[0]['AR_Ref']
+                if not draft.get('quantite'):
+                    draft['quantite'] = lignes_db[0]['DL_Qte']
+                if not draft.get('prix_unitaire'):
+                    draft['prix_unitaire'] = lignes_db[0]['DL_PrixUnitaire']
+            else:
+                # Plusieurs lignes : on peuple lignes_panier pour preview + PDF
+                draft['lignes_panier'] = [
+                    {
+                        'ref_article': l['AR_Ref'],
+                        'quantite': float(l['DL_Qte'] or 0),
+                        'prix_unitaire': float(l['DL_PrixUnitaire'] or 0),
+                    }
+                    for l in lignes_db
+                ]
+                # On vide les champs scalaires pour éviter la confusion
+                draft.pop('ref_article', None)
+                draft.pop('quantite', None)
+                draft.pop('prix_unitaire', None)
     except Exception as e:
         print(f'   ⚠️  [Facture depuis BL] {e}')
     finally:
@@ -153,12 +177,22 @@ Vérifie si le texte d'une commande est une annulation stricte.
 
 def champs_manquants(type_doc: str, draft: dict) -> list[str]:
     """
-Cette fonction identifie les champs obligatoires manquants dans un document de type spécifique. Elle compare le contenu du document en cours d'élaboration avec les champs requis définis dans le schéma associé au type de document.
+Cette fonction identifie les champs obligatoires manquants dans un document de type spécifique.
+Les champs ref_article/quantite/prix_unitaire sont ignorés quand :
+  - num_piece_source est renseigné (transformation BL→FACTURE : articles lus depuis la pièce source)
+  - lignes_panier est non vide (multi-lignes : articles déjà dans le panier)
 """
     schema = SCHEMAS_DOCUMENTS.get((type_doc or '').upper(), {})
     requis = schema.get('champs', [])
+    # Articles déjà connus → pas besoin de ref_article/quantite individuels
+    articles_connus = bool(draft.get('num_piece_source') or draft.get('lignes_panier'))
+    if draft.get('ajouter_ligne'):
+        articles_connus = False
+        
     manquants = []
     for c in requis:
+        if c in ('ref_article', 'quantite', 'prix_unitaire') and articles_connus:
+            continue
         val = draft.get(c)
         if c in ('quantite', 'prix_unitaire'):
             try:
@@ -287,12 +321,25 @@ Renvoi un aperçu sous forme de texte brut et sous forme de PDF d'un document.
     if draft.get('code_fournisseur'):
         intitule_f = draft.get('intitule_fournisseur', '')
         lignes.append(f"  Fournisseur  : {draft['code_fournisseur']}" + (f' — {intitule_f}' if intitule_f else ''))
-    lignes.append(f"  Article      : {draft.get('ref_article', '—')}")
-    lignes.append(f"  Quantité     : {draft.get('quantite', 0)}")
-    if draft.get('prix_unitaire') is not None:
-        montant_total = float(draft.get('quantite', 0) or 0) * float(draft['prix_unitaire'])
-        lignes.append(f"  Prix unit.   : {draft['prix_unitaire']:.3f}")
-        lignes.append(f'  Total HT     : {montant_total:.3f}')
+    lignes_panier = draft.get('lignes_panier', [])
+    if lignes_panier:
+        total_ht = 0.0
+        lignes.append('  Articles     :')
+        for idx, l in enumerate(lignes_panier, 1):
+            ref = l.get('ref_article', '—')
+            qte = float(l.get('quantite', 0) or 0)
+            pu  = float(l.get('prix_unitaire', 0) or 0)
+            sous_total = qte * pu
+            total_ht += sous_total
+            lignes.append(f"    {idx}. {ref}  x{qte:g}  @ {pu:.3f}  = {sous_total:.3f}")
+        lignes.append(f"  Total HT     : {total_ht:.3f}")
+    else:
+        lignes.append(f"  Article      : {draft.get('ref_article', '—')}")
+        lignes.append(f"  Quantité     : {draft.get('quantite', 0)}")
+        if draft.get('prix_unitaire') is not None:
+            montant_total = float(draft.get('quantite', 0) or 0) * float(draft['prix_unitaire'])
+            lignes.append(f"  Prix unit.   : {draft['prix_unitaire']:.3f}")
+            lignes.append(f'  Total HT     : {montant_total:.3f}')
     if draft.get('ref_article') and type_doc in ('BL', 'BF'):
         try:
             from api.mcp_actions_sage import _article_a_des_lots, _lister_lots_disponibles, _get_conn
@@ -327,7 +374,7 @@ Cette fonction permet d'exécuter une procédure de confirmation de draft (modè
 """
     type_doc = (draft.get('type_doc') or '').upper()
     if type_doc == 'BL':
-        return await mcp_workflow_bl(draft.get('code_client', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0))
+        return await mcp_workflow_bl(draft.get('code_client', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0), lignes=draft.get('lignes_panier'))
     if type_doc == 'BL_ACHAT':
         return await mcp_workflow_bl_achat(draft.get('code_fournisseur', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0))
     if type_doc == 'OF':
@@ -337,7 +384,7 @@ Cette fonction permet d'exécuter une procédure de confirmation de draft (modè
     if type_doc in {'FACTURE', 'FA_ACHAT'} and mcp_pool_transformer_document and draft.get('num_piece_source'):
         return await mcp_pool_transformer_document(draft['num_piece_source'], type_doc)
     if type_doc == 'FACTURE' and mcp_workflow_facture:
-        return await mcp_workflow_facture(draft.get('code_client', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0))
+        return await mcp_workflow_facture(draft.get('code_client', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0), lignes=draft.get('lignes_panier'))
     if type_doc == 'FA_ACHAT' and mcp_workflow_fa_achat:
         return await mcp_workflow_fa_achat(draft.get('code_fournisseur', ''), draft.get('ref_article', ''), float(draft.get('quantite', 0)), float(draft.get('prix_unitaire', 0) or 0))
     return {'statut': 'ERREUR', 'message': f'Type de document non géré par le flow : {type_doc}'}

@@ -1,3 +1,4 @@
+
 {
     "_comment": "Table de correspondance UNIQUE. Ne jamais coder un nom de colonne en dur ailleurs.",
     "driver": "mssql",

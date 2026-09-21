@@ -288,13 +288,41 @@ Crée une entête de document à partir d'un ébauche.
             prix_unitaire = 0.0
         finally:
             conn.close()
-    ligne = LigneDocument(reference=draft.get('ref_article', '—'), description=draft.get('designation_article') or draft.get('ref_article', ''), qte_commandee=float(draft.get('quantite', 0) or 0), qte_livree=float(draft.get('quantite', 0) or 0), prix_unitaire=prix_unitaire, observation=draft.get('observation', ''))
+
+    lignes_panier = draft.get('lignes_panier', [])
+    if lignes_panier:
+        conn = _get_conn()
+        try:
+            for l in lignes_panier:
+                pu = float(l.get('prix_unitaire', 0) or 0)
+                if pu <= 0 and type_doc in _DOCS_AVEC_PRIX and l.get('ref_article'):
+                    art = _resolve_article(conn, l['ref_article'])
+                    if art:
+                        l['prix_unitaire'] = float(art.get('AR_PrixVen', 0) or 0)
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+        lignes = [
+            LigneDocument(
+                reference=l.get('ref_article', '—'),
+                description=l.get('designation', '') or l.get('ref_article', ''),
+                qte_commandee=float(l.get('quantite', 0) or 0),
+                qte_livree=float(l.get('quantite', 0) or 0),
+                prix_unitaire=float(l.get('prix_unitaire', 0) or 0),
+                observation=l.get('observation', '')
+            ) for l in lignes_panier
+        ]
+    else:
+        lignes = [LigneDocument(reference=draft.get('ref_article', '—'), description=draft.get('designation_article') or draft.get('ref_article', ''), qte_commandee=float(draft.get('quantite', 0) or 0), qte_livree=float(draft.get('quantite', 0) or 0), prix_unitaire=prix_unitaire, observation=draft.get('observation', ''))]
+
     nomenclature_items = []
     for item in draft.get('nomenclature', []) or []:
         if not isinstance(item, dict):
             continue
         nomenclature_items.append(NomenclatureItem(ref=str(item.get('ref', '')), designation=str(item.get('designation', '')), qte=float(item.get('qte', 0) or 0), prix_unitaire=float(item.get('prix_unitaire', 0) or 0), total=float(item.get('total', 0) or 0)))
-    return EnteteDocument(type_doc=type_doc, num_piece=num_piece, date_str=date_str, date_commande_str=draft.get('date_commande_str', date_str), destinataire_nom=nom_dest, destinataire_adresse=draft.get('adresse_dest', []), lignes=[ligne], nomenclature=nomenclature_items, mode_paiement=draft.get('mode_paiement', ''), logo_path=draft.get('logo_path'), is_draft=is_draft)
+    return EnteteDocument(type_doc=type_doc, num_piece=num_piece, date_str=date_str, date_commande_str=draft.get('date_commande_str', date_str), destinataire_nom=nom_dest, destinataire_adresse=draft.get('adresse_dest', []), lignes=lignes, nomenclature=nomenclature_items, mode_paiement=draft.get('mode_paiement', ''), logo_path=draft.get('logo_path'), is_draft=is_draft)
 
 async def generer_pdf_async(draft: dict, is_draft: bool=True) -> str:
     """
