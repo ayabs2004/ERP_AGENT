@@ -230,6 +230,10 @@ async def _executer_suggestion(suggestion: dict, contexte_session: dict, _STATUT
         contexte_session["document_draft"] = draft
         contexte_session["statut_draft"]   = "PREVIEW"
         contexte_session["suggestion_en_attente"] = {}
+        
+        from graph.draft_flow import _enrichir_facture_depuis_bl
+        draft = _enrichir_facture_depuis_bl(draft)
+        
         texte, pdf_path = await generer_preview(draft)
         contexte_session["pdf_path"] = pdf_path
         return texte

@@ -2879,3 +2879,27 @@
 {"ts": 1789595152.8212492, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
 {"ts": 1789595159.1277037, "question": "confirmer", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
 {"ts": 1789595167.3856943, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009909.5926282, "question": "Donne-moi la liste des factures.", "action": "NL2SQL_LIBRE", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1790009933.8733542, "question": "Créer BL pour le client carat.", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1790009941.3256257, "question": "chorfa", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009943.218799, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009949.4061537, "question": "2026-09-22", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009957.039466, "question": "ajouter", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009964.7636092, "question": "montre01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009966.7164493, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009974.980719, "question": "ajouter", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790009987.4581087, "question": "mobw01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010093.4925208, "question": "CREe BL pour le client carat.", "action": "GENERER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1790010098.673631, "question": "chorfa", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010100.1687164, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010106.405935, "question": "2026-09-30", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010112.1819804, "question": "ajouter", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010118.6432855, "question": "mobwac01", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010123.3033535, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010130.2360454, "question": "chorfa", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010132.3228514, "question": "1", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010138.9605818, "question": "confirmer", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790010149.3220062, "question": "CONFIRMER", "action": "GENERER_DOC", "origine": "INCONNUE", "confidence": 1.0}
+{"ts": 1790011362.2995296, "question": "ANNULER", "action": "AMBIGUE", "origine": "INCONNUE", "confidence": 0.5}
+{"ts": 1790011370.9815035, "question": "Créer la facture pour le BL BL7F1344C", "action": "TRANSFORMER_DOC", "origine": "REGEX", "confidence": 1.0}
+{"ts": 1790011401.3959382, "question": "CONFIRMER", "action": "TRANSFORMER_DOC", "origine": "INCONNUE", "confidence": 1.0}
