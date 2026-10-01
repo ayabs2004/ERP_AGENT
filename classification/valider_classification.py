@@ -33,16 +33,22 @@ Lance une évaluation de cas de test sur un mode spécifique d'un modèle classi
             del sys.modules[mod_name]
     import api.orchestrateur_general as og
     if activer_semantique:
-        from semantic_classifier import warmup_semantic_classifier
+        from classification.semantic_classifier import warmup_semantic_classifier
         await warmup_semantic_classifier()
     resultats = []
     for question, attendu in cas:
         r = og._pre_classifier(question)
-        if r is None:
-            resultats.append(Resultat(question, attendu, None, None, None, attendu is None))
-        else:
+        if r is not None:
             ok = r == attendu
             resultats.append(Resultat(question, attendu, r, 'REGEX', 1.0, ok))
+        elif activer_semantique:
+            # Le regex n'a pas trouvé → on essaie le moteur sémantique
+            from classification.semantic_classifier import classifier_semantique
+            action_sem, score_sem, score2_sem = await classifier_semantique(question)
+            ok = action_sem == attendu
+            resultats.append(Resultat(question, attendu, action_sem, 'SEMANTIQUE', score_sem, ok))
+        else:
+            resultats.append(Resultat(question, attendu, None, None, None, attendu is None))
     return resultats
 
 def _charger_cas_depuis_json(path: str) -> list[tuple[str, str | None]]:

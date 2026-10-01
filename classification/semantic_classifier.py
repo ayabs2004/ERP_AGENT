@@ -353,6 +353,10 @@ Classeur et classifie les questions en fonction de leurs scores de similarité a
         await warmup_semantic_classifier()
     if not _ref_embeddings:
         return (None, 0.0, 0.0)
+    # Rejeter les requêtes trop courtes (mots seuls, mots tronqués, codes seuls)
+    mots = question.strip().split()
+    if len(mots) < 2 or len(question.strip()) < 5:
+        return (None, 0.0, 0.0)
     try:
         embedder = _get_embedder()
         query_prep = preprocess_text(question)

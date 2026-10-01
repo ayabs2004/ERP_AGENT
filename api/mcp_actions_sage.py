@@ -307,6 +307,12 @@ def _get_table_columns(conn, table_name: str) -> set[str]:
     if table_name in _table_columns_cache:
         return _table_columns_cache[table_name]
     try:
+        if not _is_mssql():
+            cursor = conn.execute(f"PRAGMA table_info({table_name})")
+            cols = {r["name"] if isinstance(r, dict) or hasattr(r, "keys") else r[1] for r in cursor.fetchall()}
+            _table_columns_cache[table_name] = cols
+            return cols
+
         cursor = conn.execute(
             "SELECT c.name FROM sys.columns c "
             "JOIN sys.objects o ON c.object_id = o.object_id "
@@ -1169,7 +1175,7 @@ def _ajuster_stock_db(
         nouveau_montant = montant_avant - (qte * cmup_avant)
 
         if has_mont:
-            conn.execute(
+            cursor = conn.execute(
                 f"UPDATE {T_STOCK} "
                 f"SET {C_AS_QTESTO} = {C_AS_QTESTO} - ?, {C_AS_MONTSTO} = ? "
                 f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ? "
@@ -1177,7 +1183,7 @@ def _ajuster_stock_db(
                 (qte, nouveau_montant, ref_article, depot, qte)
             )
         else:
-            conn.execute(
+            cursor = conn.execute(
                 f"UPDATE {T_STOCK} "
                 f"SET {C_AS_QTESTO} = {C_AS_QTESTO} - ? "
                 f"WHERE UPPER({C_AS_REF}) = UPPER(?) AND {C_AS_DENO} = ? "
@@ -1186,7 +1192,11 @@ def _ajuster_stock_db(
             )
 
         # Vérification atomique : @@ROWCOUNT = 0 signifie stock insuffisant au moment de l'UPDATE
-        rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+        if _is_mssql():
+            rowcount = conn.execute("SELECT @@ROWCOUNT").fetchone()[0]
+        else:
+            rowcount = cursor.rowcount
+            
         if rowcount == 0:
             raise ValueError(
                 f"Stock insuffisant (race condition ou stock épuisé) pour {ref_article} au dépôt {depot}. "
@@ -1398,11 +1408,16 @@ def _est_article_stocke(conn: Any, article: dict) -> bool:
 
 def _table_identity_column(conn: Any, table: str) -> str | None:
     """Retourne le nom de la colonne IDENTITY de table."""
-    row = conn.execute(
-        "SELECT c.name FROM sys.columns c "
-        "WHERE c.object_id = OBJECT_ID(?) AND c.is_identity = 1", (table,)
-    ).fetchone()
-    return row[0] if row else None
+    if not _is_mssql():
+        return None
+    try:
+        row = conn.execute(
+            "SELECT c.name FROM sys.columns c "
+            "WHERE c.object_id = OBJECT_ID(?) AND c.is_identity = 1", (table,)
+        ).fetchone()
+        return row[0] if row else None
+    except Exception:
+        return None
 
 
 def _inserer_document(
@@ -1572,6 +1587,10 @@ def _inserer_document(
                     for col_name, val in ligne_valeurs.items():
                         if col_name.lower().startswith("cb") and col_name.lower() != "cbmarq":
                             continue
+                        # En SQLite, DL_Ligne est INTEGER PRIMARY KEY AUTOINCREMENT :
+                        # ne pas le spécifier pour laisser SQLite l'attribuer automatiquement.
+                        if not _is_mssql() and col_name == C_DL_LIGNE:
+                            continue
                         col_match = next((c for c in existing_ligne_cols if c.lower() == col_name.lower()), None)
                         if col_match and val is not None:
                             ligne_cols_insert.append(col_match)
@@ -1592,8 +1611,15 @@ def _inserer_document(
             finally:
                 if identity_col_ligne:
                     conn.execute(f"SET IDENTITY_INSERT {T_DOC_LIGNE} OFF")
+            conn.commit()
             return piece_utilisee
-        except Exception:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            try:
+                conn.rollback()
+            except Exception:
+                pass
             piece_utilisee = _generer_num_piece(type_doc, conn)
             continue
     raise Exception("Unable to allocate a unique document number")

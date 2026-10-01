@@ -55,10 +55,44 @@ Récupère les valeurs des colonnes d'une table logique.
 """
     return [col(logical_table, c) for c in logical_columns]
 
+class DictRow(dict):
+    """
+    Ligne de résultat SQLite compatible avec pyodbc:
+    - Accès par nom  : row["CT_Num"]
+    - Accès par index: row[0]
+    - .get("col", default)
+    - "col" in row
+    - row.keys()
+    """
+    def __init__(self, cols_vals):
+        items = list(cols_vals)
+        super().__init__(items)
+        self._cols = [k for k, _ in items]
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return super().__getitem__(self._cols[key])
+        return super().__getitem__(key)
+
+    def keys(self):
+        return self._cols
+
+
 def get_connection():
     """
-Crée et renvoie une connexion à une base de données SQL Server.
+Crée et renvoie une connexion à une base de données SQL Server ou SQLite.
 """
+    driver = os.environ.get('DB_DRIVER', 'mssql').lower()
+    if driver == 'sqlite':
+        import sqlite3
+        db_path = os.environ.get('DB_PATH', 'entreprise_mock.db')
+        conn = sqlite3.connect(db_path)
+        def dict_factory(cursor, row):
+            cols = [col[0] for col in cursor.description]
+            return DictRow(zip(cols, row))
+        conn.row_factory = dict_factory
+        return conn
+
     try:
         import pyodbc
         if pyodbc.pooling:

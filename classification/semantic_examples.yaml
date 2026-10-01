@@ -1,10 +1,10 @@
 version: 2
 defaults:
-  threshold: 0.76
-  margin: 0.05
+  threshold: 0.62
+  margin: 0.04
   centroid_weight: 0.6
   topk_weight: 0.4
-  family_threshold: 0.55
+  family_threshold: 0.48
 families:
   CLIENT:
     actions:
@@ -51,7 +51,7 @@ families:
         - extraire la liste de tous les clients
         - je veux consulter les clients
         - peux-tu afficher tous les comptes clients ?
-        threshold: 0.86
+        threshold: 0.62
         margin: 0.04
       FICHE_CLIENT:
         examples:
@@ -95,7 +95,7 @@ families:
         - je voudrais fiche signalétique du client <client>
         - je voudrais fiche technique client <client>
         - je voudrais informations sur le client <client>
-        threshold: 0.9
+        threshold: 0.65
         margin: 0.04
       STATUT_CLIENT:
         examples:
@@ -139,7 +139,7 @@ families:
         - le client <client> est-il bloqué
         - merci de compte de <client> bloqué
         - merci de est-ce que <client> est actif
-        threshold: 0.9
+        threshold: 0.65
         margin: 0.04
       TOP_CLIENTS:
         examples:
@@ -162,7 +162,6 @@ families:
         - est-ce possible de qui achète le plus
         - est-ce possible de qui commande le plus chez nous
         - est-ce possible de qui sont nos plus importants clients
-        - est-ce possible de top 5 clients
         - est-ce possible de top acheteurs
         - est-ce possible de top acheteurs de l'année
         - est-ce possible de top clients
@@ -183,7 +182,7 @@ families:
         - je voudrais top acheteurs
         - je voudrais top acheteurs de l'année
         - je voudrais top clients
-        threshold: 0.9
+        threshold: 0.65
         margin: 0.04
       CREER_CLIENT:
         examples:
@@ -227,7 +226,7 @@ families:
         - merci de ajouter client <client>
         - merci de ajouter le client <client> dans la base
         - merci de création d'un client
-        threshold: 0.92
+        threshold: 0.67
         margin: 0.04
       MODIFIER_CLIENT:
         examples:
@@ -281,7 +280,7 @@ families:
         - merci de changer le nom du client <client>
         - merci de changer la validité du client <client>
         - merci de changer l'encours du client <client>
-        threshold: 0.9
+        threshold: 0.65
         margin: 0.04
       MODIFIER_STATUT:
         examples:
@@ -338,7 +337,7 @@ families:
         - merci de bloque le client <client>
         - merci de bloquer le compte de <client>
         - merci de changer la validité du client <client>
-        threshold: 0.94
+        threshold: 0.69
         margin: 0.04
       RECOMMANDATION:
         examples:
@@ -382,54 +381,23 @@ families:
         - peux-tu recommandation commerciale pour <client>
         - que devrions-nous proposer à <client>
         - que recommandes-tu pour ce client
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
     family_threshold: 0.64
   FOURNISSEUR:
     actions:
       LISTE_FOURNISSEURS:
         examples:
-        - affiche fournisseur
         - affiche les fournisseurs
         - affiche tous les fournisseurs
-        - base des fournisseurs
-        - consulter la liste des fournisseurs
-        - donne la liste de fournisseur
-        - donne la liste de tous les fournisseurs
-        - donne-moi les fournisseurs
-        - est-ce possible de affiche les fournisseurs
-        - est-ce possible de base des fournisseurs
-        - est-ce possible de consulter la liste des fournisseurs
-        - est-ce possible de donne-moi les fournisseurs
-        - est-ce possible de fournisseurs enregistrés
-        - est-ce possible de liste fournisseur
-        - est-ce possible de liste tous les fournisseurs
-        - est-ce possible de montre-moi les fournisseurs
-        - est-ce possible de nos fournisseurs
-        - est-ce possible de obtenir les fournisseurs
-        - est-ce possible de quels sont nos fournisseurs actifs
-        - est-ce possible de qui nous approvisionne
-        - est-ce possible de tous les fournisseurs
-        - extraire la liste de fournisseur
-        - extraire la liste de tous les fournisseurs
+        - donne la liste des fournisseurs
+        - fournisseurs actifs
         - fournisseurs enregistrés
-        - je veux voir la liste de fournisseur
-        - je veux voir la liste de tous les fournisseurs
-        - je voudrais affiche les fournisseurs
-        - je voudrais base des fournisseurs
-        - je voudrais consulter la liste des fournisseurs
-        - je voudrais donne-moi les fournisseurs
-        - je voudrais fournisseurs enregistrés
-        - je voudrais liste fournisseur
-        - je voudrais liste tous les fournisseurs
-        - je voudrais montre-moi les fournisseurs
-        - je voudrais nos fournisseurs
-        - je voudrais obtenir les fournisseurs
-        - je voudrais quels sont nos fournisseurs actifs
-        - je voudrais qui nous approvisionne
-        - je voudrais tous les fournisseurs
-        - liste fournisseur
-        threshold: 0.9
+        - liste des fournisseurs
+        - liste tous les fournisseurs
+        - nos fournisseurs
+        - quels sont nos fournisseurs
+        threshold: 0.63
         margin: 0.04
       FICHE_FOURNISSEUR:
         examples:
@@ -473,8 +441,8 @@ families:
         - merci de qui est le fournisseur <fournisseur>
         - montre la fiche fournisseur <fournisseur>
         - montre-moi la fiche du fournisseur <fournisseur>
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       TOP_FOURNISSEURS:
         examples:
         - achats par fournisseur
@@ -517,8 +485,8 @@ families:
         - peux-tu classement des fournisseurs par achats
         - peux-tu classement des fournisseurs par volume
         - peux-tu les plus gros fournisseurs
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       CREER_FOURNISSEUR:
         examples:
         - ajoute un fournisseur
@@ -561,7 +529,7 @@ families:
         - peux-tu crée un nouveau fournisseur
         - peux-tu créer fiche fournisseur <fournisseur>
         - peux-tu créer un nouveau fournisseur
-        threshold: 0.92
+        threshold: 0.67
         margin: 0.04
       MODIFIER_FOURNISSEUR:
         examples:
@@ -615,51 +583,393 @@ families:
         - merci de changer le nom du fournisseur <fournisseur>
         - merci de changer la validité du fournisseur <fournisseur>
         - merci de changer l'encours du fournisseur <fournisseur>
-        threshold: 0.9
-        margin: 0.04
-      LISTE_FOURNISSEURS:
-        examples:
-        - affiche les fournisseurs
-        - affiche tous les fournisseurs
-        - donne la liste des fournisseurs
-        - fournisseurs actifs
-        - fournisseurs enregistrés
-        - liste des fournisseurs
-        - liste tous les fournisseurs
-        - nos fournisseurs
-        - quels sont nos fournisseurs
-        threshold: 0.88
+        threshold: 0.65
         margin: 0.04
     family_threshold: 0.84
   DOCUMENT:
     actions:
-      LISTE_BL:
+      GENERER_DOC:
         examples:
-        - affiche les bons de livraison
-        - affiche tous les bl
-        - bon de livraison
-        - bons de livraison
-        - donne la liste des bl
-        - donne la liste des bons de livraison
-        - liste bl
-        - liste des bl
-        - liste des bons de livraison
-        - tous les bl
-        - tous les bons de livraison
-        threshold: 0.88
+        - ajoute un bl achat pour le fournisseur <fournisseur>
+        - ajoute un bon de commande
+        - ajoute un bon de fabrication pour l'of
+        - ajoute un bon de livraison pour le client <client>
+        - ajoute un bon de réception fournisseur
+        - ajoute un ordre de fabrication
+        - ajoute un ordre de fabrication de 100 pièces
+        - création d'un bon de commande pour le client <client>
+        - crée un bl achat pour le fournisseur <fournisseur>
+        - crée un bon
+        - crée un bon de commande
+        - crée un bon de fabrication pour l'of
+        - crée un bon de livraison
+        - crée un bon de livraison pour le client <client>
+        - crée un bon de réception fournisseur
+        - crée un ordre de fabrication
+        - crée un ordre de fabrication de 100 pièces
+        - crée une facture pour <client>
+        - créer un document de vente pour <client>
+        - enregistre un bl achat pour le fournisseur <fournisseur>
+        - enregistre un bon de commande
+        - enregistre un bon de fabrication pour l'of
+        - enregistre un bon de livraison pour le client <client>
+        - enregistre un bon de réception fournisseur
+        - enregistre un ordre de fabrication
+        - enregistre un ordre de fabrication de 100 pièces
+        - est-ce possible de création d'un bon de commande pour le client <client>
+        - est-ce possible de crée un bl achat pour le fournisseur <fournisseur>
+        - est-ce possible de crée un bon de commande
+        - est-ce possible de crée un bon de fabrication pour l'of
+        - est-ce possible de crée un bon de livraison pour le client <client>
+        - est-ce possible de crée un bon de réception fournisseur
+        - est-ce possible de crée un ordre de fabrication
+        - est-ce possible de créer un document de vente pour <client>
+        - est-ce possible de génère un bon
+        - est-ce possible de génère un bon de livraison
+        - est-ce possible de génère une facture pour <client>
+        - est-ce possible de générer bl pour le client <client>
+        - est-ce possible de générer une commande d'achat pour <fournisseur>
+        threshold: 0.62
         margin: 0.04
-      LISTE_FACTURES:
+      TRANSFORMER_DOC:
         examples:
-        - affiche les factures
-        - affiche toutes les factures
-        - donne la liste des factures
-        - factures
-        - liste des factures
-        - liste factures
-        - toutes les factures
-        threshold: 0.88
+        - convertir le bl <bl> en facture
+        - convertis le bon de livraison en facture
+        - est-ce possible de convertir le bl <bl> en facture
+        - est-ce possible de convertis le bon de livraison en facture
+        - est-ce possible de facture le bl <bl>
+        - est-ce possible de générer la facture à partir du bl <bl>
+        - est-ce possible de passe l'of en bf
+        - est-ce possible de passe le bl en facture
+        - est-ce possible de passer la commande en bl
+        - est-ce possible de transforme cette commande en bon de livraison
+        - est-ce possible de transforme l'of en bf
+        - est-ce possible de transforme le bl en facture
+        - est-ce possible de transforme le bon de fabrication en ordre de fabrication
+        - est-ce possible de transformer la commande client en bon de livraison
+        - est-ce possible de transformer le bon de livraison <bl> en facture
+        - facture le bl <bl>
+        - générer la facture à partir du bl <bl>
+        - je voudrais convertir le bl <bl> en facture
+        - je voudrais convertis le bon de livraison en facture
+        - je voudrais facture le bl <bl>
+        - je voudrais générer la facture à partir du bl <bl>
+        - je voudrais passe l'of en bf
+        - je voudrais passe le bl en facture
+        - je voudrais passer la commande en bl
+        - je voudrais transforme cette commande en bon de livraison
+        - je voudrais transforme l'of en bf
+        - je voudrais transforme le bl en facture
+        - je voudrais transforme le bon de fabrication en ordre de fabrication
+        - je voudrais transformer la commande client en bon de livraison
+        - je voudrais transformer le bon de livraison <bl> en facture
+        - merci de convertir le bl <bl> en facture
+        - merci de convertis le bon de livraison en facture
+        - merci de facture le bl <bl>
+        - merci de générer la facture à partir du bl <bl>
+        - merci de passe l'of en bf
+        - merci de passe le bl en facture
+        - merci de passer la commande en bl
+        - merci de transforme cette commande en bon de livraison
+        - merci de transforme l'of en bf
+        - merci de transforme le bl en facture
+        threshold: 0.62
         margin: 0.04
-    family_threshold: 0.75
+      CREER_AVOIR:
+        examples:
+        - ajoute un avoir pour la facture <facture>
+        - avoir client pour <client>
+        - création d'un avoir pour la facture <facture>
+        - crée un avoir client
+        - crée un avoir pour la facture <facture>
+        - créer un avoir sur la facture <facture>
+        - enregistre un avoir pour la facture <facture>
+        - est-ce possible de avoir client pour <client>
+        - est-ce possible de création d'un avoir pour la facture <facture>
+        - est-ce possible de crée un avoir pour la facture <facture>
+        - est-ce possible de créer un avoir sur la facture <facture>
+        - est-ce possible de faire un avoir pour la facture <facture>
+        - est-ce possible de génère un avoir client
+        - est-ce possible de générer un avoir pour <client>
+        - faire la création de un avoir pour la facture <facture>
+        - faire un avoir pour la facture <facture>
+        - génère un avoir client
+        - génère un avoir pour la facture <facture>
+        - générer un avoir client
+        - générer un avoir pour <client>
+        - je voudrais avoir client pour <client>
+        - je voudrais création d'un avoir pour la facture <facture>
+        - je voudrais crée un avoir pour la facture <facture>
+        - je voudrais créer un avoir sur la facture <facture>
+        - je voudrais faire un avoir pour la facture <facture>
+        - je voudrais génère un avoir client
+        - je voudrais générer un avoir pour <client>
+        - merci de avoir client pour <client>
+        - merci de création d'un avoir pour la facture <facture>
+        - merci de crée un avoir pour la facture <facture>
+        - merci de créer un avoir sur la facture <facture>
+        - merci de faire un avoir pour la facture <facture>
+        - merci de génère un avoir client
+        - merci de générer un avoir pour <client>
+        - peux-tu avoir client pour <client>
+        - peux-tu création d'un avoir pour la facture <facture>
+        - peux-tu crée un avoir pour la facture <facture>
+        - peux-tu créer un avoir pour la facture <facture>
+        - peux-tu créer un avoir sur la facture <facture>
+        - peux-tu faire un avoir pour la facture <facture>
+        threshold: 0.63
+        margin: 0.04
+      REGLEMENT:
+        examples:
+        - change le statut de la facture en réglée
+        - enregistre le paiement de la facture <facture>
+        - enregistrer règlement de <facture>
+        - est-ce possible de change le statut de la facture en réglée
+        - est-ce possible de enregistre le paiement de la facture <facture>
+        - est-ce possible de enregistrer règlement de <facture>
+        - est-ce possible de marque la facture comme réglée
+        - est-ce possible de marquer la facture <facture> comme payée
+        - est-ce possible de paiement d'une facture
+        - est-ce possible de paye la facture par virement
+        - est-ce possible de payer la facture <facture> en chèque
+        - est-ce possible de règle la facture <facture>
+        - est-ce possible de règlement de la facture du client
+        - est-ce possible de règlement reçu pour la facture <facture>
+        - est-ce possible de valider paiement de la facture <facture>
+        - je voudrais change le statut de la facture en réglée
+        - je voudrais enregistre le paiement de la facture <facture>
+        - je voudrais enregistrer règlement de <facture>
+        - je voudrais marque la facture comme réglée
+        - je voudrais marquer la facture <facture> comme payée
+        - je voudrais paiement d'une facture
+        - je voudrais paye la facture par virement
+        - je voudrais payer la facture <facture> en chèque
+        - je voudrais règle la facture <facture>
+        - je voudrais règlement de la facture du client
+        - je voudrais règlement reçu pour la facture <facture>
+        - je voudrais valider paiement de la facture <facture>
+        - marque la facture comme réglée
+        - marquer la facture <facture> comme payée
+        - merci de change le statut de la facture en réglée
+        - merci de enregistre le paiement de la facture <facture>
+        - merci de enregistrer règlement de <facture>
+        - merci de marque la facture comme réglée
+        - merci de marquer la facture <facture> comme payée
+        - merci de paiement d'une facture
+        - merci de paye la facture par virement
+        - merci de payer la facture <facture> en chèque
+        - merci de règle la facture <facture>
+        - merci de règlement de la facture du client
+        - merci de règlement reçu pour la facture <facture>
+        threshold: 0.62
+        margin: 0.04
+      TOUTES_FACTURES_CLIENT:
+        examples:
+        - affiche des factures de <client>
+        - donne la liste de des factures de <client>
+        - est-ce possible de factures de l'entreprise <client>
+        - est-ce possible de factures du client <client>
+        - est-ce possible de historique des factures de <client>
+        - est-ce possible de les factures émises pour <client>
+        - est-ce possible de liste des factures de <client>
+        - est-ce possible de obtenir toutes les factures de <client>
+        - est-ce possible de quelles factures avons-nous pour le client <client>
+        - est-ce possible de toutes les factures du client <client>
+        - extraire la liste de des factures de <client>
+        - factures de l'entreprise <client>
+        - factures du client <client>
+        - historique des factures de <client>
+        - je veux voir la liste de des factures de <client>
+        - je voudrais factures de l'entreprise <client>
+        - je voudrais factures du client <client>
+        - je voudrais historique des factures de <client>
+        - je voudrais les factures émises pour <client>
+        - je voudrais liste des factures de <client>
+        - je voudrais obtenir toutes les factures de <client>
+        - je voudrais quelles factures avons-nous pour le client <client>
+        - je voudrais toutes les factures du client <client>
+        - les factures émises pour <client>
+        - liste des factures de <client>
+        - merci de factures de l'entreprise <client>
+        - merci de factures du client <client>
+        - merci de historique des factures de <client>
+        - merci de les factures émises pour <client>
+        - merci de liste des factures de <client>
+        - merci de obtenir toutes les factures de <client>
+        - merci de quelles factures avons-nous pour le client <client>
+        - merci de toutes les factures du client <client>
+        - montre des factures de <client>
+        - obtenir toutes les factures de <client>
+        - peux-tu factures de l'entreprise <client>
+        - peux-tu factures du client <client>
+        - peux-tu historique des factures de <client>
+        - peux-tu les factures émises pour <client>
+        - peux-tu liste des factures de <client>
+        threshold: 0.62
+        margin: 0.04
+      FACTURES_NON_REGLEES:
+        examples:
+        - affiche des impayés client
+        - donne la liste de des impayés client
+        - est-ce possible de factures clients en retard
+        - est-ce possible de factures en attente de paiement
+        - est-ce possible de factures en attente de règlement
+        - est-ce possible de factures impayées
+        - est-ce possible de factures non réglées
+        - est-ce possible de impayés des clients
+        - est-ce possible de liste des impayés client
+        - est-ce possible de quelles factures ne sont pas réglées
+        - est-ce possible de retard de paiement facture
+        - est-ce possible de toutes les factures non payées
+        - extraire la liste de des impayés client
+        - factures clients en retard
+        - factures en attente de paiement
+        - factures en attente de règlement
+        - factures impayées
+        - factures non réglées
+        - impayés des clients
+        - je veux voir la liste de des impayés client
+        - je voudrais factures clients en retard
+        - je voudrais factures en attente de paiement
+        - je voudrais factures en attente de règlement
+        - je voudrais factures impayées
+        - je voudrais factures non réglées
+        - je voudrais impayés des clients
+        - je voudrais liste des impayés client
+        - je voudrais quelles factures ne sont pas réglées
+        - je voudrais retard de paiement facture
+        - je voudrais toutes les factures non payées
+        - liste des impayés client
+        - merci de factures clients en retard
+        - merci de factures en attente de paiement
+        - merci de factures en attente de règlement
+        - merci de factures impayées
+        - merci de factures non réglées
+        - merci de impayés des clients
+        - merci de liste des impayés client
+        - merci de quelles factures ne sont pas réglées
+        - merci de retard de paiement facture
+        threshold: 0.62
+        margin: 0.04
+      FACTURES_NON_REGLEES_FOURN:
+        examples:
+        - achats non réglés
+        - affiche des factures d'achat non payées
+        - donne la liste de des factures d'achat non payées
+        - est-ce possible de achats non réglés
+        - est-ce possible de factures fournisseur impayées
+        - est-ce possible de factures fournisseur non réglées
+        - est-ce possible de factures à payer aux fournisseurs
+        - est-ce possible de impayés fournisseurs
+        - est-ce possible de liste des factures d'achat non payées
+        - est-ce possible de nos dettes fournisseurs
+        - est-ce possible de quelles factures fournisseurs devons-nous régler
+        - extraire la liste de des factures d'achat non payées
+        - factures fournisseur impayées
+        - factures fournisseur non réglées
+        - factures à payer aux fournisseurs
+        - impayés fournisseurs
+        - je veux voir la liste de des factures d'achat non payées
+        - je voudrais achats non réglés
+        - je voudrais factures fournisseur impayées
+        - je voudrais factures fournisseur non réglées
+        - je voudrais factures à payer aux fournisseurs
+        - je voudrais impayés fournisseurs
+        - je voudrais liste des factures d'achat non payées
+        - je voudrais nos dettes fournisseurs
+        - je voudrais quelles factures fournisseurs devons-nous régler
+        - liste des factures d'achat non payées
+        - merci de achats non réglés
+        - merci de factures fournisseur impayées
+        - merci de factures fournisseur non réglées
+        - merci de factures à payer aux fournisseurs
+        - merci de impayés fournisseurs
+        - merci de liste des factures d'achat non payées
+        - merci de nos dettes fournisseurs
+        - merci de quelles factures fournisseurs devons-nous régler
+        - montre des factures d'achat non payées
+        - nos dettes fournisseurs
+        - peux-tu achats non réglés
+        - peux-tu factures fournisseur impayées
+        - peux-tu factures fournisseur non réglées
+        - peux-tu factures à payer aux fournisseurs
+        threshold: 0.62
+        margin: 0.04
+      DOCS_PERIODE:
+        examples:
+        - affiche des documents de la période
+        - documents créés en 2024
+        - documents du mois
+        - documents entre deux dates
+        - donne la liste de des documents de la période
+        - est-ce possible de documents du mois
+        - est-ce possible de documents entre deux dates
+        - est-ce possible de historique des documents sur la période
+        - est-ce possible de liste des documents de la période
+        - est-ce possible de quelles pièces ont été créées le mois dernier
+        - extraire la liste de des documents de la période
+        - historique des documents sur la période
+        - je veux voir la liste de des documents de la période
+        - je voudrais documents créés en 2024
+        - je voudrais documents du mois
+        - je voudrais documents entre deux dates
+        - je voudrais historique des documents sur la période
+        - je voudrais liste des documents de la période
+        - je voudrais quelles factures entre le 1er janvier et le 31 janvier
+        - je voudrais quelles pièces ont été créées le mois dernier
+        - liste des documents de la période
+        - merci de documents créés en 2024
+        - merci de documents du mois
+        - merci de documents entre deux dates
+        - merci de historique des documents sur la période
+        - merci de liste des documents de la période
+        - merci de quelles factures entre le 1er janvier et le 31 janvier
+        - merci de quelles pièces ont été créées le mois dernier
+        - montre des documents de la période
+        - peux-tu documents du mois
+        - peux-tu documents entre deux dates
+        - peux-tu historique des documents sur la période
+        - peux-tu liste des documents de la période
+        - peux-tu quelles pièces ont été créées le mois dernier
+        - quelles factures entre le 1er janvier et le 31 janvier
+        - quelles pièces ont été créées le mois dernier
+        threshold: 0.62
+        margin: 0.04
+      WORKFLOW_COMMANDE:
+        examples:
+        - est-ce possible de exécuter le workflow commande pour <client>
+        - est-ce possible de lance le flux commande
+        - est-ce possible de lancer la commande du client <client>
+        - est-ce possible de processus complet commande client <client>
+        - est-ce possible de suivi du flux de commande pour le client <client>
+        - est-ce possible de traite la commande complète du client <client>
+        - exécuter le workflow commande pour <client>
+        - je voudrais exécuter le workflow commande pour <client>
+        - je voudrais lance le flux commande
+        - je voudrais lancer la commande du client <client>
+        - je voudrais processus complet commande client <client>
+        - je voudrais suivi du flux de commande pour le client <client>
+        - je voudrais traite la commande complète du client <client>
+        - lance le flux commande
+        - lancer la commande du client <client>
+        - merci de exécuter le workflow commande pour <client>
+        - merci de lance le flux commande
+        - merci de lancer la commande du client <client>
+        - merci de processus complet commande client <client>
+        - merci de suivi du flux de commande pour le client <client>
+        - merci de traite la commande complète du client <client>
+        - peux-tu exécuter le workflow commande pour <client>
+        - peux-tu lance le flux commande
+        - peux-tu lancer la commande du client <client>
+        - peux-tu processus complet commande client <client>
+        - peux-tu suivi du flux de commande pour le client <client>
+        - peux-tu traite la commande complète du client <client>
+        - processus complet commande client <client>
+        - suivi du flux de commande pour le client <client>
+        - traite la commande complète du client <client>
+        threshold: 0.62
+        margin: 0.04
+    family_threshold: 0.58
   ARTICLE:
     actions:
       LISTE_ARTICLES:
@@ -705,7 +1015,7 @@ families:
         - je voudrais voir les articles en stock et vente
         - liste des produits
         - récupérer la liste des articles existants dans la base de données
-        threshold: 0.82
+        threshold: 0.62
         margin: 0.04
       VERIFIER_STOCK:
         examples:
@@ -750,7 +1060,7 @@ families:
         - merci de vérifie le stock de <article>
         - merci de vérifier la disponibilité de <article>
         - le stock de l article imprimante
-        threshold: 0.94
+        threshold: 0.69
         margin: 0.04
       MODIFIER_ARTICLE:
         examples:
@@ -814,7 +1124,7 @@ families:
         - merci de changer le prix de l'article <article>
         - merci de changer le prix d'achat de l'article <article>
         - merci de changer le prix de vente de l'article <article>
-        threshold: 0.9
+        threshold: 0.65
         margin: 0.04
       PALMARES_ARTICLES:
         examples:
@@ -858,6 +1168,8 @@ families:
         - peux-tu meilleurs articles
         - peux-tu palmarès articles
         - peux-tu palmarès des articles les plus vendus
+        threshold: 0.62
+        margin: 0.04
       RENTABILITE:
         examples:
         - analyse de la rentabilité des articles
@@ -900,6 +1212,8 @@ families:
         - peux-tu marge par produit
         - peux-tu quelles pièces rapportent le plus de marge
         - peux-tu quels articles sont les plus rentables
+        threshold: 0.62
+        margin: 0.04
       SEUIL_STOCK:
         examples:
         - afficher le seuil de stock de l'article <article>
@@ -935,396 +1249,9 @@ families:
         - seuil de stock de <article>
         - vérifie le seuil de stock de l'article <article>
         - à partir de combien de pièces commande-t-on <article>
-    family_threshold: 0.7
-  DOCUMENT:
-    actions:
-      GENERER_DOC:
-        examples:
-        - ajoute un bl achat pour le fournisseur <fournisseur>
-        - ajoute un bon de commande
-        - ajoute un bon de fabrication pour l'of
-        - ajoute un bon de livraison pour le client <client>
-        - ajoute un bon de réception fournisseur
-        - ajoute un ordre de fabrication
-        - ajoute un ordre de fabrication de 100 pièces
-        - création d'un bon de commande pour le client <client>
-        - crée un bl achat pour le fournisseur <fournisseur>
-        - crée un bon
-        - crée un bon de commande
-        - crée un bon de fabrication pour l'of
-        - crée un bon de livraison
-        - crée un bon de livraison pour le client <client>
-        - crée un bon de réception fournisseur
-        - crée un ordre de fabrication
-        - crée un ordre de fabrication de 100 pièces
-        - crée une facture pour <client>
-        - créer un document de vente pour <client>
-        - enregistre un bl achat pour le fournisseur <fournisseur>
-        - enregistre un bon de commande
-        - enregistre un bon de fabrication pour l'of
-        - enregistre un bon de livraison pour le client <client>
-        - enregistre un bon de réception fournisseur
-        - enregistre un ordre de fabrication
-        - enregistre un ordre de fabrication de 100 pièces
-        - est-ce possible de création d'un bon de commande pour le client <client>
-        - est-ce possible de crée un bl achat pour le fournisseur <fournisseur>
-        - est-ce possible de crée un bon de commande
-        - est-ce possible de crée un bon de fabrication pour l'of
-        - est-ce possible de crée un bon de livraison pour le client <client>
-        - est-ce possible de crée un bon de réception fournisseur
-        - est-ce possible de crée un ordre de fabrication
-        - est-ce possible de crée un ordre de fabrication de 100 pièces
-        - est-ce possible de créer un document de vente pour <client>
-        - est-ce possible de génère un bon
-        - est-ce possible de génère un bon de livraison
-        - est-ce possible de génère une facture pour <client>
-        - est-ce possible de générer bl pour le client <client>
-        - est-ce possible de générer une commande d'achat pour <fournisseur>
-        threshold: 0.82
+        threshold: 0.62
         margin: 0.04
-      TRANSFORMER_DOC:
-        examples:
-        - convertir le bl <bl> en facture
-        - convertis le bon de livraison en facture
-        - est-ce possible de convertir le bl <bl> en facture
-        - est-ce possible de convertis le bon de livraison en facture
-        - est-ce possible de facture le bl <bl>
-        - est-ce possible de générer la facture à partir du bl <bl>
-        - est-ce possible de passe l'of en bf
-        - est-ce possible de passe le bl en facture
-        - est-ce possible de passer la commande en bl
-        - est-ce possible de transforme cette commande en bon de livraison
-        - est-ce possible de transforme l'of en bf
-        - est-ce possible de transforme le bl en facture
-        - est-ce possible de transforme le bon de fabrication en ordre de fabrication
-        - est-ce possible de transformer la commande client en bon de livraison
-        - est-ce possible de transformer le bon de livraison <bl> en facture
-        - facture le bl <bl>
-        - générer la facture à partir du bl <bl>
-        - je voudrais convertir le bl <bl> en facture
-        - je voudrais convertis le bon de livraison en facture
-        - je voudrais facture le bl <bl>
-        - je voudrais générer la facture à partir du bl <bl>
-        - je voudrais passe l'of en bf
-        - je voudrais passe le bl en facture
-        - je voudrais passer la commande en bl
-        - je voudrais transforme cette commande en bon de livraison
-        - je voudrais transforme l'of en bf
-        - je voudrais transforme le bl en facture
-        - je voudrais transforme le bon de fabrication en ordre de fabrication
-        - je voudrais transformer la commande client en bon de livraison
-        - je voudrais transformer le bon de livraison <bl> en facture
-        - merci de convertir le bl <bl> en facture
-        - merci de convertis le bon de livraison en facture
-        - merci de facture le bl <bl>
-        - merci de générer la facture à partir du bl <bl>
-        - merci de passe l'of en bf
-        - merci de passe le bl en facture
-        - merci de passer la commande en bl
-        - merci de transforme cette commande en bon de livraison
-        - merci de transforme l'of en bf
-        - merci de transforme le bl en facture
-        threshold: 0.78
-        margin: 0.05
-      CREER_AVOIR:
-        examples:
-        - ajoute un avoir pour la facture <facture>
-        - avoir client pour <client>
-        - création d'un avoir pour la facture <facture>
-        - crée un avoir client
-        - crée un avoir pour la facture <facture>
-        - créer un avoir sur la facture <facture>
-        - enregistre un avoir pour la facture <facture>
-        - est-ce possible de avoir client pour <client>
-        - est-ce possible de création d'un avoir pour la facture <facture>
-        - est-ce possible de crée un avoir pour la facture <facture>
-        - est-ce possible de créer un avoir sur la facture <facture>
-        - est-ce possible de faire un avoir pour la facture <facture>
-        - est-ce possible de génère un avoir client
-        - est-ce possible de générer un avoir pour <client>
-        - faire la création de un avoir pour la facture <facture>
-        - faire un avoir pour la facture <facture>
-        - génère un avoir client
-        - génère un avoir pour la facture <facture>
-        - générer un avoir client
-        - générer un avoir pour <client>
-        - je voudrais avoir client pour <client>
-        - je voudrais création d'un avoir pour la facture <facture>
-        - je voudrais crée un avoir pour la facture <facture>
-        - je voudrais créer un avoir sur la facture <facture>
-        - je voudrais faire un avoir pour la facture <facture>
-        - je voudrais génère un avoir client
-        - je voudrais générer un avoir pour <client>
-        - merci de avoir client pour <client>
-        - merci de création d'un avoir pour la facture <facture>
-        - merci de crée un avoir pour la facture <facture>
-        - merci de créer un avoir sur la facture <facture>
-        - merci de faire un avoir pour la facture <facture>
-        - merci de génère un avoir client
-        - merci de générer un avoir pour <client>
-        - peux-tu avoir client pour <client>
-        - peux-tu création d'un avoir pour la facture <facture>
-        - peux-tu crée un avoir pour la facture <facture>
-        - peux-tu créer un avoir pour la facture <facture>
-        - peux-tu créer un avoir sur la facture <facture>
-        - peux-tu faire un avoir pour la facture <facture>
-        threshold: 0.88
-        margin: 0.05
-      REGLEMENT:
-        examples:
-        - change le statut de la facture en réglée
-        - enregistre le paiement de la facture <facture>
-        - enregistrer règlement de <facture>
-        - est-ce possible de change le statut de la facture en réglée
-        - est-ce possible de enregistre le paiement de la facture <facture>
-        - est-ce possible de enregistrer règlement de <facture>
-        - est-ce possible de marque la facture comme réglée
-        - est-ce possible de marquer la facture <facture> comme payée
-        - est-ce possible de paiement d'une facture
-        - est-ce possible de paye la facture par virement
-        - est-ce possible de payer la facture <facture> en chèque
-        - est-ce possible de règle la facture <facture>
-        - est-ce possible de règlement de la facture du client
-        - est-ce possible de règlement reçu pour la facture <facture>
-        - est-ce possible de valider paiement de la facture <facture>
-        - je voudrais change le statut de la facture en réglée
-        - je voudrais enregistre le paiement de la facture <facture>
-        - je voudrais enregistrer règlement de <facture>
-        - je voudrais marque la facture comme réglée
-        - je voudrais marquer la facture <facture> comme payée
-        - je voudrais paiement d'une facture
-        - je voudrais paye la facture par virement
-        - je voudrais payer la facture <facture> en chèque
-        - je voudrais règle la facture <facture>
-        - je voudrais règlement de la facture du client
-        - je voudrais règlement reçu pour la facture <facture>
-        - je voudrais valider paiement de la facture <facture>
-        - marque la facture comme réglée
-        - marquer la facture <facture> comme payée
-        - merci de change le statut de la facture en réglée
-        - merci de enregistre le paiement de la facture <facture>
-        - merci de enregistrer règlement de <facture>
-        - merci de marque la facture comme réglée
-        - merci de marquer la facture <facture> comme payée
-        - merci de paiement d'une facture
-        - merci de paye la facture par virement
-        - merci de payer la facture <facture> en chèque
-        - merci de règle la facture <facture>
-        - merci de règlement de la facture du client
-        - merci de règlement reçu pour la facture <facture>
-        threshold: 0.86
-        margin: 0.05
-      TOUTES_FACTURES_CLIENT:
-        examples:
-        - affiche des factures de <client>
-        - donne la liste de des factures de <client>
-        - est-ce possible de factures de l'entreprise <client>
-        - est-ce possible de factures du client <client>
-        - est-ce possible de historique des factures de <client>
-        - est-ce possible de les factures émises pour <client>
-        - est-ce possible de liste des factures de <client>
-        - est-ce possible de obtenir toutes les factures de <client>
-        - est-ce possible de quelles factures avons-nous pour le client <client>
-        - est-ce possible de toutes les factures du client <client>
-        - extraire la liste de des factures de <client>
-        - factures de l'entreprise <client>
-        - factures du client <client>
-        - historique des factures de <client>
-        - je veux voir la liste de des factures de <client>
-        - je voudrais factures de l'entreprise <client>
-        - je voudrais factures du client <client>
-        - je voudrais historique des factures de <client>
-        - je voudrais les factures émises pour <client>
-        - je voudrais liste des factures de <client>
-        - je voudrais obtenir toutes les factures de <client>
-        - je voudrais quelles factures avons-nous pour le client <client>
-        - je voudrais toutes les factures du client <client>
-        - les factures émises pour <client>
-        - liste des factures de <client>
-        - merci de factures de l'entreprise <client>
-        - merci de factures du client <client>
-        - merci de historique des factures de <client>
-        - merci de les factures émises pour <client>
-        - merci de liste des factures de <client>
-        - merci de obtenir toutes les factures de <client>
-        - merci de quelles factures avons-nous pour le client <client>
-        - merci de toutes les factures du client <client>
-        - montre des factures de <client>
-        - obtenir toutes les factures de <client>
-        - peux-tu factures de l'entreprise <client>
-        - peux-tu factures du client <client>
-        - peux-tu historique des factures de <client>
-        - peux-tu les factures émises pour <client>
-        - peux-tu liste des factures de <client>
-        threshold: 0.84
-        margin: 0.05
-      FACTURES_NON_REGLEES:
-        examples:
-        - affiche des impayés client
-        - donne la liste de des impayés client
-        - est-ce possible de factures clients en retard
-        - est-ce possible de factures en attente de paiement
-        - est-ce possible de factures en attente de règlement
-        - est-ce possible de factures impayées
-        - est-ce possible de factures non réglées
-        - est-ce possible de impayés des clients
-        - est-ce possible de liste des impayés client
-        - est-ce possible de quelles factures ne sont pas réglées
-        - est-ce possible de retard de paiement facture
-        - est-ce possible de toutes les factures non payées
-        - extraire la liste de des impayés client
-        - factures clients en retard
-        - factures en attente de paiement
-        - factures en attente de règlement
-        - factures impayées
-        - factures non réglées
-        - impayés des clients
-        - je veux voir la liste de des impayés client
-        - je voudrais factures clients en retard
-        - je voudrais factures en attente de paiement
-        - je voudrais factures en attente de règlement
-        - je voudrais factures impayées
-        - je voudrais factures non réglées
-        - je voudrais impayés des clients
-        - je voudrais liste des impayés client
-        - je voudrais quelles factures ne sont pas réglées
-        - je voudrais retard de paiement facture
-        - je voudrais toutes les factures non payées
-        - liste des impayés client
-        - merci de factures clients en retard
-        - merci de factures en attente de paiement
-        - merci de factures en attente de règlement
-        - merci de factures impayées
-        - merci de factures non réglées
-        - merci de impayés des clients
-        - merci de liste des impayés client
-        - merci de quelles factures ne sont pas réglées
-        - merci de retard de paiement facture
-        threshold: 0.84
-        margin: 0.05
-      FACTURES_NON_REGLEES_FOURN:
-        examples:
-        - achats non réglés
-        - affiche des factures d'achat non payées
-        - donne la liste de des factures d'achat non payées
-        - est-ce possible de achats non réglés
-        - est-ce possible de factures fournisseur impayées
-        - est-ce possible de factures fournisseur non réglées
-        - est-ce possible de factures à payer aux fournisseurs
-        - est-ce possible de impayés fournisseurs
-        - est-ce possible de liste des factures d'achat non payées
-        - est-ce possible de nos dettes fournisseurs
-        - est-ce possible de quelles factures fournisseurs devons-nous régler
-        - extraire la liste de des factures d'achat non payées
-        - factures fournisseur impayées
-        - factures fournisseur non réglées
-        - factures à payer aux fournisseurs
-        - impayés fournisseurs
-        - je veux voir la liste de des factures d'achat non payées
-        - je voudrais achats non réglés
-        - je voudrais factures fournisseur impayées
-        - je voudrais factures fournisseur non réglées
-        - je voudrais factures à payer aux fournisseurs
-        - je voudrais impayés fournisseurs
-        - je voudrais liste des factures d'achat non payées
-        - je voudrais nos dettes fournisseurs
-        - je voudrais quelles factures fournisseurs devons-nous régler
-        - liste des factures d'achat non payées
-        - merci de achats non réglés
-        - merci de factures fournisseur impayées
-        - merci de factures fournisseur non réglées
-        - merci de factures à payer aux fournisseurs
-        - merci de impayés fournisseurs
-        - merci de liste des factures d'achat non payées
-        - merci de nos dettes fournisseurs
-        - merci de quelles factures fournisseurs devons-nous régler
-        - montre des factures d'achat non payées
-        - nos dettes fournisseurs
-        - peux-tu achats non réglés
-        - peux-tu factures fournisseur impayées
-        - peux-tu factures fournisseur non réglées
-        - peux-tu factures à payer aux fournisseurs
-        threshold: 0.84
-        margin: 0.05
-      DOCS_PERIODE:
-        examples:
-        - affiche des documents de la période
-        - documents créés en 2024
-        - documents du mois
-        - documents entre deux dates
-        - donne la liste de des documents de la période
-        - est-ce possible de documents créés en 2024
-        - est-ce possible de documents du mois
-        - est-ce possible de documents entre deux dates
-        - est-ce possible de historique des documents sur la période
-        - est-ce possible de liste des documents de la période
-        - est-ce possible de quelles factures entre le 1er janvier et le 31 janvier
-        - est-ce possible de quelles pièces ont été créées le mois dernier
-        - extraire la liste de des documents de la période
-        - historique des documents sur la période
-        - je veux voir la liste de des documents de la période
-        - je voudrais documents créés en 2024
-        - je voudrais documents du mois
-        - je voudrais documents entre deux dates
-        - je voudrais historique des documents sur la période
-        - je voudrais liste des documents de la période
-        - je voudrais quelles factures entre le 1er janvier et le 31 janvier
-        - je voudrais quelles pièces ont été créées le mois dernier
-        - liste des documents de la période
-        - merci de documents créés en 2024
-        - merci de documents du mois
-        - merci de documents entre deux dates
-        - merci de historique des documents sur la période
-        - merci de liste des documents de la période
-        - merci de quelles factures entre le 1er janvier et le 31 janvier
-        - merci de quelles pièces ont été créées le mois dernier
-        - montre des documents de la période
-        - peux-tu documents créés en 2024
-        - peux-tu documents du mois
-        - peux-tu documents entre deux dates
-        - peux-tu historique des documents sur la période
-        - peux-tu liste des documents de la période
-        - peux-tu quelles factures entre le 1er janvier et le 31 janvier
-        - peux-tu quelles pièces ont été créées le mois dernier
-        - quelles factures entre le 1er janvier et le 31 janvier
-        - quelles pièces ont été créées le mois dernier
-        threshold: 0.82
-        margin: 0.05
-      WORKFLOW_COMMANDE:
-        examples:
-        - est-ce possible de exécuter le workflow commande pour <client>
-        - est-ce possible de lance le flux commande
-        - est-ce possible de lancer la commande du client <client>
-        - est-ce possible de processus complet commande client <client>
-        - est-ce possible de suivi du flux de commande pour le client <client>
-        - est-ce possible de traite la commande complète du client <client>
-        - exécuter le workflow commande pour <client>
-        - je voudrais exécuter le workflow commande pour <client>
-        - je voudrais lance le flux commande
-        - je voudrais lancer la commande du client <client>
-        - je voudrais processus complet commande client <client>
-        - je voudrais suivi du flux de commande pour le client <client>
-        - je voudrais traite la commande complète du client <client>
-        - lance le flux commande
-        - lancer la commande du client <client>
-        - merci de exécuter le workflow commande pour <client>
-        - merci de lance le flux commande
-        - merci de lancer la commande du client <client>
-        - merci de processus complet commande client <client>
-        - merci de suivi du flux de commande pour le client <client>
-        - merci de traite la commande complète du client <client>
-        - peux-tu exécuter le workflow commande pour <client>
-        - peux-tu lance le flux commande
-        - peux-tu lancer la commande du client <client>
-        - peux-tu processus complet commande client <client>
-        - peux-tu suivi du flux de commande pour le client <client>
-        - peux-tu traite la commande complète du client <client>
-        - processus complet commande client <client>
-        - suivi du flux de commande pour le client <client>
-        - traite la commande complète du client <client>
-        threshold: 0.85
-        margin: 0.05
-    family_threshold: 0.76
+    family_threshold: 0.7
   ANALYTIQUE:
     actions:
       CA_GLOBAL:
@@ -1370,8 +1297,8 @@ families:
         - peux-tu chiffre d'affaires annuel
         - peux-tu chiffre d'affaires global
         - j'aimerais connaître notre chiffre d'affaires.
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       SAISONNALITE:
         examples:
         - ca par mois
@@ -1414,8 +1341,8 @@ families:
         - peux-tu saisonnalité du chiffre d'affaires
         - peux-tu ventes mensuelles de l'entreprise
         - peux-tu évolution des ventes par mois
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       DSO:
         examples:
         - afficher le dso global
@@ -1458,8 +1385,8 @@ families:
         - peux-tu retard de paiement
         - peux-tu temps moyen pour être payé par nos clients
         - quel est le dso global
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       RFM:
         examples:
         - analyse de fidélité des clients
@@ -1497,8 +1424,8 @@ families:
         - score rfm de la clientèle
         - segmentation des clients
         - segmentation rfm
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       CLIENTS_BAISSE:
         examples:
         - baisse d'activité chez nos clients
@@ -1536,9 +1463,9 @@ families:
         - peux-tu qui commande moins par rapport à l'an dernier
         - quels clients achètent moins
         - qui commande moins par rapport à l'an dernier
-        threshold: 0.82
-        margin: 0.05
-    family_threshold: 0.84
+        threshold: 0.62
+        margin: 0.04
+    family_threshold: 0.6
   PROCEDURE:
     actions:
       RECHERCHE_PROCEDURE:
@@ -1605,7 +1532,7 @@ families:
         - merci de quelle est la démarche pour créer un avoir
         - merci de quelle est la procédure de création d'une facture
         - merci de quelle est la procédure pour
-        threshold: 0.8
+        threshold: 0.62
         margin: 0.04
       LISTE_PROCEDURES:
         examples:
@@ -1649,7 +1576,9 @@ families:
         - quelles procédures sont disponibles
         - quelles sont les consignes
         - toutes les documentations de procédures
-    family_threshold: 0.8
+        threshold: 0.62
+        margin: 0.04
+    family_threshold: 0.58
   EXPORT:
     actions:
       OFFRE_PRIX_EXCEL:
@@ -1688,8 +1617,8 @@ families:
         - peux-tu générer le devis en excel pour le client <client>
         - peux-tu générer une offre de prix pour le client <client>
         - édite une offre de prix pour le client <client>
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       DECLARATION_EXCEL:
         examples:
         - ajoute une déclaration du mois de juin
@@ -1732,8 +1661,8 @@ families:
         - merci de exporte la déclaration en excel
         - merci de génère la déclaration fiscale de janvier
         - merci de générer le fichier excel de déclaration de tva
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       BALANCE_AGEE_EXCEL:
         examples:
         - balance âgée client excel
@@ -1770,8 +1699,8 @@ families:
         - peux-tu générer le fichier excel de la balance âgée
         - peux-tu obtenir la balance âgée en excel
         - édite la balance âgée en excel
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       DASHBOARD_EXCEL:
         examples:
         - affiche le tableau de bord
@@ -1809,8 +1738,8 @@ families:
         - peux-tu montre le dashboard kpi
         - peux-tu résumé général de l'activité
         - résumé général de l'activité
-        threshold: 0.84
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
     family_threshold: 0.74
   NL2SQL:
     actions:
@@ -1830,36 +1759,31 @@ families:
         - donne la liste de les bons de livraison du client <client>
         - donne-moi le ratio de marge
         - encours du client <client>
-        - est-ce possible de articles dont le prix dépasse 500
-        - est-ce possible de articles en stock insuffisant qui sont commandés
-        - est-ce possible de articles qui sont en rupture et commandés par des clients
-          actifs
-        - est-ce possible de clients ayant des commandes et un solde important
-        - est-ce possible de clients ayant plus de 3 factures
-        - est-ce possible de clients bloqués
-        - est-ce possible de clients classés par nombre de commandes
-        - est-ce possible de clients inactifs depuis 6 mois
-        - est-ce possible de clients qui ont des factures impayées et un encours élevé
-        - est-ce possible de encours du client <client>
-        - est-ce possible de factures du mois de juin
-        - est-ce possible de factures supérieures à 1000 euros
-        - est-ce possible de liste les bons de livraison du client <client>
-        - est-ce possible de nombre de commandes par client
-        - est-ce possible de quel client a le meilleur panier moyen
-        - est-ce possible de quel est le ratio de marge
-        - est-ce possible de toutes les factures
+        - articles en stock insuffisant qui sont commandés
+        - articles qui sont en rupture et commandés par des clients actifs
+        - clients ayant des commandes et un solde important
+        - clients bloqués
+        - clients classés par nombre de commandes
+        - clients qui ont des factures impayées et un encours élevé
+        - encours du client <client>
+        - factures du mois de juin
+        - liste les bons de livraison du client <client>
+        - nombre de commandes par client
+        - quel client a le meilleur panier moyen
+        - quel est le ratio de marge
         - extraire la liste de les bons de livraison du client <client>
         - factures du mois de juin
         - factures supérieures à 1000 euros
         - je veux voir la liste de les bons de livraison du client <client>
-        - je voudrais articles dont le prix dépasse 500
-        - je voudrais articles en stock insuffisant qui sont commandés
-        - je voudrais articles qui sont en rupture et commandés par des clients actifs
-        - je voudrais clients ayant des commandes et un solde important
-        - je voudrais clients ayant plus de 3 factures
-        threshold: 0.88
+        - je voudrais voir les  articles dont le prix dépasse 500
+        - je voudrais  voir les articles en stock insuffisant qui sont commandés
+        - je voudrais  voir les articles qui sont en rupture et commandés par des
+          clients actifs
+        - je voudrais  voir les clients ayant des commandes et un solde important
+        - je voudrais  voir les clients ayant plus de 3 factures
+        threshold: 0.63
         margin: 0.04
-    family_threshold: 0.84
+    family_threshold: 0.55
   STOCK_MVT:
     actions:
       MOUVEMENT_STOCK:
@@ -1870,7 +1794,6 @@ families:
         - entrée de stock pour l'article <article>
         - est-ce possible de ajouter du stock pour l'article <article>
         - est-ce possible de ajuste le stock de l'article <article>
-        - est-ce possible de enregistre un mouvement de stock de 5 pièces
         - est-ce possible de entrée de stock pour l'article <article>
         - est-ce possible de faire une sortie de stock pour <article>
         - est-ce possible de mouvement de stock entrée
@@ -1897,15 +1820,14 @@ families:
         - mouvementer le stock de l'article <article>
         - peux-tu ajouter du stock pour l'article <article>
         - peux-tu ajuste le stock de l'article <article>
-        - peux-tu enregistre un mouvement de stock de 5 pièces
         - peux-tu entrée de stock pour l'article <article>
         - peux-tu faire une sortie de stock pour <article>
         - peux-tu mouvement de stock entrée
         - peux-tu mouvementer le stock de l'article <article>
         - peux-tu sortie de stock
         - sortie de stock
-        threshold: 0.86
-        margin: 0.05
+        threshold: 0.62
+        margin: 0.04
       PROPOSITION_ACHAT:
         examples:
         - calculer les propositions d'achat d'articles
@@ -1937,6 +1859,6 @@ families:
         - propose une commande d'achat pour cet article
         - suggestion d'achat pour <article>
         - édite une proposition d'achat
-        threshold: 0.84
-        margin: 0.05
-    family_threshold: 0.84
+        threshold: 0.62
+        margin: 0.04
+    family_threshold: 0.6

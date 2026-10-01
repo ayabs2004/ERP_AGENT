@@ -136,4 +136,8 @@ def main():
 
     if cas_suspects:
         out_suspects_path = Path(args.out_suspects)
-        out_suspects_path.write
+        out_suspects_path.write_text(json.dumps(cas_suspects, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"⚠️  {len(cas_suspects)} cas suspects (contestés) exportés dans {out_suspects_path}")
+
+if __name__ == "__main__":
+    main()

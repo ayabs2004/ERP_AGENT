@@ -2,6 +2,7 @@
 Crée les tables de base pour une base de données relationnelle, en particulier pour une application de gestion de comptabilité.
 """
 from datetime import date, timedelta
+import sqlite3
 
 def _default_db_path() -> str:
     """
@@ -22,14 +23,40 @@ Crée une base de données SQLite complète avec deux tables : F_COMPTET et F_AR
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_ARTICLE (\n        AR_Ref          TEXT PRIMARY KEY,\n        AR_Design       TEXT,\n        AR_PrixAch      REAL,\n        AR_PrixVen      REAL,\n        AR_Type         INTEGER,\n        FA_CodeFamille  TEXT,\n        cbMarq          INTEGER DEFAULT 0\n    )')
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_ARTSTOCK (\n        AR_Ref        TEXT PRIMARY KEY,\n        AS_QteSto     REAL,\n        AS_QteCom     REAL,\n        AS_QteAchaCom REAL,\n        DE_No         INTEGER DEFAULT 0,\n        cbMarq        INTEGER DEFAULT 0,\n        FOREIGN KEY(AR_Ref) REFERENCES F_ARTICLE(AR_Ref)\n    )')
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_NOMENCLAT (\n        AR_Ref   TEXT,\n        NO_RefDet TEXT,\n        NO_Qte   REAL,\n        cbMarq   INTEGER DEFAULT 0,\n        PRIMARY KEY (AR_Ref, NO_RefDet),\n        FOREIGN KEY(AR_Ref)    REFERENCES F_ARTICLE(AR_Ref),\n        FOREIGN KEY(NO_RefDet) REFERENCES F_ARTICLE(AR_Ref)\n    )')
-    cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_DOCENTETE (\n        DO_Piece   TEXT PRIMARY KEY,\n        DO_Domaine INTEGER,\n        DO_Type    INTEGER,\n        DO_Date    TEXT,\n        DO_Ref     TEXT,\n        CT_Num     TEXT,\n        DO_Tiers   TEXT,\n        cbMarq     INTEGER DEFAULT 0,\n        FOREIGN KEY(CT_Num) REFERENCES F_COMPTET(CT_Num)\n    )')
-    for col_def in ['DO_Tiers TEXT', 'cbMarq INTEGER DEFAULT 0']:
-        try:
-            cursor.execute(f'ALTER TABLE F_DOCENTETE ADD COLUMN {col_def}')
-        except Exception:
-            pass
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS F_DOCENTETE (
+        DO_Piece   TEXT PRIMARY KEY,
+        DO_Domaine INTEGER,
+        DO_Type    INTEGER,
+        DO_Date    TEXT,
+        DO_Ref     TEXT,
+        CT_Num     TEXT,
+        DO_Tiers   TEXT,
+        DO_Cloture INTEGER DEFAULT 0,
+        DO_Transfere INTEGER DEFAULT 0,
+        DO_MontantRegle REAL DEFAULT 0.0,
+        DO_TotalHT  REAL DEFAULT 0.0,
+        DO_TotalTTC REAL DEFAULT 0.0,
+        cbMarq     INTEGER DEFAULT 0,
+        FOREIGN KEY(CT_Num) REFERENCES F_COMPTET(CT_Num)
+    )''')
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_DOCLIGNE (\n        DL_Ligne        INTEGER PRIMARY KEY AUTOINCREMENT,\n        DO_Piece        TEXT,\n        AR_Ref          TEXT,\n        DL_Qte          REAL,\n        DL_PrixUnitaire REAL,\n        PF_Num          TEXT,\n        cbMarq          INTEGER DEFAULT 0,\n        FOREIGN KEY(DO_Piece) REFERENCES F_DOCENTETE(DO_Piece),\n        FOREIGN KEY(AR_Ref)   REFERENCES F_ARTICLE(AR_Ref)\n    )')
-    cursor.execute('\n    CREATE TABLE IF NOT EXISTS F_DOCREGL (\n        id             INTEGER PRIMARY KEY AUTOINCREMENT,\n        DO_Piece       TEXT,\n        DR_TypeRegl    TEXT,\n        mode_paiement  TEXT,\n        DR_Montant     REAL,\n        montant        REAL,\n        DR_Date        TEXT,\n        date_reglement TEXT,\n        cbMarq         INTEGER DEFAULT 0\n    )')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS F_DOCREGL (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        DO_Piece       TEXT,
+        DO_Domaine     INTEGER DEFAULT 0,
+        DO_Type        INTEGER DEFAULT 0,
+        cbDO_Piece     TEXT,
+        DR_TypeRegl    TEXT,
+        mode_paiement  TEXT,
+        DR_Montant     REAL,
+        montant        REAL,
+        DR_Date        TEXT,
+        date_reglement TEXT,
+        numero_piece_paiement TEXT,
+        cbMarq         INTEGER DEFAULT 0
+    )''')
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS reglements (\n        id             INTEGER PRIMARY KEY AUTOINCREMENT,\n        DO_Piece       TEXT,\n        mode_paiement  TEXT,\n        montant        REAL,\n        date_reglement TEXT\n    )')
     cursor.execute('\n    CREATE TABLE IF NOT EXISTS mouvements_stock (\n        id             INTEGER PRIMARY KEY AUTOINCREMENT,\n        AR_Ref         TEXT,\n        type_mouvement TEXT,\n        qte            REAL,\n        motif          TEXT,\n        date_mouvement TEXT\n    )')
     print('Insertion du jeu de donnees...')
